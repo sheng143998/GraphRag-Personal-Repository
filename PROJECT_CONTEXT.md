@@ -1164,8 +1164,10 @@ README 更新规则：
 - 完成本地配置与联调验证：创建根目录本地 `.env` 空字段文件，由用户自行补全真实数据库连接信息；使用本地 PostgreSQL 完成 Spring Boot Flyway 迁移和 RAG 实验接口 HTTP smoke，验证列表、创建、详情、更新、删除和删除后 404 全链路通过。
 - 维护规则调整为“阶段摘要 + 文档索引”：`PROJECT_CONTEXT.md` 不再记录接口级流水账，接口级计划、review、失败复盘和交接细节分别沉淀在 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 和 `docs/handoff/`。
 - 完成项目阶段状态校准与 Git 本地仓库初始化准备：将 Phase 0、Phase 1 标记为已完成，Phase 2、Phase 3、Phase 7 标记为进行中；远程仓库推送等待用户提供仓库 URL。
+- GitHub 远程仓库创建尝试受阻：当前本机未安装 GitHub CLI，远程仓库创建与推送待用户安装登录 GitHub CLI，或提供已创建仓库的远程 URL 后继续。
 - 关键文档索引：
   - RAG 实验接口：`docs/plans/2026-05-27-rag-experiments-list.md`、`docs/plans/2026-05-27-rag-experiments-create.md`、`docs/plans/2026-05-27-rag-experiments-detail.md`、`docs/plans/2026-05-27-rag-experiments-update.md`、`docs/plans/2026-05-27-rag-experiments-delete-and-smoke.md`
   - 本地环境与 smoke：`docs/plans/2026-05-27-ai-service-env-location.md`、`docs/plans/2026-05-27-local-env-template.md`、`docs/plans/2026-05-27-local-postgres-smoke-retry.md`
   - 失败与观察记录：`docs/testing/failures/2026-05-27-rag-experiments-delete-and-smoke-notes.md`、`docs/testing/failures/2026-05-27-local-postgres-smoke-retry-notes.md`
   - Git 初始化与阶段更新：`docs/plans/2026-05-27-git-init-and-stage-update.md`、`docs/reviews/2026-05-27-git-init-and-stage-update-review-prompt.md`、`docs/testing/failures/2026-05-27-git-init-and-stage-update-notes.md`
+  - GitHub 建仓与远程推送：`docs/plans/2026-05-27-github-repo-create-and-push.md`、`docs/reviews/2026-05-27-github-repo-create-and-push-review-prompt.md`、`docs/testing/failures/2026-05-27-github-repo-create-and-push-notes.md`
