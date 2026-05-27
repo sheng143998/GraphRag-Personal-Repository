@@ -1164,7 +1164,7 @@ README 更新规则：
 - 完成本地配置与联调验证：创建根目录本地 `.env` 空字段文件，由用户自行补全真实数据库连接信息；使用本地 PostgreSQL 完成 Spring Boot Flyway 迁移和 RAG 实验接口 HTTP smoke，验证列表、创建、详情、更新、删除和删除后 404 全链路通过。
 - 维护规则调整为“阶段摘要 + 文档索引”：`PROJECT_CONTEXT.md` 不再记录接口级流水账，接口级计划、review、失败复盘和交接细节分别沉淀在 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 和 `docs/handoff/`。
 - 完成项目阶段状态校准与 Git 本地仓库初始化准备：将 Phase 0、Phase 1 标记为已完成，Phase 2、Phase 3、Phase 7 标记为进行中；远程仓库推送等待用户提供仓库 URL。
-- GitHub 远程仓库创建尝试受阻：当前本机未安装 GitHub CLI，远程仓库创建与推送待用户安装登录 GitHub CLI，或提供已创建仓库的远程 URL 后继续。
+- GitHub 远程仓库已由用户创建，本地 `origin` 已配置为 `https://github.com/sheng143998/GraphRag-Personal-Repository.git`；当前环境无法连接 `github.com:443`，`main` 分支推送待在可联网环境重试。
 - 关键文档索引：
   - RAG 实验接口：`docs/plans/2026-05-27-rag-experiments-list.md`、`docs/plans/2026-05-27-rag-experiments-create.md`、`docs/plans/2026-05-27-rag-experiments-detail.md`、`docs/plans/2026-05-27-rag-experiments-update.md`、`docs/plans/2026-05-27-rag-experiments-delete-and-smoke.md`
   - 本地环境与 smoke：`docs/plans/2026-05-27-ai-service-env-location.md`、`docs/plans/2026-05-27-local-env-template.md`、`docs/plans/2026-05-27-local-postgres-smoke-retry.md`
