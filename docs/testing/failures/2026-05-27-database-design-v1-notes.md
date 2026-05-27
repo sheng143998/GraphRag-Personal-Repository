@@ -42,4 +42,5 @@
 - 已核对文档表名与迁移脚本中的核心表一致。
 - 已更新 `PROJECT_CONTEXT.md` 和 handoff。
 - 本轮未连接真实数据库，未执行迁移测试。
-- Git 提交曾因当前沙箱无法创建 `.git-store/index.lock` 失败；本轮已修复 ACL 并准备重新提交。
+- Git 提交曾因当前沙箱无法创建 `.git-store/index.lock` 失败；本轮已修复 ACL，重新提交并推送成功。
+- 已推送提交：`01c5694 docs: add database design v1`。
