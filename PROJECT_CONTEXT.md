@@ -1096,7 +1096,7 @@ README 更新规则：
 - [x] 初始化 Spring Boot 后端项目
 - [x] 初始化 FastAPI AI 服务
 - [x] 配置 PostgreSQL + pgvector
-- [ ] 编写第一版数据库设计文档
+- [x] 编写第一版数据库设计文档
 - [ ] 实现 Markdown / TXT / Word / PDF / Excel 入库 Demo
 - [ ] 调研并接入 MinerU 作为 PDF 提取工具
 - [x] 实现基础向量检索 Demo
@@ -1165,9 +1165,11 @@ README 更新规则：
 - 维护规则调整为“阶段摘要 + 文档索引”：`PROJECT_CONTEXT.md` 不再记录接口级流水账，接口级计划、review、失败复盘和交接细节分别沉淀在 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 和 `docs/handoff/`。
 - 完成项目阶段状态校准与 Git 本地仓库初始化准备：将 Phase 0、Phase 1 标记为已完成，Phase 2、Phase 3、Phase 7 标记为进行中；远程仓库推送等待用户提供仓库 URL。
 - GitHub 远程仓库已由用户创建，本地 `origin` 已配置为 `https://github.com/sheng143998/GraphRag-Personal-Repository.git`；网络恢复后已成功推送 `main` 分支，并设置本地 `main` 跟踪 `origin/main`。
+- 完成第一版数据库设计文档：新增 `docs/architecture/database-design.md`，以当前 Flyway 迁移为准沉淀 PostgreSQL + pgvector 表结构、服务写入边界、索引、当前限制和后续演进方向。
 - 关键文档索引：
   - RAG 实验接口：`docs/plans/2026-05-27-rag-experiments-list.md`、`docs/plans/2026-05-27-rag-experiments-create.md`、`docs/plans/2026-05-27-rag-experiments-detail.md`、`docs/plans/2026-05-27-rag-experiments-update.md`、`docs/plans/2026-05-27-rag-experiments-delete-and-smoke.md`
   - 本地环境与 smoke：`docs/plans/2026-05-27-ai-service-env-location.md`、`docs/plans/2026-05-27-local-env-template.md`、`docs/plans/2026-05-27-local-postgres-smoke-retry.md`
   - 失败与观察记录：`docs/testing/failures/2026-05-27-rag-experiments-delete-and-smoke-notes.md`、`docs/testing/failures/2026-05-27-local-postgres-smoke-retry-notes.md`
   - Git 初始化与阶段更新：`docs/plans/2026-05-27-git-init-and-stage-update.md`、`docs/reviews/2026-05-27-git-init-and-stage-update-review-prompt.md`、`docs/testing/failures/2026-05-27-git-init-and-stage-update-notes.md`
   - GitHub 建仓与远程推送：`docs/plans/2026-05-27-github-repo-create-and-push.md`、`docs/reviews/2026-05-27-github-repo-create-and-push-review-prompt.md`、`docs/testing/failures/2026-05-27-github-repo-create-and-push-notes.md`
+  - 数据库设计：`docs/architecture/database-design.md`、`docs/plans/2026-05-27-database-design-v1.md`、`docs/reviews/2026-05-27-database-design-v1-review-prompt.md`、`docs/testing/failures/2026-05-27-database-design-v1-notes.md`
