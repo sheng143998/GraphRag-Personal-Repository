@@ -47,6 +47,12 @@
 - 处理：保留已配置的 `origin`，等待在可访问 GitHub 的环境中重试 `git push -u origin main`。
 - 后续避免：涉及 GitHub 推送前，先确认当前终端可访问 `github.com:443`。
 
+### 推送重试
+
+- 触发场景：用户要求在网络权限放开后重试推送。
+- 重试前状态：`origin` 已配置，本地 `main` 最新提交为 `9dea24e docs: record github push network blocker`。
+- 预期处理：重新执行 `git push -u origin main`，并验证远程 `main` 分支与 upstream。
+
 ## 验证记录
 
 - 已检查 GitHub CLI 安装状态：未安装。
