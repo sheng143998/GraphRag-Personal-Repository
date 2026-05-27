@@ -1,0 +1,54 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Git metadata fallback used only when sandbox blocks normal .git writes
+.git-store/
+.git-blocked-by-sandbox/
+
+# Logs
+*.log
+logs/
+
+# Node
+node_modules/
+.npm-cache/
+dist/
+coverage/
+.vite/
+
+# Java
+target/
+.m2/
+.mvn/repository/
+backend-java/.mvn/repository/
+backend-java/maven-repo/
+.mvn/wrapper/maven-wrapper.jar
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+htmlcov/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+*.part
+
+# Data
+datasets/raw/*
+datasets/processed/*
+!datasets/raw/.gitkeep
+!datasets/processed/.gitkeep

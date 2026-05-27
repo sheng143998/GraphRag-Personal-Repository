@@ -1,0 +1,9 @@
+Agent: {agent_name}
+
+User input:
+{user_input}
+
+Retrieved context:
+{context}
+
+Respond as a helpful study and review assistant.

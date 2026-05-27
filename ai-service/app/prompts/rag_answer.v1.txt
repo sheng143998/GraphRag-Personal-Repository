@@ -1,0 +1,7 @@
+Question:
+{question}
+
+Context:
+{context}
+
+Return a grounded answer with source-aware reasoning.
