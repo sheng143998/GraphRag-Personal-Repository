@@ -4,7 +4,7 @@
 
 ## 当前正在做什么
 
-用户要求在 GitHub 上创建当前项目仓库并配置好 Git。本轮已补齐 GitHub 建仓任务文档，并检查到本机未安装 GitHub CLI，因此当前无法直接代为创建 GitHub 仓库和推送。
+用户已在 GitHub 上创建仓库，并提供远程地址：`https://github.com/sheng143998/GraphRag-Personal-Repository.git`。本轮继续配置本地 `origin` 并推送 `main` 分支。
 
 ## 已完成什么
 
@@ -24,6 +24,8 @@
 - 已创建本轮 GitHub 建仓 review 提示：`docs/reviews/2026-05-27-github-repo-create-and-push-review-prompt.md`。
 - 已创建本轮 GitHub 建仓失败复盘 / 观察记录：`docs/testing/failures/2026-05-27-github-repo-create-and-push-notes.md`。
 - 已检查 GitHub CLI：当前本机无法识别 `gh` 命令。
+- 用户已提供 GitHub 远程仓库 URL：`https://github.com/sheng143998/GraphRag-Personal-Repository.git`。
+- 待配置本地 `origin` 并推送 `main` 分支。
 
 ## 已通过的验证
 
@@ -36,11 +38,13 @@
 - 已验证当前工作区无未提交变更。
 - 已验证当前未配置 Git 远程仓库。
 - 已验证当前仍未配置 Git 远程仓库。
-- GitHub 远程仓库创建和推送尚未完成。
+- GitHub 仓库已由用户创建。
+- 待验证 `origin` 配置和 `main` 分支推送结果。
 
 ## 已遇到并记录的问题
 
-- GitHub 仓库尚未创建；当前本机未安装 GitHub CLI，需要用户安装并登录 GitHub CLI，或在 GitHub 网页创建空仓库后提供远程仓库 URL。
+- 当前不再依赖 GitHub CLI 创建仓库；用户已提供远程 URL。
+- 后续推送可能仍受 GitHub 凭据或网络限制影响。
 - 当前 Codex 沙箱下普通 `.git` 目录写入受限，已改用 `.git` 文件指向 `.git-store/` 的 Git 支持形式。
 
 ## 当前重点 review 文件
@@ -56,13 +60,13 @@
 
 ## 当前占位实现
 
-- 远程仓库配置暂未完成，等待 GitHub CLI 安装登录或用户提供远程仓库 URL。
+- 远程仓库配置暂未完成，待添加 `origin` 并推送 `main`。
 - `.git-blocked-by-sandbox/` 是本轮从不可写普通 `.git` 目录隔离出来的元数据残留，已被 `.gitignore` 排除，不进入提交。
 
 ## 下一步建议
 
-1. 方式一：用户安装 GitHub CLI 并登录后，继续由 Codex 创建私有仓库并推送 `main`。
-2. 方式二：用户在 GitHub 网页创建空仓库后，把远程 URL 发给 Codex，继续配置 `origin` 并推送。
+1. 配置 `origin` 为 `https://github.com/sheng143998/GraphRag-Personal-Repository.git`。
+2. 推送本地 `main` 分支并设置 upstream。
 3. 推送完成后更新 `PROJECT_CONTEXT.md` 与当前交接状态。
 
 ## 本地服务状态
