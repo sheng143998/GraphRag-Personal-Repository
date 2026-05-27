@@ -4,7 +4,7 @@
 
 ## 当前正在做什么
 
-用户要求重试推送到 GitHub。当前 `origin` 已指向 `https://github.com/sheng143998/GraphRag-Personal-Repository.git`，本轮在网络权限放开后重新执行 `main` 分支推送。
+用户要求重试推送到 GitHub。本轮已成功将本地 `main` 分支推送到 `https://github.com/sheng143998/GraphRag-Personal-Repository.git`，并设置本地 `main` 跟踪 `origin/main`。
 
 ## 已完成什么
 
@@ -28,6 +28,9 @@
 - 已配置本地 `origin` 为 `https://github.com/sheng143998/GraphRag-Personal-Repository.git`。
 - 推送 `main` 分支时失败，原因是当前环境无法连接 GitHub 443 端口。
 - 本轮开始重试推送，重试前本地最新提交为 `9dea24e docs: record github push network blocker`。
+- 已提交重试记录：`dec9bd9 docs: record github push retry`。
+- 已成功推送 `main` 到 GitHub。
+- 已设置本地 `main` 跟踪 `origin/main`。
 
 ## 已通过的验证
 
@@ -43,12 +46,14 @@
 - GitHub 仓库已由用户创建。
 - 已验证 `origin` 配置正确。
 - 已验证 `.env` 仍被 `.gitignore` 忽略。
-- 重试前 `main` 分支推送尚未成功，未设置 upstream。
+- 已验证远程 `main` 分支存在，指向提交 `dec9bd9e1012185ff5d4795897248fd9bd0b7b8a`。
+- 已验证本地 `main` 正在跟踪 `origin/main`。
+- 已验证 `.env` 仍被 `.gitignore` 忽略，且未进入 Git 跟踪文件。
 
 ## 已遇到并记录的问题
 
 - 当前不再依赖 GitHub CLI 创建仓库；用户已提供远程 URL。
-- 推送失败：无法连接 `https://github.com/sheng143998/GraphRag-Personal-Repository.git/`，报错摘要为无法连接 `github.com` 443 端口。
+- 历史问题：首次推送时无法连接 GitHub 443 端口；本轮网络恢复后重试成功。
 - 当前 Codex 沙箱下普通 `.git` 目录写入受限，已改用 `.git` 文件指向 `.git-store/` 的 Git 支持形式。
 
 ## 当前重点 review 文件
@@ -64,14 +69,14 @@
 
 ## 当前占位实现
 
-- 远程仓库地址已配置完成，正在重试推送 `main` 分支。
+- 远程仓库地址已配置完成，`main` 分支已推送成功。
 - `.git-blocked-by-sandbox/` 是本轮从不可写普通 `.git` 目录隔离出来的元数据残留，已被 `.gitignore` 排除，不进入提交。
 
 ## 下一步建议
 
-1. 执行 `git push -u origin main`。
-2. 推送成功后运行 `git branch -vv`，确认 `main` 已跟踪 `origin/main`。
-3. 推送成功后更新 `PROJECT_CONTEXT.md`，将远程推送待办标记为完成。
+1. 后续常规开发可直接使用 `git push` 推送到 `origin/main`。
+2. 下一阶段建议继续补 `docs/development/git-workflow.md`，沉淀分支策略与提交规范。
+3. 继续项目开发前仍按规则先读取 `PROJECT_CONTEXT.md` 与本交接文档。
 
 ## 本地服务状态
 

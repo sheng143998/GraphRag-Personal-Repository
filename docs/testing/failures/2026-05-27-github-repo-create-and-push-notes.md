@@ -51,7 +51,8 @@
 
 - 触发场景：用户要求在网络权限放开后重试推送。
 - 重试前状态：`origin` 已配置，本地 `main` 最新提交为 `9dea24e docs: record github push network blocker`。
-- 预期处理：重新执行 `git push -u origin main`，并验证远程 `main` 分支与 upstream。
+- 处理结果：重新执行 `git push -u origin main` 成功，远程新增 `main` 分支，本地 `main` 已跟踪 `origin/main`。
+- 验证结果：远程 `main` 指向 `dec9bd9e1012185ff5d4795897248fd9bd0b7b8a`；`.env` 仍被 `.gitignore` 忽略且未进入 Git 跟踪。
 
 ## 验证记录
 
@@ -60,3 +61,6 @@
 - 已由用户创建远程仓库。
 - 已配置本地 `origin`。
 - 推送 `main` 分支失败，原因是当前环境无法连接 GitHub 443 端口。
+- 网络恢复后重试推送成功。
+- 已验证远程 `main` 分支存在。
+- 已验证本地 `main` 跟踪 `origin/main`。
