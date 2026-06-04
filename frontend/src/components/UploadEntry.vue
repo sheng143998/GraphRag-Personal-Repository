@@ -2,7 +2,7 @@
   <section class="panel">
     <div class="panel-header">
       <h2 class="panel-title">文档上传入口</h2>
-      <p class="panel-subtitle">先保留结构化字段，后端接好后可直接提交到 Spring Boot 上传接口。</p>
+      <p class="panel-subtitle">选择单篇文本文件，提交到 Spring Boot，再由 AI 服务完成解析、切块和入库。</p>
     </div>
     <div class="panel-body">
       <form class="form-grid" @submit.prevent="handleSubmit">
@@ -23,36 +23,52 @@
           <label class="form-row">
             <span class="form-label">文档类型</span>
             <select v-model="documentType" class="select">
-              <option value="技术笔记">技术笔记</option>
-              <option value="开发经验">开发经验</option>
-              <option value="项目经验">项目经验</option>
-              <option value="面试经验">面试经验</option>
-              <option value="代码片段">代码片段</option>
-              <option value="招聘 JD">招聘 JD</option>
+              <option value="tech_note">技术笔记</option>
+              <option value="development_experience">开发经验</option>
+              <option value="project_experience">项目经验</option>
+              <option value="interview_experience">面试经验</option>
+              <option value="code_snippet">代码片段</option>
+              <option value="job_description">招聘 JD</option>
             </select>
           </label>
         </div>
 
         <label class="form-row">
-          <span class="form-label">文件名占位</span>
+          <span class="form-label">文件</span>
           <div class="upload-dropzone">
-            <strong>拖拽上传区域预留</strong>
-            <span>当前先用逗号分隔文件名模拟上传，后续可替换为真实文件选择器与 FormData。</span>
+            <strong>单篇文件入库</strong>
+            <span>当前适合 Markdown、TXT、CSV、HTML 等文本文件；PDF / Word 真实解析后续接入。</span>
             <input
-              v-model="fileNamesInput"
+              class="input"
+              type="file"
+              accept=".md,.txt,.csv,.html,.json,.log"
+              @change="handleFileChange"
+            />
+            <input
+              v-model="fileName"
               class="input"
               type="text"
-              placeholder="例如：Spring事务.md, rag-retrospective.docx"
+              placeholder="未选择文件时，可填写示例文件名"
             />
           </div>
         </label>
 
         <label class="form-row">
-          <span class="form-label">入库备注</span>
+          <span class="form-label">文档标题</span>
+          <input
+            v-model="title"
+            class="input"
+            type="text"
+            placeholder="例如：Spring 事务传播笔记"
+          />
+        </label>
+
+        <label class="form-row">
+          <span class="form-label">正文内容</span>
           <textarea
-            v-model="notes"
+            v-model="content"
             class="textarea"
-            placeholder="记录文档来源、标签建议或解析说明。"
+            placeholder="未选择文件时，可粘贴一段 Markdown、TXT 或其他文本内容。"
           />
         </label>
 
@@ -75,28 +91,51 @@ import { useWorkbenchStore } from "../stores/workbench";
 
 const store = useWorkbenchStore();
 const knowledgeBaseId = ref(store.settings.defaultKnowledgeBaseId);
-const documentType = ref("技术笔记");
-const fileNamesInput = ref("");
-const notes = ref("");
-
-function normalizeFileNames(): string[] {
-  return fileNamesInput.value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
+const documentType = ref("tech_note");
+const fileName = ref("");
+const title = ref("");
+const content = ref("");
+const selectedFile = ref<File | null>(null);
 
 function fillDemo(): void {
-  fileNamesInput.value = "spring-transaction-notes.md, rag-evaluation-retro.docx";
-  notes.value = "首批导入材料，用于验证上传入口、文档分类和统一解析流程。";
+  selectedFile.value = null;
+  fileName.value = "spring-transaction-notes.md";
+  title.value = "Spring 事务传播笔记";
+  content.value = "Spring 事务传播行为中，REQUIRES_NEW 会挂起当前事务并开启一个新事务。";
+}
+
+function handleFileChange(event: Event): void {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0] ?? null;
+  selectedFile.value = file;
+
+  if (file) {
+    fileName.value = file.name;
+    if (!title.value.trim()) {
+      title.value = file.name.replace(/\.[^.]+$/, "");
+    }
+  }
+}
+
+function inferFileType(name: string): string {
+  const parts = name.trim().split(".");
+  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "txt";
 }
 
 async function handleSubmit(): Promise<void> {
   await store.submitUpload({
     knowledgeBaseId: knowledgeBaseId.value,
+    title: title.value.trim(),
     documentType: documentType.value,
-    notes: notes.value.trim(),
-    fileNames: normalizeFileNames()
+    fileName: fileName.value.trim(),
+    fileType: inferFileType(fileName.value),
+    file: selectedFile.value ?? undefined,
+    sourceType: "LOCAL_UPLOAD",
+    content: selectedFile.value ? undefined : content.value.trim(),
+    summary: content.value.trim().slice(0, 160),
+    metadata: {
+      source: selectedFile.value ? "frontend-multipart" : "frontend-demo"
+    }
   });
 }
 </script>

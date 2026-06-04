@@ -1,0 +1,3 @@
+﻿interface:
+  display_name: 项目上下文执行器
+  short_description: 严格按照 PROJECT_CONTEXT.md 规范进行项目开发、文档维护和阶段管理

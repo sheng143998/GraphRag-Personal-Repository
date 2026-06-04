@@ -8,6 +8,7 @@ class DocumentPayload(BaseModel):
     filename: str
     file_type: FileType
     content: str | None = None
+    content_base64: str | None = None
     source_path: str | None = None
     mime_type: str | None = None
 

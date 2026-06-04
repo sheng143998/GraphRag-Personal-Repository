@@ -10,6 +10,8 @@ public record KnowledgeBaseResponse(
         String ownerId,
         String status,
         String defaultRagStrategy,
+        Integer documentCount,
+        Integer chunkCount,
         Instant createdAt,
         Instant updatedAt
 ) {

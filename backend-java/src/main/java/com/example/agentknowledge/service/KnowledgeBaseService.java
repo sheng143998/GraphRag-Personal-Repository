@@ -4,7 +4,11 @@ import com.example.agentknowledge.common.exception.ResourceNotFoundException;
 import com.example.agentknowledge.domain.KnowledgeBase;
 import com.example.agentknowledge.dto.knowledge.CreateKnowledgeBaseRequest;
 import com.example.agentknowledge.dto.knowledge.KnowledgeBaseResponse;
+import com.example.agentknowledge.dto.knowledge.UpdateKnowledgeBaseRequest;
+import com.example.agentknowledge.repository.DocumentChunkRepository;
 import com.example.agentknowledge.repository.KnowledgeBaseRepository;
+import com.example.agentknowledge.repository.KnowledgeDocumentRepository;
+import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -13,9 +17,17 @@ import org.springframework.stereotype.Service;
 public class KnowledgeBaseService {
 
     private final KnowledgeBaseRepository knowledgeBaseRepository;
+    private final KnowledgeDocumentRepository knowledgeDocumentRepository;
+    private final DocumentChunkRepository documentChunkRepository;
 
-    public KnowledgeBaseService(KnowledgeBaseRepository knowledgeBaseRepository) {
+    public KnowledgeBaseService(
+            KnowledgeBaseRepository knowledgeBaseRepository,
+            KnowledgeDocumentRepository knowledgeDocumentRepository,
+            DocumentChunkRepository documentChunkRepository
+    ) {
         this.knowledgeBaseRepository = knowledgeBaseRepository;
+        this.knowledgeDocumentRepository = knowledgeDocumentRepository;
+        this.documentChunkRepository = documentChunkRepository;
     }
 
     public KnowledgeBaseResponse create(CreateKnowledgeBaseRequest request) {
@@ -24,11 +36,53 @@ public class KnowledgeBaseService {
         knowledgeBase.setDescription(request.description());
         knowledgeBase.setOwnerId(request.ownerId());
         knowledgeBase.setDefaultRagStrategy(request.defaultRagStrategy());
-        return toResponse(knowledgeBaseRepository.save(knowledgeBase));
+        return toResponse(knowledgeBaseRepository.save(knowledgeBase), 0, 0);
     }
 
     public List<KnowledgeBaseResponse> list() {
-        return knowledgeBaseRepository.findAll().stream().map(this::toResponse).toList();
+        return knowledgeBaseRepository.findAll().stream()
+                .map(kb -> {
+                    long docCount = knowledgeDocumentRepository.countByKnowledgeBase_Id(kb.getId());
+                    long chunkCount = documentChunkRepository.countByKnowledgeBase_Id(kb.getId());
+                    return toResponse(kb, (int) docCount, (int) chunkCount);
+                })
+                .toList();
+    }
+
+    public KnowledgeBaseResponse getById(UUID id) {
+        KnowledgeBase knowledgeBase = getReference(id);
+        long docCount = knowledgeDocumentRepository.countByKnowledgeBase_Id(id);
+        long chunkCount = documentChunkRepository.countByKnowledgeBase_Id(id);
+        return toResponse(knowledgeBase, (int) docCount, (int) chunkCount);
+    }
+
+    public KnowledgeBaseResponse update(UUID id, UpdateKnowledgeBaseRequest request) {
+        KnowledgeBase knowledgeBase = getReference(id);
+        if (request.name() != null) {
+            knowledgeBase.setName(request.name());
+        }
+        if (request.description() != null) {
+            knowledgeBase.setDescription(request.description());
+        }
+        if (request.ownerId() != null) {
+            knowledgeBase.setOwnerId(request.ownerId());
+        }
+        if (request.status() != null) {
+            knowledgeBase.setStatus(request.status());
+        }
+        if (request.defaultRagStrategy() != null) {
+            knowledgeBase.setDefaultRagStrategy(request.defaultRagStrategy());
+        }
+        knowledgeBase = knowledgeBaseRepository.save(knowledgeBase);
+        long docCount = knowledgeDocumentRepository.countByKnowledgeBase_Id(id);
+        long chunkCount = documentChunkRepository.countByKnowledgeBase_Id(id);
+        return toResponse(knowledgeBase, (int) docCount, (int) chunkCount);
+    }
+
+    @Transactional
+    public void delete(UUID id) {
+        KnowledgeBase knowledgeBase = getReference(id);
+        knowledgeBaseRepository.delete(knowledgeBase);
     }
 
     public KnowledgeBase getReference(UUID id) {
@@ -36,7 +90,7 @@ public class KnowledgeBaseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Knowledge base not found: " + id));
     }
 
-    private KnowledgeBaseResponse toResponse(KnowledgeBase knowledgeBase) {
+    private KnowledgeBaseResponse toResponse(KnowledgeBase knowledgeBase, Integer documentCount, Integer chunkCount) {
         return new KnowledgeBaseResponse(
                 knowledgeBase.getId(),
                 knowledgeBase.getName(),
@@ -44,6 +98,8 @@ public class KnowledgeBaseService {
                 knowledgeBase.getOwnerId(),
                 knowledgeBase.getStatus(),
                 knowledgeBase.getDefaultRagStrategy(),
+                documentCount,
+                chunkCount,
                 knowledgeBase.getCreatedAt(),
                 knowledgeBase.getUpdatedAt()
         );

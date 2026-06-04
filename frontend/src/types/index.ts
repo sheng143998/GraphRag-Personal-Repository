@@ -1,4 +1,4 @@
-export type DocumentProcessStatus = "indexed" | "processing" | "failed";
+export type DocumentProcessStatus = "INDEXED" | "UPLOADED" | "PROCESSING" | "FAILED";
 
 export interface NavigationItem {
   label: string;
@@ -17,12 +17,36 @@ export interface KnowledgeBaseSummary {
 
 export interface DocumentRecord {
   id: string;
-  name: string;
-  documentType: string;
-  fileType: string;
+  knowledgeBaseId: string;
   knowledgeBaseName: string;
+  title: string;
+  documentType: string;
+  fileName: string;
+  fileType: string;
+  mimeType?: string;
+  sourceType?: string;
+  sourcePath?: string;
+  parserName?: string;
+  parserVersion?: string;
   status: DocumentProcessStatus;
+  summary?: string;
+  metadata?: string;
+  chunkCount?: number;
+  chunks?: DocumentChunkRecord[];
+  createdAt: string;
   updatedAt: string;
+}
+
+export interface DocumentChunkRecord {
+  id: string;
+  chunkIndex: number;
+  title?: string;
+  contentPreview: string;
+  chunkStrategy?: string;
+  pageNumber?: number;
+  sheetName?: string;
+  rowRange?: string;
+  metadata?: string;
 }
 
 export interface CitationSource {
@@ -68,14 +92,29 @@ export interface ChatResponse {
 
 export interface UploadPayload {
   knowledgeBaseId: string;
+  title: string;
   documentType: string;
-  notes: string;
-  fileNames: string[];
+  fileName: string;
+  fileType: string;
+  mimeType?: string;
+  sourceType?: string;
+  sourcePath?: string;
+  content?: string;
+  file?: File;
+  summary?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface UploadResponse {
-  accepted: number;
-  traceId: string;
+  id: string;
+  knowledgeBaseId: string;
+  knowledgeBaseName: string;
+  title: string;
+  documentType: string;
+  fileName: string;
+  fileType: string;
+  status: string;
+  chunkCount?: number;
 }
 
 export interface ExperimentRecord {

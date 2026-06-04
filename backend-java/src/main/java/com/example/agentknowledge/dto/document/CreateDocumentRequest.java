@@ -1,5 +1,6 @@
 package com.example.agentknowledge.dto.document;
 
+import java.util.Map;
 import java.util.UUID;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -14,9 +15,8 @@ public record CreateDocumentRequest(
         @Size(max = 100) String mimeType,
         @Size(max = 50) String sourceType,
         @Size(max = 2000) String sourcePath,
-        @Size(max = 100) String parserName,
-        @Size(max = 50) String parserVersion,
+        @NotBlank @Size(max = 200_000) String content,
         String summary,
-        String metadata
+        Map<String, Object> metadata
 ) {
 }

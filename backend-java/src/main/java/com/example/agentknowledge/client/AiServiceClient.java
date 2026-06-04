@@ -1,5 +1,7 @@
 package com.example.agentknowledge.client;
 
+import com.example.agentknowledge.client.dto.AiDocumentIngestRequest;
+import com.example.agentknowledge.client.dto.AiDocumentIngestResponse;
 import com.example.agentknowledge.client.dto.AiRagQueryRequest;
 import com.example.agentknowledge.client.dto.AiRagQueryResponse;
 import com.example.agentknowledge.client.dto.AiSourceMetadata;
@@ -61,5 +63,36 @@ public class AiServiceClient implements AiServiceGateway {
                 .body(request)
                 .retrieve()
                 .body(AiRagQueryResponse.class);
+    }
+
+    @Override
+    public AiDocumentIngestResponse ingestDocument(AiDocumentIngestRequest request, String traceId) {
+        if (properties.mockEnabled()) {
+            return new AiDocumentIngestResponse(
+                    request.documentId(),
+                    1,
+                    "spring-mock-ingest",
+                    request.file().fileType(),
+                    new AiTraceMetadata(
+                            traceId,
+                            null,
+                            "ingest_document",
+                            "document-ingest",
+                            null,
+                            null,
+                            "mock-embedding",
+                            "completed",
+                            10.0
+                    )
+            );
+        }
+
+        return restClient.post()
+                .uri("/ai/ingest/document")
+                .header(HttpHeaders.CONTENT_TYPE, "application/json")
+                .header(TraceContext.HEADER_NAME, traceId)
+                .body(request)
+                .retrieve()
+                .body(AiDocumentIngestResponse.class);
     }
 }

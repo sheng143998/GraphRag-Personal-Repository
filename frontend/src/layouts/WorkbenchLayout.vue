@@ -1,9 +1,10 @@
-<template>
+﻿<template>
   <div class="shell">
     <aside class="sidebar">
       <div class="brand-block">
-        <div class="brand-title">本地知识库工作台</div>
-        <div class="brand-subtitle">Vue 3 + TypeScript + Vite 基础骨架</div>
+        <div class="brand-logo">K</div>
+        <div class="brand-title">Knowledge Base</div>
+        <div class="brand-subtitle">Vue 3 + Spring Boot + FastAPI</div>
       </div>
 
       <nav class="nav-list">
@@ -19,7 +20,7 @@
 
       <div class="sidebar-footer">
         <strong>接口约束</strong>
-        <span>页面不直接请求后端，统一经由 `src/api/`。</span>
+        <span>页面不直接请求后端，统一经由 src/api/。</span>
       </div>
     </aside>
 
@@ -52,31 +53,11 @@ const route = useRoute();
 const store = useWorkbenchStore();
 
 const navigation: NavigationItem[] = [
-  {
-    label: "对话工作台",
-    to: "/chat",
-    description: "问答与引用来源"
-  },
-  {
-    label: "文档中心",
-    to: "/documents",
-    description: "上传与处理状态"
-  },
-  {
-    label: "知识库",
-    to: "/knowledge-base",
-    description: "知识库概览"
-  },
-  {
-    label: "实验评估",
-    to: "/experiments",
-    description: "策略对比"
-  },
-  {
-    label: "系统设置",
-    to: "/settings",
-    description: "接口和默认参数"
-  }
+  { label: "对话工作台", to: "/chat", description: "问答与引用来源" },
+  { label: "文档中心", to: "/documents", description: "上传与处理状态" },
+  { label: "知识库", to: "/knowledge-base", description: "知识库概览" },
+  { label: "实验评估", to: "/experiments", description: "策略对比" },
+  { label: "系统设置", to: "/settings", description: "接口和默认参数" },
 ];
 
 const currentTitle = computed(() => String(route.meta.title ?? "工作台"));

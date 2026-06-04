@@ -52,7 +52,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
   const lastError = ref("");
 
   const totalDocuments = computed(() => documents.value.length);
-  const indexedDocuments = computed(() => documents.value.filter((item) => item.status === "indexed").length);
+  const indexedDocuments = computed(() => documents.value.filter((item) => item.status === "INDEXED").length);
   const latestSources = computed(() => findLatestSources(messages.value));
   const selectedKnowledgeBase = computed(
     () => knowledgeBases.value.find((item) => item.id === settings.value.defaultKnowledgeBaseId) ?? knowledgeBases.value[0]
@@ -138,7 +138,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
 
     try {
       const result = await uploadDocuments(payload);
-      traceId.value = result.traceId;
+      traceId.value = `upload-${result.id}`;
     } catch (error) {
       const message = error instanceof Error ? error.message : "上传失败，请稍后重试。";
       lastError.value = message;

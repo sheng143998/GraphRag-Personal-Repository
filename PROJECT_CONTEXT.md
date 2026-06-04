@@ -1,7 +1,7 @@
-# 本地知识库 Agent 项目上下文
+﻿# 本地知识库 Agent 项目上下文
 
-更新时间：2026-05-27  
-项目状态：Phase 3 基础 RAG 后端链路已形成第一版闭环，Phase 7 RAG 实验平台已完成实验记录 CRUD 与本地 HTTP smoke；Phase 2 文档入库与前端完整对齐待继续  
+更新时间：2026-05-31
+项目状态：Phase 2 知识库 CRUD 已完整，Word (.docx) 解析器已接入 python-docx，PDF 解析器已接入 MinerU Agent API（v2：URL 模式 + base64 文件上传模式）（创建/列表/详情/更新/删除）、文档上传+列表+详情+删除已闭环；Phase 3 基础 RAG 后端链路已形成第一版闭环；Phase 7 RAG 实验平台已完成实验记录 CRUD 与本地 HTTP smoke；前端粒子背景+玻璃态视觉升级完成；全链路 HTTP smoke 9 接口全部通过
 维护规则：每次开启新的开发对话时，优先提供本文件；每完成一个阶段目标或关键任务后，必须同步更新本文件。本文件只保留项目状态、关键架构决策、当前待办和阶段级变更摘要；接口级实现细节、验证命令和失败复盘放入 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 与 `docs/handoff/`。
 
 ## 1. 项目目标
@@ -1097,7 +1097,11 @@ README 更新规则：
 - [x] 初始化 FastAPI AI 服务
 - [x] 配置 PostgreSQL + pgvector
 - [x] 编写第一版数据库设计文档
-- [ ] 实现 Markdown / TXT / Word / PDF / Excel 入库 Demo
+- [x] 完成 `POST /api/documents/upload` 单篇 JSON 文档入库 Demo，并按规则暂停 review
+- [x] 增强 `GET /api/documents` 文档列表状态展示，并按规则暂停 review
+- [x] 增强 `GET /api/documents/{id}` 文档详情与 chunk 摘要，并按规则暂停 review
+- [x] 增强 `POST /api/documents/upload` multipart 单文件上传，并按规则暂停 review
+- [ ] 实现 Markdown / TXT / Word / PDF / Excel 入库 Demo（真实 multipart 文件上传、多格式解析增强待继续；本地 HTTP smoke 已发现详情 chunk 摘要为空的问题）
 - [ ] 调研并接入 MinerU 作为 PDF 提取工具
 - [x] 实现基础向量检索 Demo
 - [x] 实现第一版 RAG 对话接口
@@ -1131,6 +1135,39 @@ README 更新规则：
 
 ## 13. 变更记录
 
+### 2026-05-31
+
+- 完成 Word (.docx) 解析器接入 python-docx：MSYS2 pacman 安装预编译 python-docx + lxml，venv 通过 .pth 引用系统包。DocxParser 从 stub 升级为 v2，支持 base64 编码 .docx 的段落和表格文本提取。
+- DocumentPayload 新增 content_base64 字段，InlineContentLoader 支持 base64 解码。
+- Python compileall 全量通过。
+- 关键文档索引：
+  - Docx 解析器：docs/plans/2026-05-31-docx-parser-python-docx.md、docs/reviews/2026-05-31-docx-parser-python-docx-review-prompt.md
+- MinerU PDF 解析器：docs/plans/2026-05-31-mineru-pdf-parser.md、docs/reviews/2026-05-31-mineru-pdf-parser-review-prompt.md
+
+- 完成 MinerU PDF 解析器接入：MinerUPdfParser 从 reserved stub 升级为 v2，支持 URL 模式 + base64 文件上传模式（web 端本地上传 PDF → 签名上传 OSS → 异步解析 → Markdown 下载），Agent API 无需 Token，调用 MinerU Agent 轻量 API（无需 Token），支持异步提交+轮询+Markdown 下载。config.py 新增 mineru_api_base_url/mineru_api_token 配置项，pyproject.toml 新增 httpx 依赖。
+- 关键文档索引：
+
+### 2026-05-29
+
+- 完成 Phase 2 文档入库 Demo 的第一个接口：`POST /api/documents/upload` 支持单篇 JSON 文档内容，由 Spring Boot 调用 FastAPI `/ai/ingest/document` 完成解析、切块和 embedding 入库。
+- 前端文档上传入口改为单篇 Demo 表单，提交字段对齐 Spring Boot 上传接口。
+- 更新 `backend-java/README.md` 和 `frontend/README.md`，记录当前文档入库 Demo 能力与仍待补充的真实文件上传能力。
+- 新增本轮计划、review 提示和失败复盘 / 观察记录：`docs/plans/2026-05-29-document-upload-ingest-demo.md`、`docs/reviews/2026-05-29-document-upload-ingest-demo-review-prompt.md`、`docs/testing/failures/2026-05-29-document-upload-ingest-demo-notes.md`。
+- 已验证 Java 后端构建、前端构建和 AI 服务语法编译；pytest 与 HTTP smoke 待后续环境就绪后补充。
+- 更新 `docs/handoff/CURRENT_STATE.md`，记录本轮已完成接口并按规则暂停等待 review。
+- 用户确认继续后，启动 `GET /api/documents` 文档列表状态增强，新增计划、review 提示和失败复盘 / 观察记录：`docs/plans/2026-05-29-documents-list-status.md`、`docs/reviews/2026-05-29-documents-list-status-review-prompt.md`、`docs/testing/failures/2026-05-29-documents-list-status-notes.md`。
+- 完成 `GET /api/documents` 文档列表状态增强：后端返回知识库名称和 chunk 数量，前端文档页展示真实标题、文件名、解析器、chunk 数量和状态。
+- 已验证 Java 后端构建、前端构建和 AI 服务语法编译；HTTP smoke 待后续环境就绪后补充。
+- 用户确认继续后，启动 `GET /api/documents/{id}` 文档详情与 chunk 摘要增强，新增计划、review 提示和失败复盘 / 观察记录：`docs/plans/2026-05-29-document-detail-chunks.md`、`docs/reviews/2026-05-29-document-detail-chunks-review-prompt.md`、`docs/testing/failures/2026-05-29-document-detail-chunks-notes.md`。
+- 完成 `GET /api/documents/{id}` 文档详情与 chunk 摘要增强：详情响应返回按 `chunkIndex` 排序的 chunk 内容预览、切分策略、页码、sheet、行范围和 metadata；前端类型预留 `DocumentChunkRecord`。
+- 已验证 Java 后端构建、前端构建和 AI 服务语法编译；HTTP smoke 待后续环境就绪后补充。
+- 用户确认继续后，启动 `POST /api/documents/upload` multipart 单文件上传增强，新增计划、review 提示和失败复盘 / 观察记录：`docs/plans/2026-05-29-document-upload-multipart.md`、`docs/reviews/2026-05-29-document-upload-multipart-review-prompt.md`、`docs/testing/failures/2026-05-29-document-upload-multipart-notes.md`。
+- 完成 `POST /api/documents/upload` multipart 单文件上传增强：后端同一路径同时支持 JSON 与 multipart，前端使用文件选择器和 FormData 提交到 Spring Boot；当前 multipart 内容按 UTF-8 文本读取，真实 PDF / Word 二进制解析仍待后续接入。
+- 已验证 Java 后端构建、前端构建和 AI 服务语法编译；HTTP smoke 待后续环境就绪后补充。
+- 用户要求先做本地 HTTP smoke 并查看前端，新增计划、review 提示和失败复盘 / 观察记录：`docs/plans/2026-05-29-local-http-smoke-and-frontend-preview.md`、`docs/reviews/2026-05-29-local-http-smoke-and-frontend-preview-review-prompt.md`、`docs/testing/failures/2026-05-29-local-http-smoke-and-frontend-preview-notes.md`。
+- 按用户要求使用本地 PostgreSQL、不启动 Docker，完成前端、AI 服务和 Java 后端重启；健康检查通过，并在 Codex 浏览器打开 `http://127.0.0.1:5173/chat`。
+- 本地 HTTP smoke 验证知识库创建、JSON 文档上传和文档列表通过；发现文档上传响应 `chunkCount=1` 但详情响应 `chunks=[]`，已记录到本轮失败复盘，下一轮优先排查。
+
 ### 2026-05-25
 
 - 创建项目上下文文档
@@ -1157,6 +1194,20 @@ README 更新规则：
 - 当前仍是占位：LLM generator、embedding、reranker 仍为 stub；真实文件上传、多格式解析、MinerU PDF 解析、Advanced RAG 和前端完整对齐尚未完成。
 - 修复模块 README 中文化：更新根目录、AI 服务和计划目录 README，新增 `frontend/README.md`、`backend-java/README.md`、`infra/README.md`、`scripts/README.md`，并补充 `docs/reviews/2026-05-26-readme-localization-review-prompt.md` 与 `docs/testing/failures/2026-05-26-readme-localization-notes.md`。
 
+
+- 完成 chunks=[] bug 修复：AI 服务 config.py 新增 _build_database_url()，从 DB_URL + DB_USERNAME + DB_PASSWORD 构造 PostgreSQL URL，避免 DATABASE_URL 为空时回退到 InMemory 存储。
+- 完成前端视觉美化升级：新增 ParticleBackground.vue Canvas 粒子动画组件，styles.css 全面升级玻璃态/渐变/动画，侧边栏增加品牌 logo。
+- 完成知识库 CRUD 补全：GET /api/knowledge-bases/{id} 详情（含 documentCount/chunkCount）、PUT /api/knowledge-bases/{id} 部分更新（UpdateKnowledgeBaseRequest）、DELETE /api/knowledge-bases/{id} 删除（数据库级联）。
+- 完成文档删除：DELETE /api/documents/{id} + 前端 deleteDocument/etchDocumentById。
+- 修复 documentType 枚举大小写：DocumentService.create() 自动 .toLowerCase() 以匹配 AI 服务 Pydantic 枚举。
+- 完成全链路 HTTP smoke：9 个接口全部通过，chunks bug 已验证修复。
+- 关键文档索引：
+  - Bug fix：docs/plans/2026-05-29-fix-chunks-empty-bug.md、docs/reviews/2026-05-29-fix-chunks-empty-bug-review-prompt.md、docs/testing/failures/2026-05-29-fix-chunks-empty-bug-notes.md
+  - 知识库详情：docs/plans/2026-05-29-knowledge-base-detail.md、docs/reviews/2026-05-29-knowledge-base-detail-review-prompt.md、docs/testing/failures/2026-05-29-knowledge-base-detail-notes.md
+  - 知识库更新：docs/plans/2026-05-29-knowledge-base-update.md、docs/reviews/2026-05-29-knowledge-base-update-review-prompt.md
+  - 知识库删除：docs/plans/2026-05-29-knowledge-base-delete.md、docs/reviews/2026-05-29-knowledge-base-delete-review-prompt.md、docs/testing/failures/2026-05-29-knowledge-base-delete-notes.md
+  - 文档删除：docs/plans/2026-05-29-document-delete.md、docs/reviews/2026-05-29-document-delete-review-prompt.md、docs/testing/failures/2026-05-29-document-delete-and-smoke-notes.md
+  - 全链路 smoke：docs/plans/2026-05-29-full-http-smoke.md
 ### 2026-05-27
 
 - 完成 AI 服务环境配置定位：确认 `ai-service/` 没有独立 `.env`，配置入口为 `ai-service/app/core/config.py`，运行时读取 `AI_DATABASE_URL`、`DATABASE_URL` 和 `AI_RAG_USE_DATABASE`。

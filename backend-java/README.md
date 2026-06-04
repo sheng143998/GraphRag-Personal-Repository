@@ -65,7 +65,7 @@ mvn spring-boot:run
 
 - `controller/RagController.java`：检索增强生成对外接口。
 - `service/RagService.java`：检索增强生成业务流程。
-- `client/AiServiceClient.java`：调用 Python 人工智能服务。
+- `client/AiServiceClient.java`：调用 Python 人工智能服务，当前覆盖 RAG 查询和文档入库 Demo。
 - `domain/RagRun.java`：运行记录实体。
 - `domain/RagRetrievalResult.java`：检索结果实体。
 - `repository/`：数据库访问入口。
@@ -111,6 +111,9 @@ mvn spring-boot:run
 - 知识库基础查询。
 - 数据库迁移。
 - `POST /api/rag/query` 调用 Python `/ai/rag/query`。
+- `POST /api/documents/upload` 调用 Python `/ai/ingest/document`，支持单篇 JSON Demo 和 multipart 文本文件上传、切块和 embedding 入库。
+- `GET /api/documents` 返回文档状态、知识库名称、解析器信息和 chunk 数量。
+- `GET /api/documents/{id}` 返回文档详情和 chunk 摘要列表。
 - 保存 `rag_runs` 和 `rag_retrieval_results`。
 - 使用结构化元数据写入 JSONB 字段。
 - 查询、创建、按 ID 查看、更新和删除 RAG 实验记录。
@@ -122,7 +125,7 @@ mvn spring-boot:run
 
 ## 后续待补能力
 
-- 文档上传接口和解析状态回写。
+- 文档上传接口已具备单篇 JSON Demo 入库能力，真实 multipart 文件上传和解析状态轮询仍待补充。
 - 会话消息完整保存。
 - RAG 反馈接口。
 - RAG 实验自动评估接口。

@@ -8,4 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface KnowledgeDocumentRepository extends JpaRepository<KnowledgeDocument, UUID> {
 
     List<KnowledgeDocument> findByKnowledgeBase_IdOrderByCreatedAtDesc(UUID knowledgeBaseId);
+
+    long countByKnowledgeBase_Id(UUID knowledgeBaseId);
 }
