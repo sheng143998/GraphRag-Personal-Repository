@@ -34,7 +34,7 @@ import {
   fetchKnowledgeBaseById,
   fetchKnowledgeBases,
   fetchSettings,
-  sendChatMessage,
+  sendAssistantTurn,
   updateExperiment,
   updateKnowledgeBase,
   uploadDocuments
@@ -112,7 +112,29 @@ function parseCitations(value?: string | null): CitationSource[] | undefined {
         };
       }
 
-      return item;
+      if ("id" in item && "location" in item && "snippet" in item) {
+        return item;
+      }
+
+      const source = item as {
+        documentId?: string | null;
+        chunkId?: string | null;
+        title?: string | null;
+        sourcePath?: string | null;
+        score?: number | null;
+        rerankScore?: number | null;
+        metadata?: Record<string, unknown> | null;
+      };
+      const preview = source.metadata?.content_preview;
+      const title = source.title || source.sourcePath || source.documentId || `source-${index + 1}`;
+      return {
+        id: source.chunkId || source.documentId || `history-citation-${index + 1}`,
+        title,
+        location: source.sourcePath || source.chunkId || title,
+        strategy: "agent-history",
+        score: source.rerankScore ?? source.score ?? 0,
+        snippet: typeof preview === "string" ? preview : title
+      };
     });
   } catch {
     return [{
@@ -206,29 +228,38 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     pending.value = true;
     lastError.value = "";
 
-    messages.value.push({
-      id: `msg-user-${Date.now()}`,
-      role: "user",
-      content: question.trim(),
-      createdAt: new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })
-    });
-
     try {
-      const result = await sendChatMessage({
+      let sessionId = currentSessionId.value;
+      if (!sessionId) {
+        const session = await createChatSession({
+          knowledgeBaseId,
+          title: question.trim().slice(0, 60)
+        });
+        chatSessions.value.unshift(session);
+        currentSessionId.value = session.id;
+        sessionId = session.id;
+      }
+
+      const result = await sendAssistantTurn(sessionId, {
         question: question.trim(),
         strategy: selectedStrategy.value,
         knowledgeBaseId,
-        sessionId: currentSessionId.value || undefined,
+        sessionId,
       });
 
       traceId.value = result.traceId;
-      messages.value.push({
-        id: `msg-assistant-${Date.now()}`,
-        role: "assistant",
-        content: result.answer,
-        createdAt: new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
-        sources: result.sources
-      });
+      selectedStrategy.value = result.selectedStrategyName || selectedStrategy.value;
+      if (result.userMessage && result.assistantMessage) {
+        messages.value.push(...mapHistoryMessages([result.userMessage, result.assistantMessage]));
+      } else {
+        messages.value.push({
+          id: `msg-assistant-${Date.now()}`,
+          role: "assistant",
+          content: result.answer,
+          createdAt: new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
+          sources: result.sources
+        });
+      }
 
       if (currentSessionId.value) {
         try {

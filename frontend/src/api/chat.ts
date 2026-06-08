@@ -5,7 +5,8 @@ import type {
   ChatResponse,
   ChatSession,
   ChatSessionRequest,
-  CitationSource
+  CitationSource,
+  AssistantTurnResponse
 } from "../types";
 import { apiRequest } from "./client";
 
@@ -55,6 +56,70 @@ function mapCitation(source: string, index: number, strategy: string): CitationS
     strategy,
     score: 0,
     snippet: source
+  };
+}
+
+interface AgentCitationMetadata {
+  documentId?: string | null;
+  chunkId?: string | null;
+  title?: string | null;
+  sourcePath?: string | null;
+  score?: number | null;
+  rerankScore?: number | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+function mapAgentCitation(source: AgentCitationMetadata, index: number, strategy: string): CitationSource {
+  const preview = source.metadata?.content_preview;
+  const title = source.title || source.sourcePath || source.documentId || `source-${index + 1}`;
+  return {
+    id: source.chunkId || source.documentId || `agent-citation-${index + 1}`,
+    title,
+    location: source.sourcePath || source.chunkId || title,
+    strategy,
+    score: source.rerankScore ?? source.score ?? 0,
+    snippet: typeof preview === "string" ? preview : title
+  };
+}
+
+function parseAssistantCitations(value?: string | null, strategy = "agent"): CitationSource[] {
+  if (!value) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(value) as Array<string | AgentCitationMetadata>;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.map((item, index) =>
+      typeof item === "string" ? mapCitation(item, index, strategy) : mapAgentCitation(item, index, strategy)
+    );
+  } catch {
+    return [mapCitation(value, 0, strategy)];
+  }
+}
+
+export async function sendAssistantTurn(sessionId: string, payload: ChatRequest): Promise<ChatResponse> {
+  const response = await apiRequest<AssistantTurnResponse>(`/chat/${sessionId}/assistant-turn`, {
+    method: "POST",
+    body: JSON.stringify({
+      userInput: payload.question,
+      strategyName: payload.strategy,
+      topK: payload.topK ?? 5,
+      metadataFilters: payload.metadataFilters,
+    })
+  });
+  const strategy = response.selectedStrategyName ?? payload.strategy;
+
+  return {
+    traceId: response.trace?.traceId ?? response.assistantMessage.traceId ?? response.userMessage.traceId ?? "",
+    answer: response.assistantMessage.content,
+    sources: parseAssistantCitations(response.assistantMessage.citations, strategy),
+    userMessage: response.userMessage,
+    assistantMessage: response.assistantMessage,
+    questionType: response.questionType,
+    selectedStrategyName: response.selectedStrategyName,
+    workflowSteps: response.workflowSteps
   };
 }
 

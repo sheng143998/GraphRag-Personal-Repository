@@ -93,6 +93,17 @@ export interface ChatResponse {
   traceId: string;
   answer: string;
   sources: CitationSource[];
+  userMessage?: ChatMessageRecord;
+  assistantMessage?: ChatMessageRecord;
+  questionType?: string;
+  selectedStrategyName?: string;
+  workflowSteps?: AgentWorkflowStep[];
+}
+
+export interface AgentWorkflowStep {
+  name: string;
+  detail?: string;
+  payload?: Record<string, unknown>;
 }
 
 export interface UploadPayload {
@@ -185,6 +196,25 @@ export interface ChatMessageRequest {
   role: string;
   content: string;
   citations?: string;
+}
+
+export interface AssistantTurnRequest {
+  userInput: string;
+  agentName?: string;
+  strategyName?: string;
+  topK?: number;
+  metadataFilters?: Record<string, unknown>;
+  variables?: Record<string, unknown>;
+}
+
+export interface AssistantTurnResponse {
+  userMessage: ChatMessageRecord;
+  assistantMessage: ChatMessageRecord;
+  agentName: string;
+  questionType: string;
+  selectedStrategyName: string;
+  workflowSteps: AgentWorkflowStep[];
+  trace?: { traceId?: string; attributes?: Record<string, unknown> } | null;
 }
 
 // --- Feedback Types ---
