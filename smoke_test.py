@@ -21,6 +21,7 @@ CREATED_MSG_ID = None
 CREATED_ASSISTANT_MSG_ID = None
 CREATED_RUN_ID = None
 CREATED_ADVANCED_RUN_ID = None
+ADVANCED_EVALUATION_CASE = None
 CREATED_AGENT_RUN_ID = None
 CREATED_GRAPH_RUN_ID = None
 TEST_UUID = str(uuid.uuid4())  # for use as placeholder UUIDs
@@ -244,11 +245,27 @@ if CREATED_KB_ID:
         if r is not None and r.status_code == 200:
             check_field("Advanced RAG run status", body, "data.status", "COMPLETED")
             check_field("Advanced RAG rewritten query", body, "data.rewrittenQuery")
+            retrieval_results = body.get("data", {}).get("retrievalResults") if isinstance(body, dict) else None
+            first_result = retrieval_results[0] if isinstance(retrieval_results, list) and retrieval_results else None
+            if isinstance(first_result, dict) and first_result.get("chunkId"):
+                ADVANCED_EVALUATION_CASE = {
+                    "evaluationCaseId": "smoke-advanced-rag",
+                    "relevantChunkIds": [first_result.get("chunkId")],
+                    "expectedCitationChunkIds": [first_result.get("chunkId")],
+                    "evaluationTopK": 1,
+                }
+                if first_result.get("documentId"):
+                    ADVANCED_EVALUATION_CASE["relevantDocumentIds"] = [first_result.get("documentId")]
         if CREATED_EXP_ID:
+            advanced_eval_payload = {
+                "runId": CREATED_ADVANCED_RUN_ID,
+                "expectedAnswer": "Advanced RAG should use metadata filters and rerank evidence.",
+            }
+            if ADVANCED_EVALUATION_CASE:
+                advanced_eval_payload.update(ADVANCED_EVALUATION_CASE)
             r, body = check("Evaluate experiment from Advanced RAG run", "POST",
                             f"{BASE}/rag/experiments/{CREATED_EXP_ID}/evaluate",
-                            json={"runId": CREATED_ADVANCED_RUN_ID,
-                                  "expectedAnswer": "Advanced RAG should use metadata filters and rerank evidence."})
+                            json=advanced_eval_payload)
             if r is not None and r.status_code == 200:
                 check_field("Experiment evaluation status", body, "data.experiment.status", "COMPLETED")
                 check_field("Experiment grounded score", body, "data.groundedScore")
@@ -262,6 +279,13 @@ if CREATED_KB_ID:
                     FAIL += 1
                     ERRORS.append("Experiment evaluation expected non-empty notes")
                     print("  FAIL  Experiment evaluation expected non-empty notes")
+                if ADVANCED_EVALUATION_CASE and any("Structured evaluation case scored" in str(note) for note in notes or []):
+                    PASS += 1
+                    print("  PASS  Experiment evaluation used structured retrieval metrics")
+                elif ADVANCED_EVALUATION_CASE:
+                    FAIL += 1
+                    ERRORS.append("Experiment evaluation expected structured retrieval metrics note")
+                    print("  FAIL  Experiment evaluation expected structured retrieval metrics note")
                 history = body.get("data", {}).get("history") if isinstance(body, dict) else None
                 experiment_history = body.get("data", {}).get("experiment", {}).get("evaluations") if isinstance(body, dict) else None
                 if isinstance(history, list) and any(item.get("runId") == CREATED_ADVANCED_RUN_ID for item in history if isinstance(item, dict)):

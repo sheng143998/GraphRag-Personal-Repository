@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pydantic import BaseModel, Field
 
 from app.core.constants import DocumentType
@@ -41,6 +43,14 @@ class RagQueryResponse(BaseModel):
     trace: TraceMetadata
 
 
+class RagEvaluationCase(BaseModel):
+    case_id: str
+    relevant_chunk_ids: list[str] = Field(default_factory=list)
+    relevant_document_ids: list[str] = Field(default_factory=list)
+    expected_citation_chunk_ids: list[str] = Field(default_factory=list)
+    top_k: int = 5
+
+
 class RagEvaluateRequest(BaseModel):
     question: str
     expected_answer: str | None = None
@@ -48,6 +58,7 @@ class RagEvaluateRequest(BaseModel):
     citations: list[SourceMetadata] = Field(default_factory=list)
     strategy_name: str = "basic-rag"
     context: RagRequestContext
+    evaluation_case: RagEvaluationCase | None = None
 
 
 class RagEvaluationResult(BaseModel):

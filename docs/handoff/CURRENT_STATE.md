@@ -519,6 +519,25 @@ Validated:
 
 ---
 
+## 2026-06-08 Structured RAG Evaluation Case Update
+
+Completed in this iteration:
+
+- Added optional structured evaluation case fields to experiment evaluation requests.
+- FastAPI RAG evaluation now uses recall@k, precision@k, MRR, and citation hit when relevant chunk/document ids are supplied.
+- Spring Boot forwards structured evaluation case data to FastAPI while keeping scoring out of Java.
+- Full-chain smoke now proves Advanced RAG evaluation uses structured retrieval metrics.
+
+Validated:
+
+- `.\.venv\bin\python.exe -m pytest tests/test_advanced_rag_strategy.py tests/test_strategy_comparison_evaluator.py -q` passed with 9 tests.
+- `mvn test` passed with 16 tests after rerunning with elevated permissions for the local Maven repository.
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 123/123 smoke checks.
+
+---
+
 ## 2026-06-08 RAG Evaluation Comparison Filters Update
 
 Completed in this iteration:

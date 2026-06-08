@@ -120,3 +120,18 @@ RAG 召回效果差时可以从哪些方向优化？
 - 当前 embedding、LLM、reranker 仍可能是 stub adapter，评估重点是工程链路和 trace 完整性，不代表真实语义效果。
 - metadata filter 当前先按等值过滤验证，不覆盖范围过滤、数组包含和复杂布尔条件。
 - parent-child 当前优先使用邻近 chunk fallback，后续如引入 parent chunk 切分策略，需要补充新的评估问题。
+## Structured Evaluation Case Fields
+
+Experiment evaluation can optionally include structured relevance fields:
+
+```json
+{
+  "evaluationCaseId": "advanced-rag-rerank",
+  "relevantChunkIds": ["..."],
+  "relevantDocumentIds": ["..."],
+  "expectedCitationChunkIds": ["..."],
+  "evaluationTopK": 3
+}
+```
+
+When these fields are supplied, FastAPI scores retrieval with recall@k, precision@k, MRR, and citation hit. When they are omitted, the evaluator keeps the simpler citation-count fallback.

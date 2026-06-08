@@ -421,6 +421,11 @@ export type ExperimentUpdateRequest = Partial<ExperimentRequest>;
 export interface ExperimentEvaluationRequest {
   runId: string;
   expectedAnswer?: string;
+  evaluationCaseId?: string;
+  relevantChunkIds?: string[];
+  relevantDocumentIds?: string[];
+  expectedCitationChunkIds?: string[];
+  evaluationTopK?: number;
 }
 
 export interface ExperimentEvaluationResponse {

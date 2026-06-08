@@ -11,13 +11,23 @@ public record AiRagEvaluateRequest(
         @JsonProperty("generated_answer") String generatedAnswer,
         List<AiSourceMetadata> citations,
         @JsonProperty("strategy_name") String strategyName,
-        Context context
+        Context context,
+        @JsonProperty("evaluation_case") EvaluationCase evaluationCase
 ) {
     public record Context(
             @JsonProperty("knowledge_base_id") UUID knowledgeBaseId,
             @JsonProperty("session_id") UUID sessionId,
             @JsonProperty("message_id") UUID messageId,
             @JsonProperty("metadata_filters") Map<String, Object> metadataFilters
+    ) {
+    }
+
+    public record EvaluationCase(
+            @JsonProperty("case_id") String caseId,
+            @JsonProperty("relevant_chunk_ids") List<UUID> relevantChunkIds,
+            @JsonProperty("relevant_document_ids") List<UUID> relevantDocumentIds,
+            @JsonProperty("expected_citation_chunk_ids") List<UUID> expectedCitationChunkIds,
+            @JsonProperty("top_k") Integer topK
     ) {
     }
 }

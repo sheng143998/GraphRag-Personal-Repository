@@ -157,7 +157,8 @@ public class RagExperimentService {
                                 run.getSession() == null ? null : run.getSession().getId(),
                                 run.getMessage() == null ? null : run.getMessage().getId(),
                                 Map.of()
-                        )
+                        ),
+                        toEvaluationCase(request)
                 ),
                 TraceContext.getTraceId()
         );
@@ -277,6 +278,28 @@ public class RagExperimentService {
                 null,
                 result.getMetadata()
         );
+    }
+
+    private AiRagEvaluateRequest.EvaluationCase toEvaluationCase(EvaluateRagExperimentRequest request) {
+        if (
+                !hasText(request.evaluationCaseId())
+                        && isEmpty(request.relevantChunkIds())
+                        && isEmpty(request.relevantDocumentIds())
+                        && isEmpty(request.expectedCitationChunkIds())
+        ) {
+            return null;
+        }
+        return new AiRagEvaluateRequest.EvaluationCase(
+                hasText(request.evaluationCaseId()) ? request.evaluationCaseId() : request.runId().toString(),
+                request.relevantChunkIds() == null ? List.of() : request.relevantChunkIds(),
+                request.relevantDocumentIds() == null ? List.of() : request.relevantDocumentIds(),
+                request.expectedCitationChunkIds() == null ? List.of() : request.expectedCitationChunkIds(),
+                request.evaluationTopK() == null ? 5 : Math.max(1, request.evaluationTopK())
+        );
+    }
+
+    private boolean isEmpty(List<?> values) {
+        return values == null || values.isEmpty();
     }
 
     private RagExperimentEvaluation saveEvaluationHistory(

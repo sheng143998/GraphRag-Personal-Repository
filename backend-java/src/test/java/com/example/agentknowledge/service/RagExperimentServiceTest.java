@@ -54,6 +54,8 @@ class RagExperimentServiceTest {
         UUID experimentId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
         UUID knowledgeBaseId = UUID.randomUUID();
+        UUID relevantChunkId = UUID.randomUUID();
+        UUID relevantDocumentId = UUID.randomUUID();
         KnowledgeBase knowledgeBase = new KnowledgeBase();
         knowledgeBase.setId(knowledgeBaseId);
         RagExperiment experiment = new RagExperiment();
@@ -108,7 +110,15 @@ class RagExperimentServiceTest {
 
         RagExperimentEvaluationResponse response = service.evaluate(
                 experimentId,
-                new EvaluateRagExperimentRequest(runId, "Expected answer")
+                new EvaluateRagExperimentRequest(
+                        runId,
+                        "Expected answer",
+                        "advanced-rag-rerank",
+                        List.of(relevantChunkId),
+                        List.of(relevantDocumentId),
+                        List.of(relevantChunkId),
+                        3
+                )
         );
 
         assertThat(response.groundedScore()).isEqualTo(0.91);
@@ -137,6 +147,12 @@ class RagExperimentServiceTest {
         assertThat(aiRequest.getValue().expectedAnswer()).isEqualTo("Expected answer");
         assertThat(aiRequest.getValue().citations()).hasSize(1);
         assertThat(aiRequest.getValue().context().knowledgeBaseId()).isEqualTo(knowledgeBaseId);
+        assertThat(aiRequest.getValue().evaluationCase()).isNotNull();
+        assertThat(aiRequest.getValue().evaluationCase().caseId()).isEqualTo("advanced-rag-rerank");
+        assertThat(aiRequest.getValue().evaluationCase().relevantChunkIds()).containsExactly(relevantChunkId);
+        assertThat(aiRequest.getValue().evaluationCase().relevantDocumentIds()).containsExactly(relevantDocumentId);
+        assertThat(aiRequest.getValue().evaluationCase().expectedCitationChunkIds()).containsExactly(relevantChunkId);
+        assertThat(aiRequest.getValue().evaluationCase().topK()).isEqualTo(3);
 
         ArgumentCaptor<RagExperimentEvaluation> historyRecord = ArgumentCaptor.forClass(RagExperimentEvaluation.class);
         verify(evaluationRepository).save(historyRecord.capture());

@@ -11,7 +11,7 @@ from app.core.constants import DocumentType, FileType
 from app.db.repositories import repository
 from app.schemas.common import SourceMetadata
 from app.schemas.ingest import DocumentIngestRequest, DocumentPayload
-from app.schemas.rag import RagEvaluateRequest, RagQueryRequest, RagRequestContext
+from app.schemas.rag import RagEvaluateRequest, RagEvaluationCase, RagQueryRequest, RagRequestContext
 from app.services.ingest_service import IngestService
 from app.services.rag_service import RagService
 
@@ -54,6 +54,15 @@ def test_rag_evaluation_penalizes_answer_mismatch() -> None:
     assert matched.result.grounded_score > mismatched.result.grounded_score
     assert mismatched.result.grounded_score < 0.75
     assert matched.result.retrieval_score == mismatched.result.retrieval_score
+
+
+def test_rag_evaluation_uses_structured_case_for_retrieval_metrics() -> None:
+    structured = asyncio.run(_evaluate_structured_case())
+
+    assert structured.result.retrieval_score == 1.0
+    assert any("Structured evaluation case scored" in note for note in structured.result.notes)
+    assert any("recall@k=1.00" in note for note in structured.result.notes)
+    assert structured.trace.status == "completed"
 
 
 def test_graph_rag_extracts_entities_and_augments_retrieval_trace() -> None:
@@ -187,6 +196,41 @@ async def _evaluate_mismatched_answer():
             ],
             strategy_name="advanced-rag",
             context=RagRequestContext(knowledge_base_id="kb-test-advanced"),
+        )
+    )
+
+
+async def _evaluate_structured_case():
+    rag_service = RagService()
+    return await rag_service.evaluate(
+        RagEvaluateRequest(
+            question="What does Advanced RAG use?",
+            generated_answer="Advanced RAG uses query rewrite and rerank.",
+            expected_answer="Advanced RAG uses query rewrite and rerank.",
+            citations=[
+                SourceMetadata(
+                    document_id="22222222-2222-2222-2222-222222222222",
+                    chunk_id="advanced-rerank",
+                    title="Advanced RAG Notes",
+                    score=0.9,
+                    metadata={"content_preview": "Advanced RAG uses query rewrite and rerank."},
+                ),
+                SourceMetadata(
+                    document_id="33333333-3333-3333-3333-333333333333",
+                    chunk_id="crud-note",
+                    title="CRUD Notes",
+                    score=0.4,
+                    metadata={"content_preview": "CRUD manages screens."},
+                ),
+            ],
+            strategy_name="advanced-rag",
+            context=RagRequestContext(knowledge_base_id="kb-test-advanced"),
+            evaluation_case=RagEvaluationCase(
+                case_id="advanced-rag-rerank",
+                relevant_chunk_ids=["advanced-rerank"],
+                expected_citation_chunk_ids=["advanced-rerank"],
+                top_k=1,
+            ),
         )
     )
 

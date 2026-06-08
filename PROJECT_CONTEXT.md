@@ -1505,3 +1505,13 @@ README 更新规则：
 - Filtered rows now drive strategy ranking, experiment ranking, and recent evaluation details while the global summary remains visible.
 - No backend or FastAPI contract changed.
 - Key documents: `docs/plans/2026-06-08-rag-evaluation-comparison-filters.md`, `docs/reviews/2026-06-08-rag-evaluation-comparison-filters-review-prompt.md`, and `docs/testing/strategy.md`.
+
+---
+
+## 2026-06-08 Structured RAG Evaluation Case Update
+
+- Added optional structured RAG evaluation case fields for experiment evaluation: case id, relevant chunk ids, relevant document ids, expected citation chunk ids, and top-k.
+- FastAPI now reuses deterministic retrieval metrics for structured cases while preserving the previous heuristic fallback.
+- Spring Boot only forwards evaluation case data to FastAPI and continues to persist returned scores/history.
+- Full-chain smoke now validates Advanced RAG structured retrieval metrics; latest local smoke passed with 123/123 checks.
+- Key documents: `docs/plans/2026-06-08-structured-rag-evaluation-case.md`, `docs/reviews/2026-06-08-structured-rag-evaluation-case-review-prompt.md`, `docs/experiments/eval-questions.md`, and `docs/testing/strategy.md`.
