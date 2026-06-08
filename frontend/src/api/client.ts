@@ -2,6 +2,13 @@ import type { ApiEnvelope } from "../types";
 
 const DEFAULT_BASE_URL = "/api";
 const DEFAULT_TIMEOUT = 15000;
+export const API_RUNTIME_SETTINGS_KEY = "agent-knowledge-settings";
+
+interface RuntimeApiSettings {
+  apiBaseUrl?: string;
+  timeoutMs?: number;
+  includeTraceHeader?: boolean;
+}
 
 export interface RequestOptions extends RequestInit {
   timeoutMs?: number;
@@ -21,8 +28,36 @@ export class ApiError extends Error {
 }
 
 function resolveBaseUrl(): string {
+  const runtimeBaseUrl = readRuntimeSettings().apiBaseUrl;
+  if (runtimeBaseUrl && runtimeBaseUrl.trim().length > 0) {
+    return runtimeBaseUrl.trim().replace(/\/$/, "");
+  }
+
   const value = import.meta.env.VITE_API_BASE_URL;
   return typeof value === "string" && value.trim().length > 0 ? value : DEFAULT_BASE_URL;
+}
+
+function readRuntimeSettings(): RuntimeApiSettings {
+  try {
+    const raw = window.localStorage.getItem(API_RUNTIME_SETTINGS_KEY);
+    if (!raw) {
+      return {};
+    }
+
+    const parsed = JSON.parse(raw) as RuntimeApiSettings;
+    return typeof parsed === "object" && parsed !== null ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function resolveTimeoutMs(options: RequestOptions): number {
+  if (options.timeoutMs) {
+    return options.timeoutMs;
+  }
+
+  const runtimeTimeout = readRuntimeSettings().timeoutMs;
+  return typeof runtimeTimeout === "number" && runtimeTimeout > 0 ? runtimeTimeout : DEFAULT_TIMEOUT;
 }
 
 function buildHeaders(options: RequestOptions): Headers {
@@ -33,7 +68,8 @@ function buildHeaders(options: RequestOptions): Headers {
     headers.set("Content-Type", "application/json");
   }
 
-  if (options.traceId) {
+  const includeTraceHeader = readRuntimeSettings().includeTraceHeader !== false;
+  if (includeTraceHeader && options.traceId) {
     headers.set("X-Trace-Id", options.traceId);
   }
 
@@ -83,7 +119,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const response = await fetch(`${resolveBaseUrl()}${path}`, {
     ...options,
     headers: buildHeaders(options),
-    signal: options.signal ?? withTimeout(options.timeoutMs ?? DEFAULT_TIMEOUT)
+    signal: options.signal ?? withTimeout(resolveTimeoutMs(options))
   });
 
   const contentType = response.headers.get("content-type") ?? "";

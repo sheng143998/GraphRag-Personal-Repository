@@ -11,10 +11,12 @@ import type {
   ExperimentUpdateRequest,
   FeedbackRecord,
   FeedbackRequest,
+  CitationSource,
   KnowledgeBaseSummary,
   UploadPayload
 } from "../types";
 import {
+  API_RUNTIME_SETTINGS_KEY,
   addChatMessage,
   createChatSession,
   createExperiment,
@@ -46,6 +48,22 @@ import {
   ragStrategyOptions
 } from "../utils/mock-data";
 
+function loadPersistedSettings(): AppSettings {
+  try {
+    const raw = window.localStorage.getItem(API_RUNTIME_SETTINGS_KEY);
+    if (!raw) {
+      return mockSettings;
+    }
+
+    return {
+      ...mockSettings,
+      ...(JSON.parse(raw) as Partial<AppSettings>)
+    };
+  } catch {
+    return mockSettings;
+  }
+}
+
 function sortByUpdatedAt<T extends { updatedAt: string }>(items: T[]): T[] {
   return [...items].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
@@ -59,13 +77,72 @@ function findLatestSources(messages: ChatMessage[]) {
   return [];
 }
 
+function formatMessageTime(value: string): string {
+  if (!value) {
+    return new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  if (!value.includes("T")) {
+    return value;
+  }
+
+  return value.replace("T", " ").slice(11, 16);
+}
+
+function parseCitations(value?: string | null): CitationSource[] | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as CitationSource[] | string[];
+    if (!Array.isArray(parsed)) {
+      return undefined;
+    }
+
+    return parsed.map((item, index) => {
+      if (typeof item === "string") {
+        return {
+          id: `history-citation-${index + 1}`,
+          title: item,
+          location: item,
+          strategy: "history",
+          score: 0,
+          snippet: item
+        };
+      }
+
+      return item;
+    });
+  } catch {
+    return [{
+      id: "history-citation-1",
+      title: value,
+      location: value,
+      strategy: "history",
+      score: 0,
+      snippet: value
+    }];
+  }
+}
+
+function mapHistoryMessages(records: ChatMessageRecord[]): ChatMessage[] {
+  return records.map((record) => ({
+    id: record.id,
+    role: record.role === "assistant" ? "assistant" : "user",
+    content: record.content,
+    createdAt: formatMessageTime(record.createdAt),
+    sources: parseCitations(record.citations)
+  }));
+}
+
 export const useWorkbenchStore = defineStore("workbench", () => {
   // --- Core state ---
   const knowledgeBases = ref<KnowledgeBaseSummary[]>(mockKnowledgeBases);
   const documents = ref<DocumentRecord[]>(sortByUpdatedAt(mockDocuments));
   const experiments = ref<ExperimentRecord[]>(mockExperiments);
   const messages = ref<ChatMessage[]>(mockMessages);
-  const settings = ref<AppSettings>(mockSettings);
+  const settings = ref<AppSettings>(loadPersistedSettings());
   const selectedStrategy = ref(ragStrategyOptions[0].value);
   const traceId = ref("trace-demo-20260525-181600");
   const pending = ref(false);
@@ -152,6 +229,15 @@ export const useWorkbenchStore = defineStore("workbench", () => {
         createdAt: new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
         sources: result.sources
       });
+
+      if (currentSessionId.value) {
+        try {
+          sessionMessages.value = await fetchChatMessages(currentSessionId.value);
+          messages.value = mapHistoryMessages(sessionMessages.value);
+        } catch {
+          // Keep the optimistic thread visible if session history refresh is unavailable.
+        }
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "提问失败，请稍后重试。";
       lastError.value = message;
@@ -233,6 +319,8 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       const session = await createChatSession({ knowledgeBaseId, title });
       chatSessions.value.unshift(session);
       currentSessionId.value = session.id;
+      sessionMessages.value = [];
+      messages.value = [];
     } catch (error) {
       lastError.value = error instanceof Error ? error.message : "创建会话失败。";
     } finally {
@@ -256,13 +344,19 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     try {
       sessionMessages.value = await fetchChatMessages(sessionId);
       currentSessionId.value = sessionId;
+      messages.value = mapHistoryMessages(sessionMessages.value);
     } catch (error) {
       lastError.value = error instanceof Error ? error.message : "加载消息失败。";
     }
   }
 
   // --- Knowledge bases ---
-  async function createKb(payload: { name: string; description?: string }): Promise<void> {
+  async function createKb(payload: {
+    name: string;
+    description?: string;
+    ownerId?: string;
+    defaultRagStrategy?: string;
+  }): Promise<void> {
     lastError.value = "";
     try {
       const kb = await createKnowledgeBase(payload);
@@ -288,8 +382,26 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     try {
       await deleteKnowledgeBase(id);
       knowledgeBases.value = knowledgeBases.value.filter((k) => k.id !== id);
+      if (settings.value.defaultKnowledgeBaseId === id) {
+        settings.value.defaultKnowledgeBaseId = knowledgeBases.value[0]?.id ?? "";
+      }
     } catch (error) {
       lastError.value = error instanceof Error ? error.message : "删除知识库失败。";
+    }
+  }
+
+  async function loadKbDetail(id: string): Promise<KnowledgeBaseSummary | null> {
+    lastError.value = "";
+    try {
+      const kb = await fetchKnowledgeBaseById(id);
+      const idx = knowledgeBases.value.findIndex((item) => item.id === id);
+      if (idx >= 0) {
+        knowledgeBases.value[idx] = kb;
+      }
+      return kb;
+    } catch (error) {
+      lastError.value = error instanceof Error ? error.message : "加载知识库详情失败。";
+      return null;
     }
   }
 
@@ -417,6 +529,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     createKb,
     updateKb,
     deleteKb,
+    loadKbDetail,
     // documents
     pollDocumentStatus,
     removeDocument,

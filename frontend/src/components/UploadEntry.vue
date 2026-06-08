@@ -41,7 +41,7 @@
             <input
               class="input"
               type="file"
-              accept=".md,.txt,.csv,.html,.json,.log"
+              accept=".md,.txt,.csv,.html,.json,.log,.docx,.pdf"
               @change="handleFileChange"
             />
             <input
@@ -73,21 +73,25 @@
         </label>
 
         <div class="button-row">
-          <button class="button button-primary" type="submit" :disabled="store.uploadPending">
+          <button class="button button-primary" type="submit" :disabled="!canSubmit">
             {{ store.uploadPending ? "提交中..." : "提交上传任务" }}
           </button>
           <button class="button button-secondary" type="button" @click="fillDemo">
             填充示例
           </button>
         </div>
+        <div v-if="validationMessage" class="empty-state">{{ validationMessage }}</div>
       </form>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useWorkbenchStore } from "../stores/workbench";
+
+const ALLOWED_FILE_TYPES = new Set(["md", "txt", "csv", "html", "json", "log", "docx", "pdf"]);
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 const store = useWorkbenchStore();
 const knowledgeBaseId = ref(store.settings.defaultKnowledgeBaseId);
@@ -96,6 +100,19 @@ const fileName = ref("");
 const title = ref("");
 const content = ref("");
 const selectedFile = ref<File | null>(null);
+const validationMessage = ref("");
+
+const canSubmit = computed(() => !store.uploadPending && !validateUpload());
+
+watch(() => store.settings.defaultKnowledgeBaseId, (value) => {
+  if (!knowledgeBaseId.value) {
+    knowledgeBaseId.value = value;
+  }
+});
+
+watch([knowledgeBaseId, documentType, fileName, title, content, selectedFile], () => {
+  validationMessage.value = validateUpload();
+}, { immediate: true });
 
 function fillDemo(): void {
   selectedFile.value = null;
@@ -122,7 +139,47 @@ function inferFileType(name: string): string {
   return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "txt";
 }
 
+function validateUpload(): string {
+  const resolvedFileName = selectedFile.value?.name || fileName.value.trim();
+  const fileType = inferFileType(resolvedFileName);
+
+  if (!knowledgeBaseId.value) {
+    return "Select a target knowledge base before uploading.";
+  }
+
+  if (!documentType.value) {
+    return "Select a document type.";
+  }
+
+  if (!title.value.trim()) {
+    return "Enter a document title.";
+  }
+
+  if (!resolvedFileName) {
+    return "Choose a file or enter a file name for pasted content.";
+  }
+
+  if (!ALLOWED_FILE_TYPES.has(fileType)) {
+    return `Unsupported file type: .${fileType}`;
+  }
+
+  if (selectedFile.value && selectedFile.value.size > MAX_FILE_SIZE_BYTES) {
+    return "File size must be 10 MB or less.";
+  }
+
+  if (!selectedFile.value && !content.value.trim()) {
+    return "Paste content when no file is selected.";
+  }
+
+  return "";
+}
+
 async function handleSubmit(): Promise<void> {
+  validationMessage.value = validateUpload();
+  if (validationMessage.value) {
+    return;
+  }
+
   await store.submitUpload({
     knowledgeBaseId: knowledgeBaseId.value,
     title: title.value.trim(),

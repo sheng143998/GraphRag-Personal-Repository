@@ -53,19 +53,30 @@
 <script setup lang="ts">
 import { reactive, ref, watch } from "vue";
 import { useWorkbenchStore } from "../../stores/workbench";
+import { API_RUNTIME_SETTINGS_KEY } from "../../api";
 
-const STORAGE_KEY = "agent-knowledge-settings";
+const STORAGE_KEY = API_RUNTIME_SETTINGS_KEY;
 
 const store = useWorkbenchStore();
 const saved = ref(false);
 
+const persistedSettings = (() => {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Partial<typeof store.settings>;
+  } catch {
+    return {};
+  }
+})();
+
 const local = reactive({
-  apiBaseUrl: store.settings.apiBaseUrl,
-  aiServiceBaseUrl: store.settings.aiServiceBaseUrl,
-  defaultKnowledgeBaseId: store.settings.defaultKnowledgeBaseId,
-  timeoutMs: store.settings.timeoutMs,
-  includeTraceHeader: store.settings.includeTraceHeader,
+  apiBaseUrl: persistedSettings.apiBaseUrl ?? store.settings.apiBaseUrl,
+  aiServiceBaseUrl: persistedSettings.aiServiceBaseUrl ?? store.settings.aiServiceBaseUrl,
+  defaultKnowledgeBaseId: persistedSettings.defaultKnowledgeBaseId ?? store.settings.defaultKnowledgeBaseId,
+  timeoutMs: persistedSettings.timeoutMs ?? store.settings.timeoutMs,
+  includeTraceHeader: persistedSettings.includeTraceHeader ?? store.settings.includeTraceHeader,
 });
+
+Object.assign(store.settings, local);
 
 // 拉取到新 settings 时同步到本地表单
 watch(() => store.settings, (s) => {
