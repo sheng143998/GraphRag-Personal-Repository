@@ -99,6 +99,7 @@ export interface ChatResponse {
   selectedStrategyName?: string;
   followUpQuestions?: string[];
   studyPlan?: StudyPlan | null;
+  reviewCards?: ReviewCard[];
   workflowSteps?: AgentWorkflowStep[];
 }
 
@@ -106,6 +107,13 @@ export interface StudyPlan {
   summary: string;
   focusAreas: string[];
   steps: string[];
+}
+
+export interface ReviewCard {
+  question: string;
+  expectedAnswer: string;
+  sourceHint: string;
+  difficulty: string;
 }
 
 export interface AgentWorkflowStep {
@@ -223,6 +231,7 @@ export interface AssistantTurnResponse {
   selectedStrategyName: string;
   followUpQuestions: string[];
   studyPlan?: StudyPlan | null;
+  reviewCards: ReviewCard[];
   workflowSteps: AgentWorkflowStep[];
   trace?: { traceId?: string; attributes?: Record<string, unknown> } | null;
 }

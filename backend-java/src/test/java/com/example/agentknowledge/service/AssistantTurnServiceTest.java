@@ -72,6 +72,12 @@ class AssistantTurnServiceTest {
                         List.of("interview", "advanced-rag"),
                         List.of("Review core terms.", "Practice a project story.", "Answer one follow-up.")
                 ),
+                List.of(new AgentInvokeResponse.ReviewCard(
+                        "Give a 60-second answer.",
+                        "State the concept, trade-off, and project proof.",
+                        "source",
+                        "medium"
+                )),
                 List.of(new AgentInvokeResponse.WorkflowStep("select_rag_strategy", "Selected strategy.", Map.of())),
                 new AiTraceMetadata("trace-turn", "agent-run", "agent_invoke", "advanced-rag", "agent", "v1", "stub", "completed", 8.0, Map.of())
         ));
@@ -109,6 +115,8 @@ class AssistantTurnServiceTest {
         assertThat(response.followUpQuestions()).contains("Can you give a 60-second interview answer?");
         assertThat(response.studyPlan()).isNotNull();
         assertThat(response.studyPlan().steps()).contains("Practice a project story.");
+        assertThat(response.reviewCards()).hasSize(1);
+        assertThat(response.reviewCards().get(0).question()).contains("60-second");
         assertThat(response.workflowSteps()).hasSize(1);
     }
 }

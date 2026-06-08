@@ -121,6 +121,7 @@ export async function sendAssistantTurn(sessionId: string, payload: ChatRequest)
     selectedStrategyName: response.selectedStrategyName,
     followUpQuestions: response.followUpQuestions,
     studyPlan: response.studyPlan,
+    reviewCards: response.reviewCards,
     workflowSteps: response.workflowSteps
   };
 }

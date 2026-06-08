@@ -59,6 +59,12 @@ class AgentServiceTest {
                                 List.of("implementation", "advanced-rag"),
                                 List.of("Map components.", "Write an end-to-end test.", "Record one risk.")
                         ),
+                        List.of(new AiAgentInvokeResponse.ReviewCard(
+                                "How would you prove rerank works?",
+                                "Describe an end-to-end test with trace checks.",
+                                "source",
+                                "hard"
+                        )),
                         List.of(new AiAgentInvokeResponse.WorkflowStep(
                                 "select_rag_strategy",
                                 "Selected a strategy.",
@@ -93,6 +99,8 @@ class AgentServiceTest {
         assertThat(response.studyPlan()).isNotNull();
         assertThat(response.studyPlan().steps()).hasSize(3);
         assertThat(response.studyPlan().focusAreas()).contains("implementation", "advanced-rag");
+        assertThat(response.reviewCards()).hasSize(1);
+        assertThat(response.reviewCards().get(0).expectedAnswer()).contains("end-to-end");
         assertThat(response.workflowSteps()).hasSize(1);
         assertThat(response.workflowSteps().get(0).payload()).containsEntry("selected_strategy_name", "advanced-rag");
     }

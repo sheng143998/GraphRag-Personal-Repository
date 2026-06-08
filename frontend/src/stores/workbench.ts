@@ -170,6 +170,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
   const traceId = ref("trace-demo-20260525-181600");
   const followUpQuestions = ref<string[]>([]);
   const studyPlan = ref<ChatResponse["studyPlan"]>(null);
+  const reviewCards = ref<NonNullable<ChatResponse["reviewCards"]>>([]);
   const pending = ref(false);
   const uploadPending = ref(false);
   const lastError = ref("");
@@ -254,6 +255,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       selectedStrategy.value = result.selectedStrategyName || selectedStrategy.value;
       followUpQuestions.value = result.followUpQuestions ?? [];
       studyPlan.value = result.studyPlan ?? null;
+      reviewCards.value = result.reviewCards ?? [];
       if (result.userMessage && result.assistantMessage) {
         messages.value.push(...mapHistoryMessages([result.userMessage, result.assistantMessage]));
       } else {
@@ -279,6 +281,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       lastError.value = message;
       followUpQuestions.value = [];
       studyPlan.value = null;
+      reviewCards.value = [];
       messages.value.push({
         id: `msg-assistant-${Date.now()}`,
         role: "assistant",
@@ -556,6 +559,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     feedbackPending,
     followUpQuestions,
     studyPlan,
+    reviewCards,
     lastFeedback,
     // actions
     askQuestion,

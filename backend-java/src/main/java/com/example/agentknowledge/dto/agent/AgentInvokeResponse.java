@@ -13,6 +13,7 @@ public record AgentInvokeResponse(
         String selectedStrategyName,
         List<String> followUpQuestions,
         StudyPlan studyPlan,
+        List<ReviewCard> reviewCards,
         List<WorkflowStep> workflowSteps,
         AiTraceMetadata trace
 ) {
@@ -20,6 +21,14 @@ public record AgentInvokeResponse(
             String summary,
             List<String> focusAreas,
             List<String> steps
+    ) {
+    }
+
+    public record ReviewCard(
+            String question,
+            String expectedAnswer,
+            String sourceHint,
+            String difficulty
     ) {
     }
 

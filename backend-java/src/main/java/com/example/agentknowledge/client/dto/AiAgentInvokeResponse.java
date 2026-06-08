@@ -12,6 +12,7 @@ public record AiAgentInvokeResponse(
         @JsonProperty("selected_strategy_name") String selectedStrategyName,
         @JsonProperty("follow_up_questions") List<String> followUpQuestions,
         @JsonProperty("study_plan") StudyPlan studyPlan,
+        @JsonProperty("review_cards") List<ReviewCard> reviewCards,
         @JsonProperty("workflow_steps") List<WorkflowStep> workflowSteps,
         AiTraceMetadata trace
 ) {
@@ -19,6 +20,14 @@ public record AiAgentInvokeResponse(
             String summary,
             @JsonProperty("focus_areas") List<String> focusAreas,
             List<String> steps
+    ) {
+    }
+
+    public record ReviewCard(
+            String question,
+            @JsonProperty("expected_answer") String expectedAnswer,
+            @JsonProperty("source_hint") String sourceHint,
+            String difficulty
     ) {
     }
 

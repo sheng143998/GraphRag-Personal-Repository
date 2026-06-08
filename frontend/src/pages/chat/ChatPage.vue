@@ -157,6 +157,21 @@
           </div>
         </div>
       </section>
+      <section v-if="store.reviewCards.length" class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Review Cards</h2>
+          <p class="panel-subtitle">Active-recall prompts from the latest answer.</p>
+        </div>
+        <div class="panel-body stack">
+          <article v-for="card in store.reviewCards" :key="card.question" class="item-card">
+            <h3 class="item-title">{{ card.question }}</h3>
+            <p class="item-description">{{ card.expectedAnswer }}</p>
+            <div class="item-meta">
+              {{ card.difficulty }}<span v-if="card.sourceHint"> · {{ card.sourceHint }}</span>
+            </div>
+          </article>
+        </div>
+      </section>
       <StrategySelector />
       <SourceList :sources="store.latestSources" />
     </div>

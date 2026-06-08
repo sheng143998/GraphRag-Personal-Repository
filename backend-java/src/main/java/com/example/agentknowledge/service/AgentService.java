@@ -45,6 +45,7 @@ public class AgentService {
                 aiResponse.selectedStrategyName(),
                 aiResponse.followUpQuestions() != null ? aiResponse.followUpQuestions() : List.of(),
                 mapStudyPlan(aiResponse.studyPlan()),
+                mapReviewCards(aiResponse.reviewCards()),
                 mapWorkflowSteps(aiResponse.workflowSteps()),
                 aiResponse.trace()
         );
@@ -59,6 +60,22 @@ public class AgentService {
                 studyPlan.focusAreas() != null ? studyPlan.focusAreas() : List.of(),
                 studyPlan.steps() != null ? studyPlan.steps() : List.of()
         );
+    }
+
+    private static List<AgentInvokeResponse.ReviewCard> mapReviewCards(
+            List<AiAgentInvokeResponse.ReviewCard> reviewCards
+    ) {
+        if (reviewCards == null) {
+            return List.of();
+        }
+        return reviewCards.stream()
+                .map(card -> new AgentInvokeResponse.ReviewCard(
+                        card.question(),
+                        card.expectedAnswer(),
+                        card.sourceHint() != null ? card.sourceHint() : "",
+                        card.difficulty() != null ? card.difficulty() : "medium"
+                ))
+                .toList();
     }
 
     private static List<AgentInvokeResponse.WorkflowStep> mapWorkflowSteps(
