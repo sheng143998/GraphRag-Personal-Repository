@@ -485,6 +485,11 @@ Spring Boot reads the persisted `rag_runs` row and ordered `rag_retrieval_result
 - Each history row contains `id`, `experimentId`, `runId`, `groundedScore`, `retrievalScore`, `expectedAnswer`, `generatedAnswer`, `notes`, and `createdAt`.
 - Spring Boot stores these rows in `rag_experiment_evaluations`; FastAPI remains responsible for evaluator scoring through `/ai/rag/evaluate`.
 
+2026-06-08 comparison dashboard extension:
+
+- Evaluation history rows also include read-only run context fields: `runQuestion`, `runStrategyName`, `runRetrieverType`, `runModelName`, `runLatencyMs`, and `runCreatedAt`.
+- These fields are copied from the evaluated `rag_runs` row so the frontend can compare recent evaluations without calling run detail for every history row.
+
 ### 6.7 List Recent RAG Runs
 
 `GET /api/rag/runs?limit=20`

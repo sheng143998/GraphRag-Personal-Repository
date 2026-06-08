@@ -421,6 +421,28 @@ Current remaining large project areas:
 
 ---
 
+## 2026-06-08 RAG Evaluation Comparison Dashboard Update
+
+Completed in this iteration:
+
+- Extended evaluation history responses with read-only RAG run context: question, strategy, retriever, model, latency, and run creation time.
+- Added a frontend recent-history dashboard for total evaluations, average grounded/retrieval scores, best latest experiment, per-experiment averages, and latest score deltas.
+- Upgraded experiment history rows to show question snapshots and run context instead of only short run ids.
+- Full-chain smoke now evaluates one experiment from both Advanced RAG and Basic RAG runs and verifies comparison history.
+
+Validated so far:
+
+- `mvn test` passed with 14 tests.
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 108/108 smoke checks.
+
+Current remaining large project areas:
+
+- Add a dedicated RAG evaluation comparison page or backend aggregation endpoint if recent-history-only dashboard is no longer enough.
+
+---
+
 ## 2026-06-08 Weak Point Practice Flow Update
 
 Completed in this iteration:

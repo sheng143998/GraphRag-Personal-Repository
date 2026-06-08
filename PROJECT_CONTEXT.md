@@ -1442,3 +1442,12 @@ README 更新规则：
 - Frontend experiments page displays recent evaluation history while browser calls remain under Spring Boot `/api/*`.
 - `smoke_test.py` now asserts Advanced RAG evaluation history response fields; local full-chain smoke passed with 104/104 checks.
 - Key documents: `docs/plans/2026-06-08-rag-evaluation-history.md`, `docs/reviews/2026-06-08-rag-evaluation-history-review-prompt.md`, `docs/testing/strategy.md`, `docs/architecture/api-design.md`, `docs/architecture/database-design.md`, and `docs/handoff/CURRENT_STATE.md`.
+
+---
+
+## 2026-06-08 RAG Evaluation Comparison Dashboard Update
+
+- Evaluation history responses now include RAG run question, strategy, retriever, model, latency, and run creation time for comparison display.
+- Frontend experiments page now shows recent-history dashboard metrics, per-experiment averages, latest deltas, question snapshots, and run context.
+- `smoke_test.py` now evaluates one experiment from Advanced RAG and Basic RAG runs to verify comparison history; local full-chain smoke passed with 108/108 checks.
+- Key documents: `docs/plans/2026-06-08-rag-evaluation-comparison-dashboard.md`, `docs/reviews/2026-06-08-rag-evaluation-comparison-dashboard-review-prompt.md`, `docs/testing/strategy.md`, `docs/architecture/api-design.md`, and `docs/handoff/CURRENT_STATE.md`.

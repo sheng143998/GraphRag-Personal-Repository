@@ -271,6 +271,21 @@ if CREATED_KB_ID:
                     FAIL += 1
                     ERRORS.append("Experiment evaluation history expected evaluated run")
                     print("  FAIL  Experiment evaluation history expected evaluated run")
+                latest_history = history[0] if isinstance(history, list) and history and isinstance(history[0], dict) else None
+                if latest_history and latest_history.get("runQuestion") and latest_history.get("runStrategyName"):
+                    PASS += 1
+                    print("  PASS  Experiment history includes run question and strategy")
+                else:
+                    FAIL += 1
+                    ERRORS.append("Experiment history expected runQuestion and runStrategyName")
+                    print("  FAIL  Experiment history expected runQuestion and runStrategyName")
+                if latest_history and latest_history.get("runLatencyMs") is not None:
+                    PASS += 1
+                    print(f"  PASS  Experiment history includes run latency = {latest_history.get('runLatencyMs')}ms")
+                else:
+                    FAIL += 1
+                    ERRORS.append("Experiment history expected runLatencyMs")
+                    print("  FAIL  Experiment history expected runLatencyMs")
                 if isinstance(experiment_history, list) and experiment_history:
                     PASS += 1
                     print(f"  PASS  Experiment response evaluations present = {len(experiment_history)}")
@@ -278,6 +293,20 @@ if CREATED_KB_ID:
                     FAIL += 1
                     ERRORS.append("Experiment response expected evaluations history")
                     print("  FAIL  Experiment response expected evaluations history")
+                if CREATED_RUN_ID:
+                    r, body = check("Evaluate experiment from Basic RAG run", "POST",
+                                    f"{BASE}/rag/experiments/{CREATED_EXP_ID}/evaluate",
+                                    json={"runId": CREATED_RUN_ID,
+                                          "expectedAnswer": "Basic RAG should answer from the smoke document."})
+                    if r is not None and r.status_code == 200:
+                        second_history = body.get("data", {}).get("history") if isinstance(body, dict) else None
+                        if isinstance(second_history, list) and len(second_history) >= 2:
+                            PASS += 1
+                            print(f"  PASS  Experiment evaluation comparison history present = {len(second_history)}")
+                        else:
+                            FAIL += 1
+                            ERRORS.append("Experiment evaluation comparison expected at least two history rows")
+                            print("  FAIL  Experiment evaluation comparison expected at least two history rows")
 else:
     print("  SKIP  No KB, skipping advanced RAG trace test")
 

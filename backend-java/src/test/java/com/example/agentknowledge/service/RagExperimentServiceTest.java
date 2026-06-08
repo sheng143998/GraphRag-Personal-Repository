@@ -66,6 +66,10 @@ class RagExperimentServiceTest {
         run.setQuestion("How does advanced RAG prove rerank works?");
         run.setAnswer("Use run traces and retrieval metrics.");
         run.setStrategyName("advanced-rag");
+        run.setRetrieverType("hybrid");
+        run.setModelName("stub-llm");
+        run.setLatencyMs(42L);
+        run.setCreatedAt(Instant.parse("2026-06-08T16:44:00Z"));
         RagRetrievalResult retrievalResult = new RagRetrievalResult();
         retrievalResult.setRun(run);
         retrievalResult.setRank(1);
@@ -113,6 +117,12 @@ class RagExperimentServiceTest {
         assertThat(response.experiment().recallScore()).isEqualTo(0.82);
         assertThat(response.experiment().notes()).contains("Evaluation run " + runId);
         assertThat(response.evaluation().runId()).isEqualTo(runId);
+        assertThat(response.evaluation().runQuestion()).isEqualTo(run.getQuestion());
+        assertThat(response.evaluation().runStrategyName()).isEqualTo("advanced-rag");
+        assertThat(response.evaluation().runRetrieverType()).isEqualTo("hybrid");
+        assertThat(response.evaluation().runModelName()).isEqualTo("stub-llm");
+        assertThat(response.evaluation().runLatencyMs()).isEqualTo(42L);
+        assertThat(response.evaluation().runCreatedAt()).isEqualTo(run.getCreatedAt());
         assertThat(response.evaluation().expectedAnswer()).isEqualTo("Expected answer");
         assertThat(response.evaluation().generatedAnswer()).isEqualTo(run.getAnswer());
         assertThat(response.history()).hasSize(1);
