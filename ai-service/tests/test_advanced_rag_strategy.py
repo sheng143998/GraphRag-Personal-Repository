@@ -10,7 +10,7 @@ os.environ["RERANK_PROVIDER"] = "stub"
 from app.core.constants import DocumentType, FileType
 from app.db.repositories import repository
 from app.schemas.common import SourceMetadata
-from app.schemas.ingest import DocumentIngestRequest, DocumentPayload
+from app.schemas.ingest import ChunkRecord, DocumentIngestRequest, DocumentPayload
 from app.schemas.rag import RagEvaluateRequest, RagEvaluationCase, RagQueryRequest, RagRequestContext
 from app.services.ingest_service import IngestService
 from app.services.rag_service import RagService
@@ -37,6 +37,113 @@ def test_advanced_rag_applies_rewrite_filters_fusion_parent_context_and_rerank()
     assert len(top_source.metadata["context_source_chunk_ids"]) >= 2
     assert top_source.metadata["matched_queries"]
     assert "Advanced RAG" in top_source.metadata["content_preview"]
+
+
+def test_parent_child_context_uses_real_parent_chunk_when_available() -> None:
+    _clear_in_memory_repository()
+    repository.save_chunks(
+        "doc-parent",
+        "kb-parent-child",
+        [
+            ChunkRecord(
+                chunk_id="parent-architecture",
+                document_id="doc-parent",
+                knowledge_base_id="kb-parent-child",
+                title="Parent Architecture",
+                chunk_index=0,
+                content="Parent overview explains the complete Advanced RAG architecture.",
+                metadata={},
+            ),
+            ChunkRecord(
+                chunk_id="child-rewrite",
+                document_id="doc-parent",
+                knowledge_base_id="kb-parent-child",
+                parent_chunk_id="parent-architecture",
+                title="Child Rewrite",
+                chunk_index=1,
+                content="Query rewrite expands the user question before retrieval.",
+                metadata={},
+            ),
+            ChunkRecord(
+                chunk_id="child-rerank",
+                document_id="doc-parent",
+                knowledge_base_id="kb-parent-child",
+                parent_chunk_id="parent-architecture",
+                title="Child Rerank",
+                chunk_index=2,
+                content="Rerank scoring promotes the strongest citation evidence.",
+                metadata={},
+            ),
+        ],
+    )
+
+    hydrated = repository.hydrate_parent_context([
+        SourceMetadata(
+            document_id="doc-parent",
+            chunk_id="child-rerank",
+            title="Child Rerank",
+            score=0.9,
+            metadata={"content_preview": "Rerank scoring promotes evidence."},
+        )
+    ])
+
+    source = hydrated[0]
+    assert source.metadata["parent_child_mode"] == "parent-child"
+    assert source.metadata["parent_chunk_id"] == "parent-architecture"
+    assert source.metadata["context_source_chunk_ids"] == [
+        "parent-architecture",
+        "child-rewrite",
+        "child-rerank",
+    ]
+    assert "Parent overview" in source.metadata["content_preview"]
+    assert "Query rewrite" in source.metadata["content_preview"]
+    assert "Rerank scoring" in source.metadata["content_preview"]
+
+
+def test_parent_child_context_falls_back_when_parent_chunk_is_missing() -> None:
+    _clear_in_memory_repository()
+    repository.save_chunks(
+        "doc-missing-parent",
+        "kb-parent-child",
+        [
+            ChunkRecord(
+                chunk_id="child-a",
+                document_id="doc-missing-parent",
+                knowledge_base_id="kb-parent-child",
+                parent_chunk_id="missing-parent",
+                title="Child A",
+                chunk_index=1,
+                content="First child references a parent that is not stored.",
+                metadata={},
+            ),
+            ChunkRecord(
+                chunk_id="child-b",
+                document_id="doc-missing-parent",
+                knowledge_base_id="kb-parent-child",
+                parent_chunk_id="missing-parent",
+                title="Child B",
+                chunk_index=2,
+                content="Second child should still appear through neighbor fallback.",
+                metadata={},
+            ),
+        ],
+    )
+
+    hydrated = repository.hydrate_parent_context([
+        SourceMetadata(
+            document_id="doc-missing-parent",
+            chunk_id="child-a",
+            title="Child A",
+            score=0.9,
+            metadata={"content_preview": "First child references a parent."},
+        )
+    ])
+
+    source = hydrated[0]
+    assert source.metadata["parent_child_mode"] == "neighbor-window"
+    assert source.metadata["context_source_chunk_ids"] == ["child-a", "child-b"]
+    assert "First child" in source.metadata["content_preview"]
+    assert "Second child" in source.metadata["content_preview"]
 
 
 def test_rag_evaluation_scores_grounded_citations() -> None:

@@ -1556,3 +1556,13 @@ README 更新规则：
 - No backend or FastAPI contracts changed.
 - Local validation passed: `npm.cmd run typecheck`, `npm.cmd run build`, and full-chain smoke 131/131.
 - Key documents: `docs/plans/2026-06-08-weak-point-review-queue-controls.md`, `docs/reviews/2026-06-08-weak-point-review-queue-controls-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
+
+---
+
+## 2026-06-08 Parent-Child Real Parent Context Update
+
+- Advanced RAG parent-child hydration now uses real `parent_chunk_id` relationships when chunk data provides them.
+- AI repository save/read paths preserve `parent_chunk_id`; flat SimpleChunker output still uses neighbor-window fallback.
+- AI pytest validates both real parent-child context and the existing fallback path.
+- Local full-chain smoke remained green with 131/131 checks.
+- Key documents: `docs/plans/2026-06-08-parent-child-real-parent-context.md`, `docs/reviews/2026-06-08-parent-child-real-parent-context-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.

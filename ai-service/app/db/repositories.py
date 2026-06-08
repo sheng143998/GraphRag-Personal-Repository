@@ -137,17 +137,7 @@ class InMemoryDocumentRepository(BaseDocumentRepository):
                 if matched_chunk is None:
                     hydrated.append(_mark_parent_child_unsupported(source))
                     continue
-                neighbors = [
-                    chunk
-                    for chunk in chunks
-                    if matched_chunk.chunk_index - 1 <= chunk.chunk_index <= matched_chunk.chunk_index + 1
-                ]
-                neighbors.sort(key=lambda chunk: chunk.chunk_index)
-                metadata = {**source.metadata}
-                metadata["parent_child_mode"] = "neighbor-window"
-                metadata["context_source_chunk_ids"] = [chunk.chunk_id for chunk in neighbors]
-                metadata["content_preview"] = "\n\n".join(chunk.content for chunk in neighbors)[:1200]
-                hydrated.append(source.copy(update={"metadata": metadata}))
+                hydrated.append(_hydrate_in_memory_parent_context(source, matched_chunk, chunks))
             except Exception as exc:  # pragma: no cover - defensive fallback
                 hydrated.append(_mark_parent_child_error(source, exc))
         return hydrated
@@ -272,9 +262,9 @@ class PostgresDocumentRepository(BaseDocumentRepository):
                         """
                         INSERT INTO document_chunks (
                             id, document_id, knowledge_base_id, title, content, chunk_index,
-                            chunk_strategy, page_number, sheet_name, row_range, metadata
+                            parent_chunk_id, chunk_strategy, page_number, sheet_name, row_range, metadata
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
                         """,
                         (
                             chunk.chunk_id,
@@ -283,6 +273,7 @@ class PostgresDocumentRepository(BaseDocumentRepository):
                             chunk.title,
                             chunk.content,
                             chunk.chunk_index,
+                            chunk.parent_chunk_id,
                             chunk.metadata.get("chunk_strategy"),
                             chunk.metadata.get("page_number"),
                             chunk.metadata.get("sheet_name"),
@@ -323,7 +314,7 @@ class PostgresDocumentRepository(BaseDocumentRepository):
             with _cursor(connection) as cursor:
                 cursor.execute(
                     """
-                    SELECT id, document_id, knowledge_base_id, title, chunk_index, content, metadata
+                    SELECT id, document_id, knowledge_base_id, parent_chunk_id, title, chunk_index, content, metadata
                     FROM document_chunks
                     WHERE document_id = %s
                     ORDER BY chunk_index ASC
@@ -338,7 +329,7 @@ class PostgresDocumentRepository(BaseDocumentRepository):
                 if knowledge_base_id:
                     cursor.execute(
                         """
-                        SELECT id, document_id, knowledge_base_id, title, chunk_index, content, metadata
+                        SELECT id, document_id, knowledge_base_id, parent_chunk_id, title, chunk_index, content, metadata
                         FROM document_chunks
                         WHERE knowledge_base_id = %s
                         ORDER BY created_at DESC
@@ -348,7 +339,7 @@ class PostgresDocumentRepository(BaseDocumentRepository):
                 else:
                     cursor.execute(
                         """
-                        SELECT id, document_id, knowledge_base_id, title, chunk_index, content, metadata
+                        SELECT id, document_id, knowledge_base_id, parent_chunk_id, title, chunk_index, content, metadata
                         FROM document_chunks
                         ORDER BY created_at DESC
                         """
@@ -429,7 +420,7 @@ class PostgresDocumentRepository(BaseDocumentRepository):
     def _hydrate_source_parent_context(self, cursor: Any, source: SourceMetadata) -> SourceMetadata:
         cursor.execute(
             """
-            SELECT document_id, chunk_index
+            SELECT document_id, parent_chunk_id, chunk_index
             FROM document_chunks
             WHERE id = %s
             """,
@@ -440,6 +431,28 @@ class PostgresDocumentRepository(BaseDocumentRepository):
             return _mark_parent_child_unsupported(source)
 
         hit = rows[0]
+        if hit.get("parent_chunk_id"):
+            cursor.execute(
+                """
+                SELECT id, content
+                FROM document_chunks
+                WHERE document_id = %s
+                  AND (id = %s OR parent_chunk_id = %s)
+                ORDER BY
+                    CASE WHEN id = %s THEN 0 ELSE 1 END,
+                    chunk_index ASC
+                """,
+                (hit["document_id"], hit["parent_chunk_id"], hit["parent_chunk_id"], hit["parent_chunk_id"]),
+            )
+            parent_children = _fetch_dicts(cursor)
+            if any(str(row["id"]) == str(hit["parent_chunk_id"]) for row in parent_children):
+                metadata = {**source.metadata}
+                metadata["parent_child_mode"] = "parent-child"
+                metadata["parent_chunk_id"] = str(hit["parent_chunk_id"])
+                metadata["context_source_chunk_ids"] = [str(row["id"]) for row in parent_children]
+                metadata["content_preview"] = "\n\n".join(str(row.get("content") or "") for row in parent_children)[:1200]
+                return source.copy(update={"metadata": metadata})
+
         cursor.execute(
             """
             SELECT id, content
@@ -645,6 +658,7 @@ def _row_to_chunk(row: dict[str, Any]) -> ChunkRecord:
         chunk_id=str(row["id"]),
         document_id=str(row["document_id"]),
         knowledge_base_id=str(row["knowledge_base_id"]),
+        parent_chunk_id=str(row["parent_chunk_id"]) if row.get("parent_chunk_id") else None,
         title=row.get("title"),
         chunk_index=row["chunk_index"],
         content=row["content"],
@@ -697,6 +711,40 @@ def _mark_parent_child_error(source: SourceMetadata, exc: Exception) -> SourceMe
     metadata = {**source.metadata}
     metadata["parent_child_mode"] = metadata.get("parent_child_mode") or "fallback-error"
     metadata["fallback_error"] = str(exc)
+    return source.copy(update={"metadata": metadata})
+
+
+def _hydrate_in_memory_parent_context(
+    source: SourceMetadata,
+    matched_chunk: ChunkRecord,
+    chunks: list[ChunkRecord],
+) -> SourceMetadata:
+    if matched_chunk.parent_chunk_id:
+        parent_children = [
+            chunk
+            for chunk in chunks
+            if chunk.document_id == matched_chunk.document_id
+            and (chunk.chunk_id == matched_chunk.parent_chunk_id or chunk.parent_chunk_id == matched_chunk.parent_chunk_id)
+        ]
+        parent_children.sort(key=lambda chunk: (0 if chunk.chunk_id == matched_chunk.parent_chunk_id else 1, chunk.chunk_index))
+        if any(chunk.chunk_id == matched_chunk.parent_chunk_id for chunk in parent_children):
+            metadata = {**source.metadata}
+            metadata["parent_child_mode"] = "parent-child"
+            metadata["parent_chunk_id"] = matched_chunk.parent_chunk_id
+            metadata["context_source_chunk_ids"] = [chunk.chunk_id for chunk in parent_children]
+            metadata["content_preview"] = "\n\n".join(chunk.content for chunk in parent_children)[:1200]
+            return source.copy(update={"metadata": metadata})
+
+    neighbors = [
+        chunk
+        for chunk in chunks
+        if matched_chunk.chunk_index - 1 <= chunk.chunk_index <= matched_chunk.chunk_index + 1
+    ]
+    neighbors.sort(key=lambda chunk: chunk.chunk_index)
+    metadata = {**source.metadata}
+    metadata["parent_child_mode"] = "neighbor-window"
+    metadata["context_source_chunk_ids"] = [chunk.chunk_id for chunk in neighbors]
+    metadata["content_preview"] = "\n\n".join(chunk.content for chunk in neighbors)[:1200]
     return source.copy(update={"metadata": metadata})
 
 

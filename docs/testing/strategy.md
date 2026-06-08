@@ -216,3 +216,10 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - The chat workbench computes due items from `nextReviewAt` and uses the existing weak point practice store action.
 - Frontend build verifies the updated chat workbench bundles cleanly.
 - No backend or FastAPI API contract changed; full-chain smoke remains green with 131/131 checks on the existing weak point schedule and practice endpoints.
+
+## 2026-06-08 Parent-Child Real Parent Context Validation
+
+- AI pytest covers the real parent-child context path using `parent_chunk_id`, asserting parent and sibling child chunks are hydrated before rerank.
+- Existing Advanced RAG pytest still covers the neighbor-window fallback path for flat chunks, plus missing-parent fallback.
+- AI full test suite passed with 18/18 tests.
+- Full-chain local smoke remained green with 131/131 checks.

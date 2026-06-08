@@ -37,6 +37,7 @@ class ChunkRecord(BaseModel):
     chunk_id: str
     document_id: str
     knowledge_base_id: str | None = None
+    parent_chunk_id: str | None = None
     title: str | None = None
     chunk_index: int
     content: str

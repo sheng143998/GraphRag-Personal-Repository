@@ -698,3 +698,26 @@ Current remaining large project areas:
 
 - Continue Advanced RAG quality iteration with stronger parent-child chunk modeling and richer GraphRAG metrics.
 - Add more learning workflow ergonomics, such as persisted queue preferences or dedicated review sessions.
+
+---
+
+## 2026-06-08 Parent-Child Real Parent Context Update
+
+Completed in this iteration:
+
+- Added optional `parent_chunk_id` to AI `ChunkRecord`.
+- AI repository save/read paths now preserve `parent_chunk_id` for PostgreSQL-backed chunks.
+- Parent-child hydration now prefers real parent + same-parent child context when available.
+- Neighbor-window fallback remains in place for existing flat SimpleChunker output.
+- Added AI regression tests that prove real parent-child context hydration and missing-parent fallback separately from the flat-chunk neighbor path.
+
+Validated:
+
+- `.\.venv\bin\python.exe -m pytest tests/test_advanced_rag_strategy.py tests/test_strategy_comparison_evaluator.py -q` passed with 11 tests.
+- `.\.venv\bin\python.exe -m pytest tests -q` passed with 18 tests.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 131/131 smoke checks.
+
+Current remaining large project areas:
+
+- Add a dedicated parent chunking strategy that emits parent chunks and child chunks during ingest.
+- Continue GraphRAG metric refinement and Advanced RAG evaluation depth.
