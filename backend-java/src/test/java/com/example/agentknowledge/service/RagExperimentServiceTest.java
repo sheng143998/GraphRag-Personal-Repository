@@ -1,6 +1,7 @@
 package com.example.agentknowledge.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -117,6 +118,7 @@ class RagExperimentServiceTest {
         assertThat(response.experiment().recallScore()).isEqualTo(0.82);
         assertThat(response.experiment().notes()).contains("Evaluation run " + runId);
         assertThat(response.evaluation().runId()).isEqualTo(runId);
+        assertThat(response.evaluation().experimentName()).isEqualTo("Advanced RAG eval");
         assertThat(response.evaluation().runQuestion()).isEqualTo(run.getQuestion());
         assertThat(response.evaluation().runStrategyName()).isEqualTo("advanced-rag");
         assertThat(response.evaluation().runRetrieverType()).isEqualTo("hybrid");
@@ -142,5 +144,73 @@ class RagExperimentServiceTest {
         assertThat(historyRecord.getValue().getGroundedScore()).isEqualTo(0.91);
         assertThat(historyRecord.getValue().getRetrievalScore()).isEqualTo(0.82);
         assertThat(historyRecord.getValue().getNotes()).contains("Grounded answer");
+    }
+
+    @Test
+    void summarizeEvaluationsReturnsRecentAggregateAndBestExperiment() {
+        RagExperiment advancedExperiment = experiment("Advanced RAG eval");
+        RagExperiment basicExperiment = experiment("Basic RAG eval");
+        RagExperimentEvaluation advancedEvaluation = evaluation(
+                advancedExperiment,
+                run("How does advanced RAG rerank?", "advanced-rag", 80L),
+                0.92,
+                0.82
+        );
+        RagExperimentEvaluation basicEvaluation = evaluation(
+                basicExperiment,
+                run("What is machine learning?", "basic-rag", 40L),
+                0.72,
+                0.62
+        );
+        when(evaluationRepository.findAllByOrderByCreatedAtDesc(any(PageRequest.class)))
+                .thenReturn(List.of(advancedEvaluation, basicEvaluation));
+
+        var summary = service.summarizeEvaluations(20);
+
+        assertThat(summary.evaluationCount()).isEqualTo(2);
+        assertThat(summary.averageGrounded()).isCloseTo(0.82, within(0.0001));
+        assertThat(summary.averageRetrieval()).isCloseTo(0.72, within(0.0001));
+        assertThat(summary.bestExperimentId()).isEqualTo(advancedExperiment.getId());
+        assertThat(summary.bestExperimentName()).isEqualTo("Advanced RAG eval");
+        assertThat(summary.recentEvaluations()).hasSize(2);
+        assertThat(summary.recentEvaluations().get(0).runQuestion()).isEqualTo("How does advanced RAG rerank?");
+        assertThat(summary.recentEvaluations().get(0).runStrategyName()).isEqualTo("advanced-rag");
+    }
+
+    private RagExperiment experiment(String name) {
+        RagExperiment experiment = new RagExperiment();
+        experiment.setId(UUID.randomUUID());
+        experiment.setName(name);
+        return experiment;
+    }
+
+    private RagRun run(String question, String strategyName, Long latencyMs) {
+        RagRun run = new RagRun();
+        run.setId(UUID.randomUUID());
+        run.setQuestion(question);
+        run.setAnswer("Generated answer");
+        run.setStrategyName(strategyName);
+        run.setRetrieverType("hybrid");
+        run.setModelName("stub-llm");
+        run.setLatencyMs(latencyMs);
+        run.setCreatedAt(Instant.parse("2026-06-08T16:50:00Z"));
+        return run;
+    }
+
+    private RagExperimentEvaluation evaluation(
+            RagExperiment experiment,
+            RagRun run,
+            Double groundedScore,
+            Double retrievalScore
+    ) {
+        RagExperimentEvaluation evaluation = new RagExperimentEvaluation();
+        evaluation.setId(UUID.randomUUID());
+        evaluation.setExperiment(experiment);
+        evaluation.setRun(run);
+        evaluation.setGroundedScore(groundedScore);
+        evaluation.setRetrievalScore(retrievalScore);
+        evaluation.setGeneratedAnswer(run.getAnswer());
+        evaluation.setCreatedAt(Instant.parse("2026-06-08T16:55:00Z"));
+        return evaluation;
     }
 }

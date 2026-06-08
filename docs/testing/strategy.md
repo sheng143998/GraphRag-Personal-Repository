@@ -148,3 +148,10 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Frontend typecheck/build covers the recent-history dashboard, per-experiment averages, latest delta labels, and question snapshot history rows.
 - `smoke_test.py` now evaluates one experiment from both Advanced RAG and Basic RAG runs, then verifies at least two history rows for comparison.
 - Local full-chain smoke passed with 108/108 checks.
+
+## 2026-06-08 RAG Evaluation Summary Endpoint Validation
+
+- Backend Maven tests verify `RagExperimentService.summarizeEvaluations()` returns recent count, averages, best experiment, and recent evaluation rows.
+- Frontend typecheck/build covers `fetchExperimentEvaluationSummary()`, Pinia summary state, hydrate loading, and dashboard usage.
+- `smoke_test.py` verifies `GET /api/rag/experiment-evaluations/summary?limit=10` after two experiment evaluations.
+- Local full-chain smoke passed with 115/115 checks.

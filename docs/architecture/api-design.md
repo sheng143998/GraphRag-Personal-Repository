@@ -490,7 +490,42 @@ Spring Boot reads the persisted `rag_runs` row and ordered `rag_retrieval_result
 - Evaluation history rows also include read-only run context fields: `runQuestion`, `runStrategyName`, `runRetrieverType`, `runModelName`, `runLatencyMs`, and `runCreatedAt`.
 - These fields are copied from the evaluated `rag_runs` row so the frontend can compare recent evaluations without calling run detail for every history row.
 
-### 6.7 List Recent RAG Runs
+### 6.8 Experiment Evaluation Summary
+
+`GET /api/rag/experiment-evaluations/summary?limit=20`
+
+Response `data`:
+
+```json
+{
+  "evaluationCount": 2,
+  "averageGrounded": 1.0,
+  "averageRetrieval": 0.2,
+  "bestExperimentId": "uuid",
+  "bestExperimentName": "Advanced RAG comparison",
+  "recentEvaluations": [
+    {
+      "id": "uuid",
+      "experimentId": "uuid",
+      "experimentName": "Advanced RAG comparison",
+      "runId": "uuid",
+      "runQuestion": "How does Advanced RAG rerank?",
+      "runStrategyName": "advanced-rag",
+      "runRetrieverType": "hybrid",
+      "runModelName": "stub-llm",
+      "runLatencyMs": 264,
+      "runCreatedAt": "2026-06-08T00:00:00Z",
+      "groundedScore": 1.0,
+      "retrievalScore": 0.2,
+      "createdAt": "2026-06-08T00:00:00Z"
+    }
+  ]
+}
+```
+
+The summary is a Spring Boot read-only aggregation over persisted `rag_experiment_evaluations` rows. It does not call or reimplement the FastAPI evaluator.
+
+### 6.9 List Recent RAG Runs
 
 `GET /api/rag/runs?limit=20`
 

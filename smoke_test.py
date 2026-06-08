@@ -307,6 +307,33 @@ if CREATED_KB_ID:
                             FAIL += 1
                             ERRORS.append("Experiment evaluation comparison expected at least two history rows")
                             print("  FAIL  Experiment evaluation comparison expected at least two history rows")
+                        r, body = check("Experiment evaluation summary", "GET",
+                                        f"{BASE}/rag/experiment-evaluations/summary?limit=10")
+                        if r is not None and r.status_code == 200:
+                            check_field("Experiment summary count", body, "data.evaluationCount")
+                            check_field("Experiment summary average grounded", body, "data.averageGrounded")
+                            check_field("Experiment summary average retrieval", body, "data.averageRetrieval")
+                            summary_recent = body.get("data", {}).get("recentEvaluations") if isinstance(body, dict) else None
+                            if isinstance(summary_recent, list) and len(summary_recent) >= 2:
+                                PASS += 1
+                                print(f"  PASS  Experiment summary recent evaluations present = {len(summary_recent)}")
+                            else:
+                                FAIL += 1
+                                ERRORS.append("Experiment summary expected at least two recent evaluations")
+                                print("  FAIL  Experiment summary expected at least two recent evaluations")
+                            first_summary = (
+                                summary_recent[0]
+                                if isinstance(summary_recent, list) and summary_recent and isinstance(summary_recent[0], dict)
+                                else None
+                            )
+                            if first_summary and first_summary.get("experimentName") and first_summary.get("runQuestion"):
+                                PASS += 1
+                                print("  PASS  Experiment summary includes experiment and run context")
+                            else:
+                                FAIL += 1
+                                ERRORS.append("Experiment summary expected experimentName and runQuestion")
+                                print("  FAIL  Experiment summary expected experimentName and runQuestion")
+                            check_field("Experiment summary best experiment", body, "data.bestExperimentName")
 else:
     print("  SKIP  No KB, skipping advanced RAG trace test")
 

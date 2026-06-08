@@ -443,6 +443,29 @@ Current remaining large project areas:
 
 ---
 
+## 2026-06-08 RAG Evaluation Summary Endpoint Update
+
+Completed in this iteration:
+
+- Added Spring Boot `GET /api/rag/experiment-evaluations/summary?limit={n}`.
+- The endpoint returns recent evaluation count, average grounded/retrieval scores, best experiment, and recent evaluation rows with experiment/run context.
+- Frontend workbench store now loads the summary during hydrate and refreshes it after experiment evaluation.
+- Experiments dashboard now uses the backend summary when available, while retaining local/mock history fallback.
+- Full-chain smoke verifies the summary endpoint after Advanced RAG and Basic RAG evaluations of the same experiment.
+
+Validated so far:
+
+- `mvn test` passed with 15 tests.
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 115/115 smoke checks.
+
+Current remaining large project areas:
+
+- Add a dedicated comparison page if users need filtering, ranking, or charts beyond the compact experiments dashboard.
+
+---
+
 ## 2026-06-08 Weak Point Practice Flow Update
 
 Completed in this iteration:

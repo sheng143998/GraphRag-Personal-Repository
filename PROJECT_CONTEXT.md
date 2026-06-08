@@ -1451,3 +1451,13 @@ README 更新规则：
 - Frontend experiments page now shows recent-history dashboard metrics, per-experiment averages, latest deltas, question snapshots, and run context.
 - `smoke_test.py` now evaluates one experiment from Advanced RAG and Basic RAG runs to verify comparison history; local full-chain smoke passed with 108/108 checks.
 - Key documents: `docs/plans/2026-06-08-rag-evaluation-comparison-dashboard.md`, `docs/reviews/2026-06-08-rag-evaluation-comparison-dashboard-review-prompt.md`, `docs/testing/strategy.md`, `docs/architecture/api-design.md`, and `docs/handoff/CURRENT_STATE.md`.
+
+---
+
+## 2026-06-08 RAG Evaluation Summary Endpoint Update
+
+- Added Spring Boot `GET /api/rag/experiment-evaluations/summary?limit={n}` for recent evaluation aggregation.
+- The endpoint returns evaluation count, average grounded/retrieval scores, best experiment, and recent evaluation rows with experiment/run context.
+- Frontend dashboard now loads the backend summary during hydrate and refreshes it after experiment evaluation.
+- `smoke_test.py` verifies the summary endpoint after two evaluations; local full-chain smoke passed with 115/115 checks.
+- Key documents: `docs/plans/2026-06-08-rag-evaluation-summary-endpoint.md`, `docs/reviews/2026-06-08-rag-evaluation-summary-endpoint-review-prompt.md`, `docs/testing/strategy.md`, `docs/architecture/api-design.md`, and `docs/handoff/CURRENT_STATE.md`.
