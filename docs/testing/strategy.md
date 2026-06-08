@@ -101,3 +101,10 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Frontend typecheck/build covers weak point API types, store state, and chat workbench panel.
 - `smoke_test.py` now verifies assistant-turn returns weak points and `GET /api/chat/{sessionId}/weak-points` reads persisted weak points.
 - Local full-chain smoke now passes 85/85 checks.
+
+## 2026-06-08 Weak Point Assessment Validation
+
+- Backend Maven tests cover `MASTERED` / `NEEDS_REVIEW` weak point status updates.
+- Frontend typecheck/build covers weak point assessment actions in the chat workbench.
+- `smoke_test.py` now verifies `PATCH /api/chat/{sessionId}/weak-points/{weakPointId}` updates a persisted weak point to `MASTERED`.
+- Local full-chain smoke now passes 87/87 checks.

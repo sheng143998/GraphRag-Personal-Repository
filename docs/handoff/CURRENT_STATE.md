@@ -315,6 +315,28 @@ Current remaining large project areas:
 
 ---
 
+## 2026-06-08 Weak Point Assessment Update
+
+Completed in this iteration:
+
+- Added weak point assessment fields: `mastery_status` and `last_assessed_at`.
+- Added Spring Boot `PATCH /api/chat/{sessionId}/weak-points/{weakPointId}`.
+- Frontend chat can mark weak points as `MASTERED` or `NEEDS_REVIEW`.
+- Full-chain smoke now verifies persisted weak point status updates.
+
+Validated so far:
+
+- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests.
+- `mvn test` passed with 10 tests.
+- `npm.cmd run typecheck` and `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 87/87 smoke checks.
+
+Current remaining large project areas:
+
+- Add weak point ranking recommendations and explicit practice flows.
+
+---
+
 ## 2026-06-08 GraphRAG Traversal Retrieval Update
 
 Completed in this iteration:

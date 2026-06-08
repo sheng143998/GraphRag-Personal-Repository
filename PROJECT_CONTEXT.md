@@ -1388,3 +1388,12 @@ README 更新规则：
 - Frontend chat displays persisted session weak points for repeated review.
 - `smoke_test.py` now asserts assistant-turn weak point creation and persisted weak point query; local full-chain smoke passed with 85/85 checks.
 - Key documents: `docs/plans/2026-06-08-learning-weak-points.md`, `docs/reviews/2026-06-08-learning-weak-points-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
+
+---
+
+## 2026-06-08 Weak Point Assessment Update
+
+- Added Spring Boot weak point self-assessment fields and `PATCH /api/chat/{sessionId}/weak-points/{weakPointId}`.
+- Frontend chat can mark persisted weak points as `MASTERED` or `NEEDS_REVIEW`.
+- `smoke_test.py` now asserts persisted weak point mastery updates; local full-chain smoke passed with 87/87 checks.
+- Key documents: `docs/plans/2026-06-08-weak-point-assessment.md`, `docs/reviews/2026-06-08-weak-point-assessment-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.

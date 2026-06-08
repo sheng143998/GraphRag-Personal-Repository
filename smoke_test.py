@@ -569,6 +569,13 @@ if CREATED_SESSION_ID:
         if isinstance(weak_points, list) and len(weak_points) >= 2:
             PASS += 1
             print(f"  PASS  Persisted weak points present = {len(weak_points)}")
+            first_weak_point_id = weak_points[0].get("id") if isinstance(weak_points[0], dict) else None
+            if first_weak_point_id:
+                r, body = check("Update weak point mastery", "PATCH",
+                                f"{BASE}/chat/{CREATED_SESSION_ID}/weak-points/{first_weak_point_id}",
+                                json={"masteryStatus": "MASTERED"})
+                if r is not None and r.status_code == 200:
+                    check_field("Weak point mastery status", body, "data.masteryStatus", "MASTERED")
         else:
             FAIL += 1
             ERRORS.append("Persisted weak points expected at least two rows")
