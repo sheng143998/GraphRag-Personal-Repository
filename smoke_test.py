@@ -547,6 +547,14 @@ if CREATED_SESSION_ID:
             FAIL += 1
             ERRORS.append("Assistant turn trace review_cards expected matching response questions")
             print("  FAIL  Assistant turn trace review_cards expected matching response questions")
+        weak_points = body.get("data", {}).get("weakPoints") if isinstance(body, dict) else None
+        if isinstance(weak_points, list) and len(weak_points) >= 2:
+            PASS += 1
+            print(f"  PASS  Assistant turn weak points present = {len(weak_points)}")
+        else:
+            FAIL += 1
+            ERRORS.append("Assistant turn expected at least two weak points")
+            print("  FAIL  Assistant turn expected at least two weak points")
 
     # Correct URL: /api/chat/{sessionId}/messages (NOT /api/chat/sessions/{id}/messages)
     r, body = check("Add message", "POST", f"{BASE}/chat/{CREATED_SESSION_ID}/messages",
@@ -555,6 +563,16 @@ if CREATED_SESSION_ID:
     if r is not None and r.status_code == 200:
         CREATED_MSG_ID = check_field("Message id", body, "data.id")
     check("List messages", "GET", f"{BASE}/chat/{CREATED_SESSION_ID}/messages")
+    r, body = check("List weak points", "GET", f"{BASE}/chat/{CREATED_SESSION_ID}/weak-points")
+    if r is not None and r.status_code == 200:
+        weak_points = body.get("data") if isinstance(body, dict) else None
+        if isinstance(weak_points, list) and len(weak_points) >= 2:
+            PASS += 1
+            print(f"  PASS  Persisted weak points present = {len(weak_points)}")
+        else:
+            FAIL += 1
+            ERRORS.append("Persisted weak points expected at least two rows")
+            print("  FAIL  Persisted weak points expected at least two rows")
 
 
 # ============================================================

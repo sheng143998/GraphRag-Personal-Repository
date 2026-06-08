@@ -292,6 +292,29 @@ Current remaining large project areas:
 
 ---
 
+## 2026-06-08 Learning Weak Points Update
+
+Completed in this iteration:
+
+- Added `learning_weak_points` persistence for session-level weak topics derived from Agent review cards.
+- Added Spring Boot `GET /api/chat/{sessionId}/weak-points`.
+- Assistant-turn responses now include persisted weak points after saving review card evidence.
+- Frontend chat displays session weak points in the workbench side stack.
+- Full-chain smoke now verifies assistant-turn weak point creation and persisted weak point query.
+
+Validated so far:
+
+- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests.
+- `mvn test` passed with 9 tests.
+- `npm.cmd run typecheck` and `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 85/85 smoke checks.
+
+Current remaining large project areas:
+
+- Add explicit user self-assessment/feedback updates for weak points and ranking recommendations.
+
+---
+
 ## 2026-06-08 GraphRAG Traversal Retrieval Update
 
 Completed in this iteration:

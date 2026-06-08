@@ -833,7 +833,7 @@ Base URL：`http://localhost:8001`，Spring Boot 通过 `AI_SERVICE_BASE_URL` / 
 | --- | --- |
 | `frontend/src/api/knowledgeBases.ts` | `GET /knowledge-bases`、`POST /knowledge-bases`、`GET /knowledge-bases/{id}`、`PUT /knowledge-bases/{id}`、`DELETE /knowledge-bases/{id}` |
 | `frontend/src/api/documents.ts` | `GET /documents`、`GET /documents/{id}`、`POST /documents/upload`、`DELETE /documents/{id}` |
-| `frontend/src/api/chat.ts` | `POST /chat/sessions`、`GET /chat/sessions`、`POST /chat/{sessionId}/messages`、`GET /chat/{sessionId}/messages`、`POST /chat/{sessionId}/assistant-turn`、`POST /rag/query` |
+| `frontend/src/api/chat.ts` | `POST /chat/sessions`、`GET /chat/sessions`、`POST /chat/{sessionId}/messages`、`GET /chat/{sessionId}/messages`、`POST /chat/{sessionId}/assistant-turn`、`GET /chat/{sessionId}/weak-points`、`POST /rag/query` |
 | `frontend/src/api/experiments.ts` | `GET /rag/experiments`、`GET /rag/experiments/{id}`、`POST /rag/experiments`、`PUT /rag/experiments/{id}`、`DELETE /rag/experiments/{id}` |
 | `frontend/src/api/feedback.ts` | `POST /feedback` |
 | `frontend/src/api/graph.ts` | `GET /graph/facts?knowledgeBaseId={uuid}&entity={optional}` |

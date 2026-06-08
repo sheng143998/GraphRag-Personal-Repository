@@ -1378,3 +1378,13 @@ README 更新规则：
 - Frontend chat displays review cards with question, expected answer, source hint, and difficulty.
 - `smoke_test.py` now asserts direct Agent and assistant-turn responses include review cards and matching trace questions; local full-chain smoke passed with 82/82 checks.
 - Key documents: `docs/plans/2026-06-08-agent-review-cards.md`, `docs/reviews/2026-06-08-agent-review-cards-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
+
+---
+
+## 2026-06-08 Learning Weak Points Update
+
+- Added Spring Boot `learning_weak_points` persistence derived from Agent review cards during assistant turns.
+- Added `GET /api/chat/{sessionId}/weak-points` and assistant-turn `weakPoints` response data.
+- Frontend chat displays persisted session weak points for repeated review.
+- `smoke_test.py` now asserts assistant-turn weak point creation and persisted weak point query; local full-chain smoke passed with 85/85 checks.
+- Key documents: `docs/plans/2026-06-08-learning-weak-points.md`, `docs/reviews/2026-06-08-learning-weak-points-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
