@@ -100,6 +100,7 @@ export interface ChatResponse {
   followUpQuestions?: string[];
   studyPlan?: StudyPlan | null;
   reviewCards?: ReviewCard[];
+  weakPoints?: LearningWeakPoint[];
   workflowSteps?: AgentWorkflowStep[];
 }
 
@@ -114,6 +115,20 @@ export interface ReviewCard {
   expectedAnswer: string;
   sourceHint: string;
   difficulty: string;
+}
+
+export interface LearningWeakPoint {
+  id: string;
+  sessionId: string;
+  knowledgeBaseId?: string | null;
+  evidenceMessageId?: string | null;
+  topic: string;
+  expectedAnswer?: string | null;
+  sourceHint?: string | null;
+  difficulty: string;
+  reviewCount: number;
+  lastSeenAt: string;
+  createdAt: string;
 }
 
 export interface AgentWorkflowStep {
@@ -232,6 +247,7 @@ export interface AssistantTurnResponse {
   followUpQuestions: string[];
   studyPlan?: StudyPlan | null;
   reviewCards: ReviewCard[];
+  weakPoints: LearningWeakPoint[];
   workflowSteps: AgentWorkflowStep[];
   trace?: { traceId?: string; attributes?: Record<string, unknown> } | null;
 }

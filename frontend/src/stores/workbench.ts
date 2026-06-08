@@ -35,6 +35,7 @@ import {
   fetchKnowledgeBaseById,
   fetchKnowledgeBases,
   fetchSettings,
+  fetchWeakPoints,
   sendAssistantTurn,
   updateExperiment,
   updateKnowledgeBase,
@@ -171,6 +172,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
   const followUpQuestions = ref<string[]>([]);
   const studyPlan = ref<ChatResponse["studyPlan"]>(null);
   const reviewCards = ref<NonNullable<ChatResponse["reviewCards"]>>([]);
+  const weakPoints = ref<NonNullable<ChatResponse["weakPoints"]>>([]);
   const pending = ref(false);
   const uploadPending = ref(false);
   const lastError = ref("");
@@ -256,6 +258,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       followUpQuestions.value = result.followUpQuestions ?? [];
       studyPlan.value = result.studyPlan ?? null;
       reviewCards.value = result.reviewCards ?? [];
+      weakPoints.value = result.weakPoints ?? [];
       if (result.userMessage && result.assistantMessage) {
         messages.value.push(...mapHistoryMessages([result.userMessage, result.assistantMessage]));
       } else {
@@ -272,6 +275,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
         try {
           sessionMessages.value = await fetchChatMessages(currentSessionId.value);
           messages.value = mapHistoryMessages(sessionMessages.value);
+          weakPoints.value = await fetchWeakPoints(currentSessionId.value);
         } catch {
           // Keep the optimistic thread visible if session history refresh is unavailable.
         }
@@ -282,6 +286,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       followUpQuestions.value = [];
       studyPlan.value = null;
       reviewCards.value = [];
+      weakPoints.value = [];
       messages.value.push({
         id: `msg-assistant-${Date.now()}`,
         role: "assistant",
@@ -386,6 +391,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       sessionMessages.value = await fetchChatMessages(sessionId);
       currentSessionId.value = sessionId;
       messages.value = mapHistoryMessages(sessionMessages.value);
+      weakPoints.value = await fetchWeakPoints(sessionId);
     } catch (error) {
       lastError.value = error instanceof Error ? error.message : "加载消息失败。";
     }
@@ -560,6 +566,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     followUpQuestions,
     studyPlan,
     reviewCards,
+    weakPoints,
     lastFeedback,
     // actions
     askQuestion,

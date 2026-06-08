@@ -6,7 +6,8 @@ import type {
   ChatSession,
   ChatSessionRequest,
   CitationSource,
-  AssistantTurnResponse
+  AssistantTurnResponse,
+  LearningWeakPoint
 } from "../types";
 import { apiRequest } from "./client";
 
@@ -122,8 +123,13 @@ export async function sendAssistantTurn(sessionId: string, payload: ChatRequest)
     followUpQuestions: response.followUpQuestions,
     studyPlan: response.studyPlan,
     reviewCards: response.reviewCards,
+    weakPoints: response.weakPoints,
     workflowSteps: response.workflowSteps
   };
+}
+
+export function fetchWeakPoints(sessionId: string): Promise<LearningWeakPoint[]> {
+  return apiRequest<LearningWeakPoint[]>(`/chat/${sessionId}/weak-points`);
 }
 
 export async function sendChatMessage(payload: ChatRequest): Promise<ChatResponse> {

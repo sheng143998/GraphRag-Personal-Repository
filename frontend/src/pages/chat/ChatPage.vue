@@ -172,6 +172,21 @@
           </article>
         </div>
       </section>
+      <section v-if="store.weakPoints.length" class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Weak Points</h2>
+          <p class="panel-subtitle">Session-level topics that need another pass.</p>
+        </div>
+        <div class="panel-body stack">
+          <article v-for="point in store.weakPoints" :key="point.id" class="item-card">
+            <h3 class="item-title">{{ point.topic }}</h3>
+            <p class="item-description">{{ point.expectedAnswer }}</p>
+            <div class="item-meta">
+              {{ point.difficulty }} · seen {{ point.reviewCount }} time{{ point.reviewCount === 1 ? "" : "s" }}
+            </div>
+          </article>
+        </div>
+      </section>
       <StrategySelector />
       <SourceList :sources="store.latestSources" />
     </div>
