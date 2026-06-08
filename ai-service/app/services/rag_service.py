@@ -42,6 +42,7 @@ class RagService:
             retriever=self.retriever,
             reranker=self.reranker,
             embedding_adapter=embedding_adapter,
+            llm_adapter=llm_adapter,
         )
 
     async def retrieve(self, payload: RagRetrieveRequest) -> RagRetrieveResponse:

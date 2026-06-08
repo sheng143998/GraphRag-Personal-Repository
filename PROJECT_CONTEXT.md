@@ -1618,3 +1618,13 @@ README 更新规则：
 - The comparison page includes a Graph metrics column while continuing to use Spring Boot evaluation history only.
 - Local full-chain smoke remained green with 146/146 checks.
 - Key documents: `docs/plans/2026-06-08-graphrag-metrics-ui.md`, `docs/reviews/2026-06-08-graphrag-metrics-ui-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
+
+---
+
+## 2026-06-08 LLM 查询转换回退更新
+
+- Advanced RAG 现在支持通过 `retrievalOptions.enableLlmQueryTransform` 按请求开启基于 LLM 的查询改写与多查询扩展。
+- 规则查询改写 / 扩展仍是默认路径，也是 LLM 输出异常时的回退路径。
+- Trace 步骤会记录查询转换器 provider 与 fallback 元数据。
+- Spring Boot 继续只透传请求选项；查询转换逻辑仍由 FastAPI 负责。
+- 关键文档：`docs/plans/2026-06-08-llm-query-transform-fallback.md`、`docs/reviews/2026-06-08-llm-query-transform-fallback-review-prompt.md`、`docs/handoff/CURRENT_STATE.md` 与 `docs/testing/strategy.md`。

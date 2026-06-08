@@ -839,3 +839,20 @@ Current remaining large project areas:
 
 - Continue LLM-backed rewrite/extraction work.
 - Add richer controls for hybrid retrieval presets and GraphRAG evaluation comparisons.
+
+---
+
+## 2026-06-08 LLM 查询转换回退更新
+
+本轮已完成：
+
+- 在 AI 服务中新增按请求开启的 LLM 查询改写与多查询扩展。
+- 现有规则查询转换仍是默认路径。
+- LLM 输出无效或不符合预期时，会回退到规则转换器。
+- Advanced RAG trace 步骤会记录 provider 与 fallback 元数据。
+- 全链路 smoke 现在会在 stub LLM 回退场景下覆盖该可选路径。
+
+当前剩余较大工作：
+
+- 增加基于 LLM 的 GraphRAG 抽取，并提供结构化回退。
+- 增加查询转换与混合检索预设的 UI 控件。

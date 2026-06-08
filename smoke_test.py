@@ -299,7 +299,11 @@ if CREATED_KB_ID:
                           "topK": 3,
                           "strategyName": "advanced-rag",
                           "metadataFilters": {},
-                          "retrievalOptions": {"vectorWeight": 0.6, "keywordWeight": 0.4}})
+                          "retrievalOptions": {
+                              "vectorWeight": 0.6,
+                              "keywordWeight": 0.4,
+                              "enableLlmQueryTransform": True
+                          }})
     if r is not None and r.status_code == 200:
         CREATED_ADVANCED_RUN_ID = check_field("Advanced RAG runId", body, "data.runId")
         check_field("Advanced RAG status", body, "data.status", "COMPLETED")

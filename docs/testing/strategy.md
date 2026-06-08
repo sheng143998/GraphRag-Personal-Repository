@@ -262,3 +262,8 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Frontend typecheck/build covers parsing GraphRAG evaluator notes and displaying compact entity, relationship, and expansion-term metrics in experiment views.
 - The UI change reuses persisted Spring Boot evaluation history; no new FastAPI browser call was added.
 - Full-chain local smoke remained green with 146/146 checks.
+
+## 2026-06-08 LLM 查询转换回退验证
+
+- AI pytest 覆盖按请求开启的 LLM 查询改写 / 多查询扩展，以及无效输出回退到规则转换器的路径。
+- 全链路 smoke 在 Advanced RAG 查询中启用 `retrievalOptions.enableLlmQueryTransform`，并使用 stub LLM 输出验证回退路径保持通过。

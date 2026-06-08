@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 
+from app.services.adapters.base import AdapterCallContext, LLMAdapter
+
 
 class QueryRewriter:
     def rewrite(self, query: str) -> str:
@@ -57,6 +59,78 @@ class RuleBasedMultiQueryExpander(MultiQueryExpander):
         return variants
 
 
+class AdapterBackedQueryTransformer:
+    def __init__(
+        self,
+        *,
+        llm_adapter: LLMAdapter,
+        fallback_rewriter: QueryRewriter,
+        fallback_expander: MultiQueryExpander,
+    ) -> None:
+        self.llm_adapter = llm_adapter
+        self.fallback_rewriter = fallback_rewriter
+        self.fallback_expander = fallback_expander
+
+    async def rewrite(
+        self,
+        query: str,
+        *,
+        context: AdapterCallContext,
+    ) -> tuple[str, dict[str, object]]:
+        fallback = self.fallback_rewriter.rewrite(query)
+        try:
+            output = await self.llm_adapter.generate(
+                prompt=(
+                    "Rewrite the user query for retrieval. "
+                    "Return exactly one line in the format REWRITTEN_QUERY: <query>.\n"
+                    f"User query: {query}"
+                ),
+                context=context,
+            )
+            rewritten = _extract_prefixed_line(output, "REWRITTEN_QUERY")
+            if not rewritten:
+                raise ValueError("missing REWRITTEN_QUERY")
+            return rewritten, {"provider": "llm", "fallback_used": False}
+        except Exception as exc:
+            return fallback, {
+                "provider": "rule-based-fallback",
+                "fallback_used": True,
+                "fallback_reason": str(exc),
+            }
+
+    async def expand(
+        self,
+        query: str,
+        *,
+        original_query: str | None,
+        max_queries: int,
+        context: AdapterCallContext,
+    ) -> tuple[list[str], dict[str, object]]:
+        fallback = self.fallback_expander.expand(query, original_query=original_query, max_queries=max_queries)
+        try:
+            output = await self.llm_adapter.generate(
+                prompt=(
+                    "Generate retrieval query variants. "
+                    "Return one variant per line using QUERY: <variant>. "
+                    f"Return at most {max_queries} variants.\n"
+                    f"Original query: {original_query or query}\n"
+                    f"Rewritten query: {query}"
+                ),
+                context=context,
+            )
+            queries = _extract_query_lines(output, max_queries=max_queries)
+            if not queries:
+                raise ValueError("missing QUERY lines")
+            return queries, {"provider": "llm", "fallback_used": False, "query_count": len(queries)}
+        except Exception as exc:
+            return fallback, {
+                "provider": "rule-based-fallback",
+                "fallback_used": True,
+                "fallback_reason": str(exc),
+                "query_count": len(fallback),
+            }
+
+
 def _clean_query(query: str) -> str:
     return re.sub(r"\s+", " ", query.strip())
 
@@ -67,3 +141,24 @@ def _technical_variant(query: str) -> str:
 
 def _implementation_variant(query: str) -> str:
     return f"{query} implementation configuration troubleshooting example"
+
+
+def _extract_prefixed_line(output: str, prefix: str) -> str | None:
+    prefix_with_colon = f"{prefix}:"
+    for line in output.splitlines():
+        stripped = _clean_query(line)
+        if stripped.upper().startswith(prefix_with_colon):
+            value = _clean_query(stripped[len(prefix_with_colon):])
+            return value or None
+    return None
+
+
+def _extract_query_lines(output: str, *, max_queries: int) -> list[str]:
+    queries: list[str] = []
+    for line in output.splitlines():
+        value = _extract_prefixed_line(line, "QUERY")
+        if value and value not in queries:
+            queries.append(value)
+        if len(queries) >= max_queries:
+            break
+    return queries

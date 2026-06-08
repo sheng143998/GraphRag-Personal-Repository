@@ -9,9 +9,11 @@ os.environ["RERANK_PROVIDER"] = "stub"
 
 from app.core.constants import DocumentType, FileType
 from app.db.repositories import _hybrid_weights, repository
+from app.rag.query_transformers.base import AdapterBackedQueryTransformer, RuleBasedMultiQueryExpander, RuleBasedQueryRewriter
 from app.schemas.common import SourceMetadata
 from app.schemas.ingest import ChunkRecord, DocumentIngestRequest, DocumentPayload
 from app.schemas.rag import RagEvaluateRequest, RagEvaluationCase, RagQueryRequest, RagRequestContext
+from app.services.adapters.base import AdapterCallContext, LLMAdapter
 from app.services.ingest_service import IngestService
 from app.services.rag_service import RagService
 
@@ -43,6 +45,36 @@ def test_advanced_rag_applies_rewrite_filters_fusion_parent_context_and_rerank()
     assert len(top_source.metadata["context_source_chunk_ids"]) >= 2
     assert top_source.metadata["matched_queries"]
     assert "Advanced RAG" in top_source.metadata["content_preview"]
+
+
+def test_advanced_rag_can_use_llm_query_transformer_when_enabled() -> None:
+    response = asyncio.run(_advanced_query_with_llm_transform())
+
+    rewrite_step = next(step for step in response.trace.steps if step.name == "query_rewrite")
+    expand_step = next(step for step in response.trace.steps if step.name == "multi_query_expand")
+
+    assert rewrite_step.payload["provider"] == "llm"
+    assert expand_step.payload["provider"] == "llm"
+    assert response.trace.attributes["rewritten_query"] == "Advanced RAG metadata rerank retrieval"
+    assert "Advanced RAG metadata rerank retrieval" in expand_step.payload["queries"]
+    assert response.citations
+
+
+def test_adapter_query_transformer_falls_back_when_llm_output_is_invalid() -> None:
+    transformer = AdapterBackedQueryTransformer(
+        llm_adapter=FakeLLMAdapter(["not parseable"]),
+        fallback_rewriter=RuleBasedQueryRewriter(),
+        fallback_expander=RuleBasedMultiQueryExpander(),
+    )
+
+    rewritten, metadata = asyncio.run(transformer.rewrite(
+        "How does RAG rerank?",
+        context=_adapter_context("rewrite_query"),
+    ))
+
+    assert metadata["provider"] == "rule-based-fallback"
+    assert metadata["fallback_used"] is True
+    assert "retrieval augmented generation" in rewritten
 
 
 def test_parent_child_context_uses_real_parent_chunk_when_available() -> None:
@@ -318,6 +350,47 @@ async def _advanced_query():
     )
 
 
+async def _advanced_query_with_llm_transform():
+    _clear_in_memory_repository()
+    ingest_service = IngestService()
+    rag_service = RagService()
+    rag_service.advanced_strategy.adapter_query_transformer = AdapterBackedQueryTransformer(
+        llm_adapter=FakeLLMAdapter([
+            "REWRITTEN_QUERY: Advanced RAG metadata rerank retrieval",
+            "QUERY: Advanced RAG metadata rerank retrieval\nQUERY: Advanced RAG retrieval examples",
+        ]),
+        fallback_rewriter=RuleBasedQueryRewriter(),
+        fallback_expander=RuleBasedMultiQueryExpander(),
+    )
+
+    await ingest_service.ingest_document(
+        _document(
+            knowledge_base_id="kb-test-llm-transform",
+            document_id="55555555-5555-5555-5555-555555555555",
+            title="LLM Transform Advanced RAG Notes",
+            topic="advanced-rag",
+            content=(
+                "Advanced RAG metadata rerank retrieval improves citations and evidence. "
+                "Advanced RAG retrieval examples explain query transformation. "
+                * 8
+            ),
+        )
+    )
+
+    return await rag_service.query(
+        RagQueryRequest(
+            question="How should RAG cite rerank evidence?",
+            top_k=2,
+            strategy_name="advanced-rag",
+            context=RagRequestContext(
+                knowledge_base_id="kb-test-llm-transform",
+                metadata_filters={"topic": "advanced-rag"},
+                retrieval_options={"enableLlmQueryTransform": True},
+            ),
+        )
+    )
+
+
 async def _graph_rag_query():
     _clear_in_memory_repository()
     ingest_service = IngestService()
@@ -490,3 +563,24 @@ def _clear_in_memory_repository() -> None:
         repository.graph_entities.clear()
     if hasattr(repository, "graph_relationships"):
         repository.graph_relationships.clear()
+
+
+class FakeLLMAdapter(LLMAdapter):
+    def __init__(self, outputs: list[str]) -> None:
+        self.outputs = outputs
+        self.calls = 0
+
+    async def generate(self, *, prompt: str, context: AdapterCallContext) -> str:
+        output = self.outputs[min(self.calls, len(self.outputs) - 1)]
+        self.calls += 1
+        return output
+
+
+def _adapter_context(operation: str) -> AdapterCallContext:
+    return AdapterCallContext(
+        trace_id="trace-test",
+        run_id="run-test",
+        operation=operation,
+        model_name="fake-llm",
+        strategy_name="advanced-rag",
+    )
