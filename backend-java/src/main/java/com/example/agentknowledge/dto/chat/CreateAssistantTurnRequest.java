@@ -11,6 +11,7 @@ public record CreateAssistantTurnRequest(
         String strategyName,
         @Min(1) @Max(20) Integer topK,
         Map<String, Object> metadataFilters,
+        Map<String, Object> retrievalOptions,
         Map<String, Object> variables
 ) {
 }

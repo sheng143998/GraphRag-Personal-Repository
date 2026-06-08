@@ -82,6 +82,7 @@ class AgentServiceTest {
                 null,
                 null,
                 null,
+                Map.of("enableLlmQueryTransform", true, "vectorWeight", 0.6, "keywordWeight", 0.4),
                 null
         ));
 
@@ -94,6 +95,10 @@ class AgentServiceTest {
         assertThat(request.topK()).isEqualTo(5);
         assertThat(request.context().knowledgeBaseId()).isEqualTo(knowledgeBaseId);
         assertThat(request.context().metadataFilters()).isEmpty();
+        assertThat(request.context().retrievalOptions())
+                .containsEntry("enableLlmQueryTransform", true)
+                .containsEntry("vectorWeight", 0.6)
+                .containsEntry("keywordWeight", 0.4);
         assertThat(response.selectedStrategyName()).isEqualTo("advanced-rag");
         assertThat(response.followUpQuestions()).contains("How can I test rerank?");
         assertThat(response.studyPlan()).isNotNull();

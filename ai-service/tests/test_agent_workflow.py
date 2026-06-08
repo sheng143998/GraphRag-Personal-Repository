@@ -58,11 +58,31 @@ def test_agent_workflow_respects_explicit_strategy() -> None:
     assert response.review_cards
 
 
+def test_agent_workflow_exposes_retrieval_options_in_retrieve_step() -> None:
+    response = asyncio.run(
+        _invoke_agent(
+            "kb-agent-options",
+            "How should I implement RAG rerank code?",
+            strategy_name="advanced-rag",
+            retrieval_options={"enableLlmQueryTransform": True, "vectorWeight": 0.6, "keywordWeight": 0.4},
+        )
+    )
+
+    retrieve_step = next(step for step in response.workflow_steps if step.name == "retrieve_and_generate")
+    assert retrieve_step.payload["retrieval_options_enabled"] is True
+    assert retrieve_step.payload["retrieval_option_keys"] == [
+        "enableLlmQueryTransform",
+        "keywordWeight",
+        "vectorWeight",
+    ]
+
+
 async def _invoke_agent(
     knowledge_base_id: str,
     question: str,
     *,
     strategy_name: str = "basic-rag",
+    retrieval_options: dict[str, object] | None = None,
 ):
     ingest_service = IngestService()
     agent_service = AgentService()
@@ -91,6 +111,9 @@ async def _invoke_agent(
             user_input=question,
             strategy_name=strategy_name,
             top_k=3,
-            context=RagRequestContext(knowledge_base_id=knowledge_base_id),
+            context=RagRequestContext(
+                knowledge_base_id=knowledge_base_id,
+                retrieval_options=retrieval_options or {},
+            ),
         )
     )

@@ -46,6 +46,7 @@ public class WeakPointPracticeService {
                 request.strategyName(),
                 request.topK(),
                 Map.of(),
+                Map.of(),
                 variables
         ));
         LearningWeakPointResponse updatedWeakPoint = weakPointResponse;

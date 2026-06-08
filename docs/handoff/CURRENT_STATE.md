@@ -3,7 +3,7 @@
 
 ## 当前正在做什么
 
-当前正在按用户要求执行两条主线：历史英文文档全文中文化已完成，并同步 `PROJECT_CONTEXT.md` 与本文件，准备先做 docs-only 提交；随后继续验证并提交 RAG 检索选项 UI / assistant-turn `retrievalOptions` 透传改动。
+当前正在按用户要求执行两条主线：历史英文文档全文中文化已完成并已形成 docs-only 提交；RAG 检索选项 UI / assistant-turn `retrievalOptions` 透传改动已完成分层验证和非 Docker 全链路验证，准备单独提交。
 
 ## 当前项目完成度
 
@@ -32,8 +32,8 @@
 
 ## 待重新验证
 
-- 非 Docker 全链路：`powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` 上次被用户中断，需要在文档提交后重新运行。
-- 文档质量门禁：`git diff --check` 与英文模板词扫描需要在 docs-only 提交前重新运行。
+- 非 Docker 全链路：`powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` 已重新运行，147 项检查全部通过。
+- 文档质量门禁：`git diff --check` 与英文模板词扫描已在 docs-only 提交前通过。
 
 ## 当前限制与后续方向
 

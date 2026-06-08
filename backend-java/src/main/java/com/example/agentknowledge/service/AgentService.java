@@ -30,7 +30,8 @@ public class AgentService {
                                 request.knowledgeBaseId(),
                                 request.sessionId(),
                                 request.messageId(),
-                                request.metadataFilters() != null ? request.metadataFilters() : Map.of()
+                                request.metadataFilters() != null ? request.metadataFilters() : Map.of(),
+                                request.retrievalOptions() != null ? request.retrievalOptions() : Map.of()
                         ),
                         request.variables() != null ? request.variables() : Map.of()
                 ),

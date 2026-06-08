@@ -125,6 +125,24 @@
                 {{ item }}
               </button>
             </div>
+            <div class="form-grid">
+              <label class="form-row">
+                <span class="form-label">混合检索预设</span>
+                <select v-model="store.hybridRetrievalPreset" class="input">
+                  <option value="default">默认权重</option>
+                  <option value="balanced">均衡召回 60/40</option>
+                  <option value="vector">语义优先 85/15</option>
+                  <option value="keyword">关键词优先 35/65</option>
+                </select>
+              </label>
+              <label class="form-row">
+                <span class="form-label">查询转换</span>
+                <label class="inline-toggle">
+                  <input v-model="store.enableLlmQueryTransform" type="checkbox" />
+                  <span>启用 LLM 查询改写与多查询扩展</span>
+                </label>
+              </label>
+            </div>
             <div class="button-row">
               <button class="button button-primary" type="submit" :disabled="store.pending">
                 {{ store.pending ? "检索中..." : "发送问题" }}
@@ -141,7 +159,7 @@
     <div class="stack">
       <section v-if="store.studyPlan" class="panel">
         <div class="panel-header">
-          <h2 class="panel-title">Study Plan</h2>
+          <h2 class="panel-title">学习计划</h2>
           <p class="panel-subtitle">{{ store.studyPlan.summary }}</p>
         </div>
         <div class="panel-body stack">
@@ -159,8 +177,8 @@
       </section>
       <section v-if="store.reviewCards.length" class="panel">
         <div class="panel-header">
-          <h2 class="panel-title">Review Cards</h2>
-          <p class="panel-subtitle">Active-recall prompts from the latest answer.</p>
+          <h2 class="panel-title">复习卡片</h2>
+          <p class="panel-subtitle">基于最新回答生成的主动回忆题。</p>
         </div>
         <div class="panel-body stack">
           <article v-for="card in store.reviewCards" :key="card.question" class="item-card">
@@ -174,29 +192,29 @@
       </section>
       <section v-if="store.weakPoints.length" class="panel">
         <div class="panel-header">
-          <h2 class="panel-title">Weak Points</h2>
-          <p class="panel-subtitle">Session-level topics that need another pass.</p>
+          <h2 class="panel-title">薄弱点</h2>
+          <p class="panel-subtitle">当前会话中需要再次练习的主题。</p>
         </div>
         <div class="panel-body stack">
           <div v-if="store.weakPointSummary" class="evaluation-dashboard">
             <div class="dashboard-metric">
-              <span class="metric-label">Needs review</span>
+              <span class="metric-label">待复习</span>
               <strong>{{ store.weakPointSummary.needsReviewCount }}</strong>
             </div>
             <div class="dashboard-metric">
-              <span class="metric-label">Mastered</span>
+              <span class="metric-label">已掌握</span>
               <strong>{{ store.weakPointSummary.masteredCount }}</strong>
             </div>
             <div class="dashboard-metric">
-              <span class="metric-label">Completion</span>
+              <span class="metric-label">完成率</span>
               <strong>{{ formatPercent(store.weakPointSummary.completionRate) }}</strong>
             </div>
             <div class="dashboard-metric">
-              <span class="metric-label">Reviews</span>
+              <span class="metric-label">复习次数</span>
               <strong>{{ store.weakPointSummary.totalReviewCount }}</strong>
             </div>
             <div class="dashboard-metric">
-              <span class="metric-label">Due</span>
+              <span class="metric-label">到期</span>
               <strong>{{ store.weakPointSummary.dueReviewCount ?? 0 }}</strong>
             </div>
           </div>
@@ -217,46 +235,46 @@
               :disabled="store.pending || !store.currentSessionId || !nextDueWeakPoint"
               @click="practiceNextDue"
             >
-              Practice next due
+              练习下一个到期项
             </button>
           </div>
           <article v-if="store.weakPointSummary?.nextWeakPoint" class="item-card item-card-active">
-            <h3 class="item-title">Next practice: {{ store.weakPointSummary.nextWeakPoint.topic }}</h3>
+            <h3 class="item-title">下一项练习：{{ store.weakPointSummary.nextWeakPoint.topic }}</h3>
             <div class="item-meta">
               {{ store.weakPointSummary.nextWeakPoint.difficulty }} · {{ store.weakPointSummary.nextWeakPoint.masteryStatus }}
               <span v-if="store.weakPointSummary.nextWeakPoint.nextReviewAt">
-                · next {{ formatDate(store.weakPointSummary.nextWeakPoint.nextReviewAt) }}
+                · 下次 {{ formatDate(store.weakPointSummary.nextWeakPoint.nextReviewAt) }}
               </span>
             </div>
           </article>
           <div v-if="displayedWeakPoints.length === 0" class="empty-state">
-            No weak points match the current queue filter.
+            当前队列筛选下暂无薄弱点。
           </div>
           <article v-for="point in displayedWeakPoints" :key="point.id" class="item-card">
             <h3 class="item-title">{{ point.topic }}</h3>
             <p class="item-description">{{ point.expectedAnswer }}</p>
             <div class="item-meta">
-              {{ point.difficulty }} · {{ point.masteryStatus }} · seen {{ point.reviewCount }} time{{ point.reviewCount === 1 ? "" : "s" }}
-              <span v-if="point.practiceCount != null"> · practiced {{ point.practiceCount }}</span>
-              <span v-if="point.lastPracticeScore != null"> · last score {{ formatPercent(point.lastPracticeScore) }}</span>
-              <span v-if="point.nextReviewAt"> · next {{ formatDate(point.nextReviewAt) }}</span>
+              {{ point.difficulty }} · {{ point.masteryStatus }} · 已出现 {{ point.reviewCount }} 次
+              <span v-if="point.practiceCount != null"> · 已练习 {{ point.practiceCount }}</span>
+              <span v-if="point.lastPracticeScore != null"> · 上次得分 {{ formatPercent(point.lastPracticeScore) }}</span>
+              <span v-if="point.nextReviewAt"> · 下次 {{ formatDate(point.nextReviewAt) }}</span>
             </div>
             <label class="form-row" style="margin-top: 0.75rem;">
-              <span class="form-label">Practice answer</span>
+              <span class="form-label">练习回答</span>
               <textarea
                 v-model="practiceAnswers[point.id]"
                 class="textarea"
-                placeholder="Write your recall answer before asking the assistant to assess it"
+                placeholder="先写下你的回忆答案，再让助手评估。"
               />
             </label>
             <div v-if="store.lastWeakPointAssessment && assessedWeakPointId === point.id" class="item-meta">
-              Score {{ formatPercent(store.lastWeakPointAssessment.score) }}
+              得分 {{ formatPercent(store.lastWeakPointAssessment.score) }}
               · {{ store.lastWeakPointAssessment.masteryStatus }}
               · {{ store.lastWeakPointAssessment.feedback }}
             </div>
             <div class="button-row" style="margin-top: 0.75rem;">
               <button class="button button-secondary" type="button" :disabled="store.pending" @click="store.practiceWeakPoint(point.id)">
-                Practice
+                练习
               </button>
               <button
                 class="button button-secondary"
@@ -264,13 +282,13 @@
                 :disabled="store.pending || !practiceAnswers[point.id]?.trim()"
                 @click="submitPracticeAnswer(point.id)"
               >
-                Submit answer
+                提交答案
               </button>
               <button class="button button-secondary" type="button" @click="store.assessWeakPoint(point.id, 'NEEDS_REVIEW')">
-                Review again
+                继续复习
               </button>
               <button class="button button-primary" type="button" @click="store.assessWeakPoint(point.id, 'MASTERED')">
-                Mastered
+                已掌握
               </button>
             </div>
           </article>
@@ -324,10 +342,10 @@ const displayedWeakPoints = computed(() => {
   return store.weakPoints;
 });
 const weakPointFilters = computed(() => [
-  { value: "all" as const, label: "All", count: store.weakPoints.length },
-  { value: "due" as const, label: "Due", count: dueWeakPoints.value.length },
-  { value: "needs-review" as const, label: "Needs review", count: needsReviewWeakPoints.value.length },
-  { value: "mastered" as const, label: "Mastered", count: masteredWeakPoints.value.length }
+  { value: "all" as const, label: "全部", count: store.weakPoints.length },
+  { value: "due" as const, label: "到期", count: dueWeakPoints.value.length },
+  { value: "needs-review" as const, label: "待复习", count: needsReviewWeakPoints.value.length },
+  { value: "mastered" as const, label: "已掌握", count: masteredWeakPoints.value.length }
 ]);
 
 onMounted(() => {

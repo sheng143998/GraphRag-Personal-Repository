@@ -185,6 +185,8 @@ export const useWorkbenchStore = defineStore("workbench", () => {
   const messages = ref<ChatMessage[]>(mockMessages);
   const settings = ref<AppSettings>(loadPersistedSettings());
   const selectedStrategy = ref(ragStrategyOptions[0].value);
+  const enableLlmQueryTransform = ref(false);
+  const hybridRetrievalPreset = ref<"default" | "balanced" | "vector" | "keyword">("default");
   const traceId = ref("trace-demo-20260525-181600");
   const followUpQuestions = ref<string[]>([]);
   const studyPlan = ref<ChatResponse["studyPlan"]>(null);
@@ -274,6 +276,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
         strategy: selectedStrategy.value,
         knowledgeBaseId,
         sessionId,
+        retrievalOptions: buildRetrievalOptions(),
       });
 
       traceId.value = result.traceId;
@@ -465,6 +468,34 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     } finally {
       pending.value = false;
     }
+  }
+
+  function buildRetrievalOptions(): Record<string, unknown> {
+    const options: Record<string, unknown> = {};
+    if (enableLlmQueryTransform.value) {
+      options.enableLlmQueryTransform = true;
+    }
+
+    const weights = hybridPresetWeights(hybridRetrievalPreset.value);
+    if (weights) {
+      options.vectorWeight = weights.vectorWeight;
+      options.keywordWeight = weights.keywordWeight;
+    }
+
+    return options;
+  }
+
+  function hybridPresetWeights(preset: typeof hybridRetrievalPreset.value): { vectorWeight: number; keywordWeight: number } | null {
+    if (preset === "balanced") {
+      return { vectorWeight: 0.6, keywordWeight: 0.4 };
+    }
+    if (preset === "vector") {
+      return { vectorWeight: 0.85, keywordWeight: 0.15 };
+    }
+    if (preset === "keyword") {
+      return { vectorWeight: 0.35, keywordWeight: 0.65 };
+    }
+    return null;
   }
 
   // --- Knowledge bases ---
@@ -688,6 +719,8 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     ragStrategyOptions,
     selectedKnowledgeBase,
     selectedStrategy,
+    enableLlmQueryTransform,
+    hybridRetrievalPreset,
     settings,
     totalDocuments,
     traceId,

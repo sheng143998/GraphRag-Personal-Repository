@@ -104,6 +104,8 @@ class StudyAgentWorkflow:
                 "rag_trace_id": rag_response.trace.trace_id,
                 "rag_run_id": rag_response.trace.run_id,
                 "citation_count": len(rag_response.citations),
+                "retrieval_options_enabled": bool(state.request.context.retrieval_options),
+                "retrieval_option_keys": sorted(state.request.context.retrieval_options.keys()),
             },
         )
 

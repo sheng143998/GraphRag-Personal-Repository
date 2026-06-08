@@ -57,6 +57,7 @@ public class AssistantTurnService {
                 session.getId(),
                 userMessage.getId(),
                 request.metadataFilters(),
+                request.retrievalOptions(),
                 request.variables()
         ));
         ChatMessage assistantMessage = saveMessage(

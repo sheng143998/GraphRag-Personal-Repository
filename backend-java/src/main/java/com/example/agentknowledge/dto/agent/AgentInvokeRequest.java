@@ -16,6 +16,7 @@ public record AgentInvokeRequest(
         UUID sessionId,
         UUID messageId,
         Map<String, Object> metadataFilters,
+        Map<String, Object> retrievalOptions,
         Map<String, Object> variables
 ) {
 }

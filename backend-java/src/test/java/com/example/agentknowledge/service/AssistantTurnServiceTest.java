@@ -114,6 +114,7 @@ class AssistantTurnServiceTest {
                 null,
                 3,
                 Map.of("topic", "graph-rag"),
+                Map.of("enableLlmQueryTransform", true),
                 Map.of("mode", "interview")
         ));
 
@@ -132,6 +133,7 @@ class AssistantTurnServiceTest {
         assertThat(agentRequest.getValue().sessionId()).isEqualTo(sessionId);
         assertThat(agentRequest.getValue().messageId()).isEqualTo(savedMessages.get(0).getId());
         assertThat(agentRequest.getValue().metadataFilters()).containsEntry("topic", "graph-rag");
+        assertThat(agentRequest.getValue().retrievalOptions()).containsEntry("enableLlmQueryTransform", true);
         assertThat(agentRequest.getValue().variables()).containsEntry("mode", "interview");
 
         assertThat(response.userMessage().role()).isEqualTo("user");

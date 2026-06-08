@@ -288,6 +288,7 @@ export interface AssistantTurnRequest {
   strategyName?: string;
   topK?: number;
   metadataFilters?: Record<string, unknown>;
+  retrievalOptions?: Record<string, unknown>;
   variables?: Record<string, unknown>;
 }
 

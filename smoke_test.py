@@ -727,8 +727,14 @@ check("List sessions", "GET", f"{BASE}/chat/sessions")
 if CREATED_SESSION_ID:
     r, body = check("Assistant turn", "POST", f"{BASE}/chat/{CREATED_SESSION_ID}/assistant-turn",
                     json={"userInput": "Give me an interview-ready answer about GraphRAG traversal.",
+                          "strategyName": "advanced-rag",
                           "topK": 3,
-                          "metadataFilters": {}})
+                          "metadataFilters": {},
+                          "retrievalOptions": {
+                              "vectorWeight": 0.6,
+                              "keywordWeight": 0.4,
+                              "enableLlmQueryTransform": True
+                          }})
     if r is not None and r.status_code == 200:
         check_field("Assistant turn user message", body, "data.userMessage.id")
         CREATED_ASSISTANT_MSG_ID = check_field("Assistant turn assistant message", body, "data.assistantMessage.id")
@@ -754,6 +760,21 @@ if CREATED_SESSION_ID:
             FAIL += 1
             ERRORS.append("Assistant turn expected generate_follow_up_questions step")
             print("  FAIL  Assistant turn expected generate_follow_up_questions step")
+        retrieve_step = next(
+            (step for step in workflow_steps if isinstance(step, dict) and step.get("name") == "retrieve_and_generate"),
+            None,
+        )
+        retrieval_payload = retrieve_step.get("payload", {}) if isinstance(retrieve_step, dict) else {}
+        if (
+            retrieval_payload.get("retrieval_options_enabled") is True
+            and "enableLlmQueryTransform" in (retrieval_payload.get("retrieval_option_keys") or [])
+        ):
+            PASS += 1
+            print("  PASS  Assistant turn retrieval options reached Agent workflow")
+        else:
+            FAIL += 1
+            ERRORS.append("Assistant turn expected retrieval options in retrieve_and_generate step")
+            print("  FAIL  Assistant turn expected retrieval options in retrieve_and_generate step")
         follow_up_questions = body.get("data", {}).get("followUpQuestions") if isinstance(body, dict) else None
         if (
             isinstance(follow_up_questions, list)

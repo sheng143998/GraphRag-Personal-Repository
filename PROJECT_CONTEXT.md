@@ -1,7 +1,7 @@
 ﻿# 本地知识库 Agent 项目上下文
 
 更新时间：2026-06-08
-项目状态：Phase 2 知识库 CRUD、文档上传 / 列表 / 详情 / 删除、Word `.docx` 解析与 MinerU PDF 解析已形成工程闭环；Phase 3 基础 RAG 已完成 Spring Boot -> FastAPI -> PostgreSQL 的本地链路；Phase 4 Advanced RAG 已覆盖 hybrid-rerank、metadata-filter、parent-child、query rewrite、multi-query、rerank、query-aware context compression、可配置混合检索权重、LLM 查询转换回退与 trace / 引用元数据；Phase 5 Agent 已完成问题分类、策略选择、assistant-turn、追问、学习计划、复习卡片与薄弱点学习闭环；Phase 6 GraphRAG 已完成确定性实体 / 关系抽取、图谱事实持久化、遍历检索、图谱指标评估与前端查看入口；Phase 7 RAG 实验评估已完成实验 CRUD、持久化 run 评估、评估历史、汇总接口、对比页、结构化评估用例与本地非 Docker 全链路 smoke；前端已保持浏览器只调用 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑；当前未提交工作包含 assistant-turn `retrievalOptions` 透传、聊天页混合检索预设与 LLM 查询转换开关，历史文档中文化已整理为待提交的 docs-only 改动。
+项目状态：Phase 2 知识库 CRUD、文档上传 / 列表 / 详情 / 删除、Word `.docx` 解析与 MinerU PDF 解析已形成工程闭环；Phase 3 基础 RAG 已完成 Spring Boot -> FastAPI -> PostgreSQL 的本地链路；Phase 4 Advanced RAG 已覆盖 hybrid-rerank、metadata-filter、parent-child、query rewrite、multi-query、rerank、query-aware context compression、可配置混合检索权重、LLM 查询转换回退与 trace / 引用元数据；Phase 5 Agent 已完成问题分类、策略选择、assistant-turn、追问、学习计划、复习卡片与薄弱点学习闭环；Phase 6 GraphRAG 已完成确定性实体 / 关系抽取、图谱事实持久化、遍历检索、图谱指标评估与前端查看入口；Phase 7 RAG 实验评估已完成实验 CRUD、持久化 run 评估、评估历史、汇总接口、对比页、结构化评估用例与本地非 Docker 全链路 smoke；前端已保持浏览器只调用 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑；最新完成历史文档中文化 docs-only 提交，并完成 assistant-turn `retrievalOptions` 透传、聊天页混合检索预设与 LLM 查询转换开关，本地非 Docker 全链路验证 147/147 通过。
 维护规则：每次开启新的开发对话时，优先提供本文件；每完成一个阶段目标或关键任务后，必须同步更新本文件。本文件只保留项目状态、关键架构决策、当前待办和阶段级变更摘要；接口级实现细节、验证命令和失败复盘放入 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 与 `docs/handoff/`。
 
 ## 1. 项目目标

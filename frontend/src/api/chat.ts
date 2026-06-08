@@ -110,6 +110,7 @@ export async function sendAssistantTurn(sessionId: string, payload: ChatRequest)
       strategyName: payload.strategy,
       topK: payload.topK ?? 5,
       metadataFilters: payload.metadataFilters,
+      retrievalOptions: payload.retrievalOptions,
     })
   });
   return mapAssistantTurnResponse(response, payload.strategy);
