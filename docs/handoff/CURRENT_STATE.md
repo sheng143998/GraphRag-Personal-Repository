@@ -337,6 +337,25 @@ Current remaining large project areas:
 
 ---
 
+## 2026-06-08 Weak Point Prioritization Update
+
+Completed in this iteration:
+
+- Spring Boot now returns `NEEDS_REVIEW` weak points before `MASTERED` ones.
+- Weak point ordering is deterministic by mastery status, difficulty, review count, and last seen time.
+- Full-chain smoke now re-lists weak points after marking one mastered and checks that review items remain first.
+
+Validated so far:
+
+- `mvn test` passed with 11 tests.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 89/89 smoke checks.
+
+Current remaining large project areas:
+
+- Add explicit practice flows and richer RAG evaluation dashboards.
+
+---
+
 ## 2026-06-08 GraphRAG Traversal Retrieval Update
 
 Completed in this iteration:

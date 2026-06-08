@@ -1397,3 +1397,11 @@ README 更新规则：
 - Frontend chat can mark persisted weak points as `MASTERED` or `NEEDS_REVIEW`.
 - `smoke_test.py` now asserts persisted weak point mastery updates; local full-chain smoke passed with 87/87 checks.
 - Key documents: `docs/plans/2026-06-08-weak-point-assessment.md`, `docs/reviews/2026-06-08-weak-point-assessment-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
+
+---
+
+## 2026-06-08 Weak Point Prioritization Update
+
+- Spring Boot weak point listing now prioritizes `NEEDS_REVIEW` before `MASTERED`, then ranks by difficulty, review count, and recency.
+- `smoke_test.py` now verifies the order after a mastery update; local full-chain smoke passed with 89/89 checks.
+- Key documents: `docs/plans/2026-06-08-weak-point-prioritization.md`, `docs/reviews/2026-06-08-weak-point-prioritization-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.

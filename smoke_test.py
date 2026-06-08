@@ -576,6 +576,18 @@ if CREATED_SESSION_ID:
                                 json={"masteryStatus": "MASTERED"})
                 if r is not None and r.status_code == 200:
                     check_field("Weak point mastery status", body, "data.masteryStatus", "MASTERED")
+                    r, body = check("List weak points after mastery update", "GET",
+                                    f"{BASE}/chat/{CREATED_SESSION_ID}/weak-points")
+                    reordered = body.get("data") if isinstance(body, dict) else None
+                    if isinstance(reordered, list) and len(reordered) >= 2:
+                        first_status = reordered[0].get("masteryStatus") if isinstance(reordered[0], dict) else None
+                        if first_status == "NEEDS_REVIEW":
+                            PASS += 1
+                            print("  PASS  Weak point review order keeps NEEDS_REVIEW first")
+                        else:
+                            FAIL += 1
+                            ERRORS.append("Weak point review order expected NEEDS_REVIEW first")
+                            print("  FAIL  Weak point review order expected NEEDS_REVIEW first")
         else:
             FAIL += 1
             ERRORS.append("Persisted weak points expected at least two rows")
