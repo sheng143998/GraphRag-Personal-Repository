@@ -1,8 +1,10 @@
 package com.example.agentknowledge.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -129,5 +131,81 @@ class RagServiceTest {
         assertThat(result.getChunk()).isNull();
         assertThat(result.getRank()).isEqualTo(1);
         assertThat(result.getMetadata()).containsEntry("content_preview", "Advanced RAG uses rewrite and rerank.");
+    }
+
+    @Test
+    void queryMarksRunFailedAndStoresErrorMessageWhenAiServiceFails() {
+        RuntimeException failure = new RuntimeException("AI service unavailable");
+
+        when(ragRunRepository.save(any(RagRun.class))).thenAnswer(invocation -> {
+            RagRun run = invocation.getArgument(0);
+            if (run.getId() == null) {
+                run.setId(UUID.randomUUID());
+            }
+            return run;
+        });
+        when(aiServiceGateway.queryRag(any(AiRagQueryRequest.class), any())).thenThrow(failure);
+
+        assertThatThrownBy(() -> ragService.query(new RagQueryRequest(
+                null,
+                null,
+                null,
+                "Why did the model fail?",
+                null,
+                null,
+                null,
+                null
+        ))).isSameAs(failure);
+
+        ArgumentCaptor<RagRun> runCaptor = ArgumentCaptor.forClass(RagRun.class);
+        verify(ragRunRepository, org.mockito.Mockito.atLeast(2)).save(runCaptor.capture());
+        RagRun failedRun = runCaptor.getAllValues().getLast();
+        assertThat(failedRun.getStatus()).isEqualTo("FAILED");
+        assertThat(failedRun.getErrorMessage()).isEqualTo("AI service unavailable");
+    }
+
+    @Test
+    void queryDoesNotSaveRetrievalResultsWhenCitationsAreEmpty() {
+        when(ragRunRepository.save(any(RagRun.class))).thenAnswer(invocation -> {
+            RagRun run = invocation.getArgument(0);
+            if (run.getId() == null) {
+                run.setId(UUID.randomUUID());
+            }
+            return run;
+        });
+        when(aiServiceGateway.queryRag(any(AiRagQueryRequest.class), any())).thenReturn(
+                new AiRagQueryResponse(
+                        "What is RAG?",
+                        "RAG combines retrieval and generation.",
+                        List.of(),
+                        new AiTraceMetadata(
+                                "trace-empty",
+                                "ai-run-empty",
+                                "rag_query",
+                                "basic-rag",
+                                "rag_answer",
+                                "v1",
+                                "stub-llm",
+                                "completed",
+                                5.0,
+                                Map.of()
+                        )
+                )
+        );
+
+        RagQueryResponse response = ragService.query(new RagQueryRequest(
+                null,
+                null,
+                null,
+                "What is RAG?",
+                null,
+                null,
+                null,
+                null
+        ));
+
+        assertThat(response.status()).isEqualTo("COMPLETED");
+        assertThat(response.citations()).isEmpty();
+        verify(ragRetrievalResultRepository, never()).saveAll(any());
     }
 }
