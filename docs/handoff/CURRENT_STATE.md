@@ -769,3 +769,26 @@ Current remaining large project areas:
 
 - Add UI controls and experiment records for comparing hybrid weight presets.
 - Continue context compression and GraphRAG metric refinement.
+
+---
+
+## 2026-06-08 Query-Aware Context Compression Update
+
+Completed in this iteration:
+
+- Added deterministic query-aware sentence packing to AI parent-child hydration.
+- Citation metadata now records `context_compression_mode`, original/compressed character counts, and compression ratio.
+- Advanced RAG `parent_child_context` trace payload now reports aggregate compression statistics.
+- Full-chain smoke now verifies parent-child RAG run metadata exposes the compression mode.
+
+Validated:
+
+- `.\.venv\bin\python.exe -m pytest tests/test_advanced_rag_strategy.py -q` passed with 9 tests.
+- `.\.venv\bin\python.exe -m pytest tests -q` passed with 24 tests.
+- `python -m py_compile smoke_test.py` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 144/144 smoke checks.
+
+Current remaining large project areas:
+
+- Add UI controls and experiment records for comparing hybrid weight presets.
+- Continue GraphRAG metric refinement and LLM-backed rewrite/extraction work.

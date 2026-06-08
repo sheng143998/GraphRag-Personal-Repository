@@ -165,6 +165,7 @@ class AdvancedRagStrategy:
         )
 
         contextualized = repository.hydrate_parent_context(fused) if use_parent_child else fused
+        compression_stats = _context_compression_stats(contextualized)
         trace_builder.add_step(
             name="parent_child_context",
             status="completed" if use_parent_child else "skipped",
@@ -173,7 +174,7 @@ class AdvancedRagStrategy:
                 if use_parent_child
                 else "Parent-child context is not enabled for this strategy."
             ),
-            payload={"result_count": len(contextualized)},
+            payload={"result_count": len(contextualized), **compression_stats},
         )
 
         reranked = await self.reranker.rerank(
@@ -255,6 +256,22 @@ def _append_graph_expansion_terms(query: str, expansion_terms: object) -> str:
     if not terms:
         return query
     return f"{query} {' '.join(terms)}"
+
+
+def _context_compression_stats(sources: list[SourceMetadata]) -> dict[str, object]:
+    compressed_sources = [
+        source
+        for source in sources
+        if source.metadata.get("context_compression_mode") == "query-aware-sentence-pack"
+    ]
+    original_chars = sum(int(source.metadata.get("context_original_chars") or 0) for source in compressed_sources)
+    compressed_chars = sum(int(source.metadata.get("context_compressed_chars") or 0) for source in compressed_sources)
+    return {
+        "context_compression_enabled": bool(compressed_sources),
+        "compressed_result_count": len(compressed_sources),
+        "context_original_chars": original_chars,
+        "context_compressed_chars": compressed_chars,
+    }
 
 
 def _fuse_by_chunk_id(sources: list[SourceMetadata]) -> list[SourceMetadata]:

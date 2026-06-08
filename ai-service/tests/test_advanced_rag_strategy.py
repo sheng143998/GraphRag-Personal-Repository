@@ -33,10 +33,13 @@ def test_advanced_rag_applies_rewrite_filters_fusion_parent_context_and_rerank()
     assert step_statuses["rerank"] == "completed"
     retrieve_step = next(step for step in response.trace.steps if step.name == "retrieve")
     assert retrieve_step.payload["retrieval_options_enabled"] is True
+    context_step = next(step for step in response.trace.steps if step.name == "parent_child_context")
+    assert context_step.payload["context_compression_enabled"] is True
 
     top_source = response.citations[0]
     assert top_source.rerank_score is not None
     assert top_source.metadata["parent_child_mode"] == "neighbor-window"
+    assert top_source.metadata["context_compression_mode"] == "query-aware-sentence-pack"
     assert len(top_source.metadata["context_source_chunk_ids"]) >= 2
     assert top_source.metadata["matched_queries"]
     assert "Advanced RAG" in top_source.metadata["content_preview"]
@@ -147,6 +150,66 @@ def test_parent_child_context_falls_back_when_parent_chunk_is_missing() -> None:
     assert source.metadata["context_source_chunk_ids"] == ["child-a", "child-b"]
     assert "First child" in source.metadata["content_preview"]
     assert "Second child" in source.metadata["content_preview"]
+
+
+def test_parent_child_context_compresses_long_parent_evidence() -> None:
+    _clear_in_memory_repository()
+    noisy_parent = "Background notes describe release chores and general setup details. " * 80
+    repository.save_chunks(
+        "doc-long-parent",
+        "kb-parent-child",
+        [
+            ChunkRecord(
+                chunk_id="parent-long",
+                document_id="doc-long-parent",
+                knowledge_base_id="kb-parent-child",
+                title="Long Parent",
+                chunk_index=0,
+                content=noisy_parent,
+                metadata={},
+            ),
+            ChunkRecord(
+                chunk_id="child-evidence",
+                document_id="doc-long-parent",
+                knowledge_base_id="kb-parent-child",
+                parent_chunk_id="parent-long",
+                title="Evidence Child",
+                chunk_index=1,
+                content="Rerank evidence packing keeps the query matched sentence for Advanced RAG.",
+                metadata={},
+            ),
+            ChunkRecord(
+                chunk_id="child-noise",
+                document_id="doc-long-parent",
+                knowledge_base_id="kb-parent-child",
+                parent_chunk_id="parent-long",
+                title="Noise Child",
+                chunk_index=2,
+                content="Operational notes list unrelated cleanup details.",
+                metadata={},
+            ),
+        ],
+    )
+
+    hydrated = repository.hydrate_parent_context([
+        SourceMetadata(
+            document_id="doc-long-parent",
+            chunk_id="child-evidence",
+            title="Evidence Child",
+            score=0.9,
+            metadata={
+                "content_preview": "Rerank evidence packing keeps the query matched sentence.",
+                "matched_queries": ["How does rerank evidence packing help Advanced RAG?"],
+            },
+        )
+    ])
+
+    source = hydrated[0]
+    assert source.metadata["parent_child_mode"] == "parent-child"
+    assert source.metadata["context_compression_mode"] == "query-aware-sentence-pack"
+    assert source.metadata["context_original_chars"] > source.metadata["context_compressed_chars"]
+    assert source.metadata["context_compressed_chars"] <= 1200
+    assert "Rerank evidence packing" in source.metadata["content_preview"]
 
 
 def test_rag_evaluation_scores_grounded_citations() -> None:

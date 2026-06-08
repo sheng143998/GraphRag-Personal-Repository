@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
@@ -461,7 +462,7 @@ class PostgresDocumentRepository(BaseDocumentRepository):
                 metadata["parent_child_mode"] = "parent-child"
                 metadata["parent_chunk_id"] = str(hit["parent_chunk_id"])
                 metadata["context_source_chunk_ids"] = [str(row["id"]) for row in parent_children]
-                metadata["content_preview"] = "\n\n".join(str(row.get("content") or "") for row in parent_children)[:1200]
+                metadata.update(_compressed_context_metadata(source, parent_children))
                 return source.copy(update={"metadata": metadata})
 
         cursor.execute(
@@ -481,7 +482,7 @@ class PostgresDocumentRepository(BaseDocumentRepository):
         metadata = {**source.metadata}
         metadata["parent_child_mode"] = "neighbor-window"
         metadata["context_source_chunk_ids"] = [str(row["id"]) for row in neighbors]
-        metadata["content_preview"] = "\n\n".join(str(row.get("content") or "") for row in neighbors)[:1200]
+        metadata.update(_compressed_context_metadata(source, neighbors))
         return source.copy(update={"metadata": metadata})
 
     def save_graph_facts(
@@ -768,7 +769,7 @@ def _hydrate_in_memory_parent_context(
             metadata["parent_child_mode"] = "parent-child"
             metadata["parent_chunk_id"] = matched_chunk.parent_chunk_id
             metadata["context_source_chunk_ids"] = [chunk.chunk_id for chunk in parent_children]
-            metadata["content_preview"] = "\n\n".join(chunk.content for chunk in parent_children)[:1200]
+            metadata.update(_compressed_context_metadata(source, _chunks_to_context_rows(parent_children)))
             return source.copy(update={"metadata": metadata})
 
     neighbors = [
@@ -780,8 +781,101 @@ def _hydrate_in_memory_parent_context(
     metadata = {**source.metadata}
     metadata["parent_child_mode"] = "neighbor-window"
     metadata["context_source_chunk_ids"] = [chunk.chunk_id for chunk in neighbors]
-    metadata["content_preview"] = "\n\n".join(chunk.content for chunk in neighbors)[:1200]
+    metadata.update(_compressed_context_metadata(source, _chunks_to_context_rows(neighbors)))
     return source.copy(update={"metadata": metadata})
+
+
+def _chunks_to_context_rows(chunks: list[ChunkRecord]) -> list[dict[str, object]]:
+    return [{"id": chunk.chunk_id, "content": chunk.content} for chunk in chunks]
+
+
+def _compressed_context_metadata(source: SourceMetadata, rows: list[dict[str, object]]) -> dict[str, object]:
+    raw_context = "\n\n".join(str(row.get("content") or "") for row in rows)
+    compressed = _compress_context_preview(
+        rows=rows,
+        hit_chunk_id=source.chunk_id,
+        matched_queries=[str(value) for value in source.metadata.get("matched_queries") or []],
+        max_chars=1200,
+    )
+    original_chars = len(raw_context)
+    compressed_chars = len(compressed)
+    return {
+        "content_preview": compressed,
+        "context_compression_mode": "query-aware-sentence-pack",
+        "context_original_chars": original_chars,
+        "context_compressed_chars": compressed_chars,
+        "context_compression_ratio": round(compressed_chars / original_chars, 4) if original_chars else 1.0,
+    }
+
+
+def _compress_context_preview(
+    *,
+    rows: list[dict[str, object]],
+    hit_chunk_id: str,
+    matched_queries: list[str],
+    max_chars: int,
+) -> str:
+    terms = _query_terms(matched_queries)
+    candidates: list[tuple[int, int, str]] = []
+    ordinal = 0
+    for row in rows:
+        chunk_id = str(row.get("id") or "")
+        for sentence in _split_context_sentences(str(row.get("content") or "")):
+            if not sentence:
+                continue
+            score = _sentence_score(sentence, terms)
+            if chunk_id == hit_chunk_id:
+                score += 5
+            candidates.append((score, ordinal, sentence))
+            ordinal += 1
+
+    if not candidates:
+        return ""
+
+    selected: list[tuple[int, str]] = []
+    used_sentences: set[str] = set()
+    for score, ordinal, sentence in sorted(candidates, key=lambda item: (-item[0], item[1])):
+        normalized = sentence.lower()
+        if normalized in used_sentences:
+            continue
+        next_preview = _join_sentences([item[1] for item in selected] + [sentence])
+        if len(next_preview) > max_chars and selected:
+            continue
+        selected.append((ordinal, sentence))
+        used_sentences.add(normalized)
+        if len(_join_sentences([item[1] for item in selected])) >= max_chars:
+            break
+
+    if not selected:
+        return _join_sentences([candidates[0][2]])[:max_chars]
+    ordered = [sentence for _, sentence in sorted(selected, key=lambda item: item[0])]
+    return _join_sentences(ordered)[:max_chars]
+
+
+def _split_context_sentences(text: str) -> list[str]:
+    return [
+        value.strip()
+        for value in re.split(r"(?<=[.!?。！？])\s+|\n+", text)
+        if value.strip()
+    ]
+
+
+def _query_terms(queries: list[str]) -> set[str]:
+    terms: set[str] = set()
+    for query in queries:
+        for term in re.findall(r"[A-Za-z0-9_]+", query.lower()):
+            if len(term) >= 3:
+                terms.add(term)
+    return terms
+
+
+def _sentence_score(sentence: str, terms: set[str]) -> int:
+    lowered = sentence.lower()
+    return sum(lowered.count(term) for term in terms)
+
+
+def _join_sentences(sentences: list[str]) -> str:
+    return "\n".join(sentences)
 
 
 repository = build_repository()

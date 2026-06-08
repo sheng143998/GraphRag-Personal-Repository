@@ -486,6 +486,17 @@ if CREATED_KB_ID and CREATED_PARENT_DOC_ID and PARENT_CHILD_DOC_INDEXED:
                 FAIL += 1
                 ERRORS.append("Parent-child run expected parent_chunk_id metadata")
                 print("  FAIL  Parent-child run expected parent_chunk_id metadata")
+            if parent_child_metadata.get("context_compression_mode") == "query-aware-sentence-pack":
+                PASS += 1
+                print("  PASS  Parent-child run used query-aware context compression")
+            else:
+                FAIL += 1
+                ERRORS.append(
+                    f"Parent-child run expected context_compression_mode=query-aware-sentence-pack, got {parent_child_metadata.get('context_compression_mode')}"
+                )
+                print(
+                    f"  FAIL  Parent-child run expected context_compression_mode=query-aware-sentence-pack, got {parent_child_metadata.get('context_compression_mode')}"
+                )
 else:
     print("  SKIP  No parent-child document, skipping parent-child trace")
 

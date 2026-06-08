@@ -240,3 +240,10 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Spring Boot full test suite passed with 18/18 tests.
 - Frontend typecheck and build passed.
 - Full-chain local smoke passed with 143/143 checks.
+
+## 2026-06-08 Query-Aware Context Compression Validation
+
+- AI pytest covers long parent-child context compression, hit-child evidence retention, citation compression metadata, and Advanced RAG trace compression stats.
+- Full-chain smoke now checks parent-child run metadata includes `context_compression_mode=query-aware-sentence-pack`.
+- AI full test suite passed with 24/24 tests.
+- Full-chain local smoke passed with 144/144 checks.

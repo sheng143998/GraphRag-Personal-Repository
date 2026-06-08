@@ -1588,3 +1588,14 @@ README 更新规则：
 - Citation metadata now records `vector_score`, `keyword_score`, `vector_weight`, and `keyword_weight` for RAG evaluation.
 - Local full-chain smoke passed with 143/143 checks.
 - Key documents: `docs/plans/2026-06-08-configurable-hybrid-retrieval.md`, `docs/reviews/2026-06-08-configurable-hybrid-retrieval-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
+
+---
+
+## 2026-06-08 Query-Aware Context Compression Update
+
+- Added deterministic query-aware sentence packing for parent-child and neighbor-window context hydration in FastAPI.
+- Citation metadata records compression mode, original/compressed character counts, and compression ratio.
+- Advanced RAG trace reports aggregate context compression stats for evaluation.
+- Full-chain smoke now validates parent-child compression metadata.
+- Local full-chain smoke passed with 144/144 checks.
+- Key documents: `docs/plans/2026-06-08-query-aware-context-compression.md`, `docs/reviews/2026-06-08-query-aware-context-compression-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
