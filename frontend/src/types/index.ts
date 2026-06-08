@@ -97,6 +97,7 @@ export interface ChatResponse {
   assistantMessage?: ChatMessageRecord;
   questionType?: string;
   selectedStrategyName?: string;
+  followUpQuestions?: string[];
   workflowSteps?: AgentWorkflowStep[];
 }
 
@@ -213,6 +214,7 @@ export interface AssistantTurnResponse {
   agentName: string;
   questionType: string;
   selectedStrategyName: string;
+  followUpQuestions: string[];
   workflowSteps: AgentWorkflowStep[];
   trace?: { traceId?: string; attributes?: Record<string, unknown> } | null;
 }

@@ -11,6 +11,7 @@ public record AgentInvokeResponse(
         List<AiSourceMetadata> citations,
         String questionType,
         String selectedStrategyName,
+        List<String> followUpQuestions,
         List<WorkflowStep> workflowSteps,
         AiTraceMetadata trace
 ) {

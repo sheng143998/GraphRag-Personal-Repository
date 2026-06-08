@@ -43,6 +43,7 @@ public class AgentService {
                 aiResponse.citations(),
                 aiResponse.questionType(),
                 aiResponse.selectedStrategyName(),
+                aiResponse.followUpQuestions() != null ? aiResponse.followUpQuestions() : List.of(),
                 mapWorkflowSteps(aiResponse.workflowSteps()),
                 aiResponse.trace()
         );

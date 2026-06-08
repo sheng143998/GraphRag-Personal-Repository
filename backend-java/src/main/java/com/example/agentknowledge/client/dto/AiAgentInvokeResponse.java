@@ -10,6 +10,7 @@ public record AiAgentInvokeResponse(
         List<AiSourceMetadata> citations,
         @JsonProperty("question_type") String questionType,
         @JsonProperty("selected_strategy_name") String selectedStrategyName,
+        @JsonProperty("follow_up_questions") List<String> followUpQuestions,
         @JsonProperty("workflow_steps") List<WorkflowStep> workflowSteps,
         AiTraceMetadata trace
 ) {

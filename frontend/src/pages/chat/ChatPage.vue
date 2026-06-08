@@ -114,6 +114,17 @@
               />
             </label>
             <div v-if="store.lastError" class="empty-state">{{ store.lastError }}</div>
+            <div v-if="store.followUpQuestions.length" class="item-list">
+              <button
+                v-for="item in store.followUpQuestions"
+                :key="item"
+                class="button button-ghost"
+                type="button"
+                @click="useFollowUp(item)"
+              >
+                {{ item }}
+              </button>
+            </div>
             <div class="button-row">
               <button class="button button-primary" type="submit" :disabled="store.pending">
                 {{ store.pending ? "检索中..." : "发送问题" }}
@@ -161,6 +172,10 @@ function fillQuestion(): void {
 async function submitQuestion(): Promise<void> {
   await store.askQuestion(question.value);
   question.value = "";
+}
+
+function useFollowUp(value: string): void {
+  question.value = value;
 }
 
 async function createNewSession(): Promise<void> {

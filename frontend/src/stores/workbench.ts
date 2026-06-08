@@ -167,6 +167,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
   const settings = ref<AppSettings>(loadPersistedSettings());
   const selectedStrategy = ref(ragStrategyOptions[0].value);
   const traceId = ref("trace-demo-20260525-181600");
+  const followUpQuestions = ref<string[]>([]);
   const pending = ref(false);
   const uploadPending = ref(false);
   const lastError = ref("");
@@ -249,6 +250,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
 
       traceId.value = result.traceId;
       selectedStrategy.value = result.selectedStrategyName || selectedStrategy.value;
+      followUpQuestions.value = result.followUpQuestions ?? [];
       if (result.userMessage && result.assistantMessage) {
         messages.value.push(...mapHistoryMessages([result.userMessage, result.assistantMessage]));
       } else {
@@ -272,6 +274,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "提问失败，请稍后重试。";
       lastError.value = message;
+      followUpQuestions.value = [];
       messages.value.push({
         id: `msg-assistant-${Date.now()}`,
         role: "assistant",
@@ -547,6 +550,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     experimentFormPending,
     // feedback
     feedbackPending,
+    followUpQuestions,
     lastFeedback,
     // actions
     askQuestion,
