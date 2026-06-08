@@ -15,8 +15,10 @@ import com.example.agentknowledge.domain.KnowledgeBase;
 import com.example.agentknowledge.dto.agent.AgentInvokeRequest;
 import com.example.agentknowledge.dto.agent.AgentInvokeResponse;
 import com.example.agentknowledge.dto.chat.CreateAssistantTurnRequest;
+import com.example.agentknowledge.dto.chat.LearningWeakPointResponse;
 import com.example.agentknowledge.repository.ChatMessageRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -29,10 +31,12 @@ class AssistantTurnServiceTest {
     private final ChatService chatService = mock(ChatService.class);
     private final ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
     private final AgentService agentService = mock(AgentService.class);
+    private final LearningWeakPointService learningWeakPointService = mock(LearningWeakPointService.class);
     private final AssistantTurnService assistantTurnService = new AssistantTurnService(
             chatService,
             chatMessageRepository,
             agentService,
+            learningWeakPointService,
             new ObjectMapper()
     );
 
@@ -81,6 +85,23 @@ class AssistantTurnServiceTest {
                 List.of(new AgentInvokeResponse.WorkflowStep("select_rag_strategy", "Selected strategy.", Map.of())),
                 new AiTraceMetadata("trace-turn", "agent-run", "agent_invoke", "advanced-rag", "agent", "v1", "stub", "completed", 8.0, Map.of())
         ));
+        when(learningWeakPointService.recordReviewCards(
+                any(ChatSession.class),
+                any(ChatMessage.class),
+                org.mockito.ArgumentMatchers.anyList()
+        )).thenReturn(List.of(new LearningWeakPointResponse(
+                UUID.randomUUID(),
+                sessionId,
+                knowledgeBaseId,
+                UUID.randomUUID(),
+                "Give a 60-second answer.",
+                "State the concept, trade-off, and project proof.",
+                "source",
+                "medium",
+                1,
+                Instant.parse("2026-06-08T00:00:00Z"),
+                Instant.parse("2026-06-08T00:00:00Z")
+        )));
 
         var response = assistantTurnService.runTurn(sessionId, new CreateAssistantTurnRequest(
                 "Give me an interview answer for GraphRAG.",
@@ -117,6 +138,8 @@ class AssistantTurnServiceTest {
         assertThat(response.studyPlan().steps()).contains("Practice a project story.");
         assertThat(response.reviewCards()).hasSize(1);
         assertThat(response.reviewCards().get(0).question()).contains("60-second");
+        assertThat(response.weakPoints()).hasSize(1);
+        assertThat(response.weakPoints().get(0).topic()).contains("60-second");
         assertThat(response.workflowSteps()).hasSize(1);
     }
 }

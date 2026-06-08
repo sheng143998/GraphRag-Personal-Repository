@@ -8,8 +8,10 @@ import com.example.agentknowledge.dto.chat.AssistantTurnResponse;
 import com.example.agentknowledge.dto.chat.CreateAssistantTurnRequest;
 import com.example.agentknowledge.dto.chat.CreateChatMessageRequest;
 import com.example.agentknowledge.dto.chat.CreateChatSessionRequest;
+import com.example.agentknowledge.dto.chat.LearningWeakPointResponse;
 import com.example.agentknowledge.service.AssistantTurnService;
 import com.example.agentknowledge.service.ChatService;
+import com.example.agentknowledge.service.LearningWeakPointService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -26,10 +28,16 @@ public class ChatController {
 
     private final ChatService chatService;
     private final AssistantTurnService assistantTurnService;
+    private final LearningWeakPointService learningWeakPointService;
 
-    public ChatController(ChatService chatService, AssistantTurnService assistantTurnService) {
+    public ChatController(
+            ChatService chatService,
+            AssistantTurnService assistantTurnService,
+            LearningWeakPointService learningWeakPointService
+    ) {
         this.chatService = chatService;
         this.assistantTurnService = assistantTurnService;
+        this.learningWeakPointService = learningWeakPointService;
     }
 
     @PostMapping("/sessions")
@@ -53,6 +61,11 @@ public class ChatController {
     @GetMapping("/{sessionId}/messages")
     public ApiResponse<List<ChatMessageResponse>> listMessages(@PathVariable UUID sessionId) {
         return ApiResponse.success(chatService.listMessages(sessionId), TraceContext.getTraceId());
+    }
+
+    @GetMapping("/{sessionId}/weak-points")
+    public ApiResponse<List<LearningWeakPointResponse>> listWeakPoints(@PathVariable UUID sessionId) {
+        return ApiResponse.success(learningWeakPointService.listWeakPoints(sessionId), TraceContext.getTraceId());
     }
 
     @PostMapping("/{sessionId}/assistant-turn")

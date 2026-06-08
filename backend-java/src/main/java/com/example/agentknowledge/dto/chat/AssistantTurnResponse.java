@@ -11,6 +11,7 @@ public record AssistantTurnResponse(
         java.util.List<String> followUpQuestions,
         AgentInvokeResponse.StudyPlan studyPlan,
         java.util.List<AgentInvokeResponse.ReviewCard> reviewCards,
+        java.util.List<LearningWeakPointResponse> weakPoints,
         java.util.List<AgentInvokeResponse.WorkflowStep> workflowSteps,
         Object trace
 ) {

@@ -8,6 +8,7 @@ import com.example.agentknowledge.dto.agent.AgentInvokeResponse;
 import com.example.agentknowledge.dto.chat.AssistantTurnResponse;
 import com.example.agentknowledge.dto.chat.ChatMessageResponse;
 import com.example.agentknowledge.dto.chat.CreateAssistantTurnRequest;
+import com.example.agentknowledge.dto.chat.LearningWeakPointResponse;
 import com.example.agentknowledge.repository.ChatMessageRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -22,17 +23,20 @@ public class AssistantTurnService {
     private final ChatService chatService;
     private final ChatMessageRepository chatMessageRepository;
     private final AgentService agentService;
+    private final LearningWeakPointService learningWeakPointService;
     private final ObjectMapper objectMapper;
 
     public AssistantTurnService(
             ChatService chatService,
             ChatMessageRepository chatMessageRepository,
             AgentService agentService,
+            LearningWeakPointService learningWeakPointService,
             ObjectMapper objectMapper
     ) {
         this.chatService = chatService;
         this.chatMessageRepository = chatMessageRepository;
         this.agentService = agentService;
+        this.learningWeakPointService = learningWeakPointService;
         this.objectMapper = objectMapper;
     }
 
@@ -61,6 +65,11 @@ public class AssistantTurnService {
                 agentResponse.output(),
                 serializeCitations(agentResponse)
         );
+        java.util.List<LearningWeakPointResponse> weakPoints = learningWeakPointService.recordReviewCards(
+                session,
+                assistantMessage,
+                agentResponse.reviewCards()
+        );
 
         return new AssistantTurnResponse(
                 toMessageResponse(userMessage),
@@ -71,6 +80,7 @@ public class AssistantTurnService {
                 agentResponse.followUpQuestions(),
                 agentResponse.studyPlan(),
                 agentResponse.reviewCards(),
+                weakPoints,
                 agentResponse.workflowSteps(),
                 agentResponse.trace()
         );
