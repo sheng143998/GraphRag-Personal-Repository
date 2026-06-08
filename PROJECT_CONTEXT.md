@@ -1329,3 +1329,12 @@ README 更新规则：
 - Updated the non-Docker local full-chain script so AI service uses the shared local PostgreSQL database during smoke validation, allowing graph facts written by AI ingest to be read by Spring Boot.
 - Extended `smoke_test.py` graph coverage; local full-chain smoke now passes 60/60 checks, including persisted graph entity and relationship assertions.
 - Key documents: `docs/plans/2026-06-08-graph-facts-query-ui.md`, `docs/reviews/2026-06-08-graph-facts-query-ui-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
+
+---
+
+## 2026-06-08 GraphRAG Traversal Retrieval Update
+
+- Extended AI graph fact lookup so `graph-rag` can use persisted one-hop relationships, not just matched entity counts.
+- `graph-rag` now appends relationship-derived expansion terms to the retrieval query and records traversal evidence in trace and citation metadata.
+- `smoke_test.py` now checks Spring Boot RAG run metadata for graph expansion terms and traversal relationships.
+- Key documents: `docs/plans/2026-06-08-graphrag-traversal-retrieval.md`, `docs/reviews/2026-06-08-graphrag-traversal-retrieval-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.

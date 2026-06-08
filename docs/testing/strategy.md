@@ -58,3 +58,9 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Frontend typecheck/build covers the new `/graph` workbench page and `frontend/src/api/graph.ts`.
 - The local full-chain script now runs the AI service in database-backed mode (`AI_RAG_USE_DATABASE=true`) so AI ingest writes graph facts into the same PostgreSQL database that Spring Boot reads.
 - Local full-chain smoke now covers `GET /api/graph/facts` and `GET /api/graph/facts?entity=GraphRAG`, passing 60/60 checks with persisted entity and relationship counts.
+
+## 2026-06-08 GraphRAG Traversal Retrieval Validation
+
+- AI pytest covers one-hop graph expansion terms and traversal relationships in GraphRAG trace/citation metadata.
+- `smoke_test.py` now checks Spring Boot RAG run retrieval metadata for `graph_expansion_terms` and `graph_traversal_relationships`.
+- Local full-chain smoke should pass 62/62 checks after this change.

@@ -173,7 +173,8 @@ class InMemoryDocumentRepository(BaseDocumentRepository):
     ) -> dict[str, object]:
         requested = {name.lower() for name in entity_names}
         matched_entities: list[str] = []
-        relationship_count = 0
+        graph_relationships: list[dict[str, object]] = []
+        expansion_terms: set[str] = set()
         for key, entities in self.graph_entities.items():
             if knowledge_base_id and not key.startswith(f"{knowledge_base_id}:"):
                 continue
@@ -183,14 +184,33 @@ class InMemoryDocumentRepository(BaseDocumentRepository):
         for key, relationships in self.graph_relationships.items():
             if knowledge_base_id and not key.startswith(f"{knowledge_base_id}:"):
                 continue
-            relationship_count += sum(
-                1
-                for relationship in relationships
-                if relationship.source.lower() in requested or relationship.target.lower() in requested
-            )
+            chunk_id = key.split(":", 1)[1] if ":" in key else key
+            for relationship in relationships:
+                source_matches = relationship.source.lower() in requested
+                target_matches = relationship.target.lower() in requested
+                if not source_matches and not target_matches:
+                    continue
+                if source_matches and relationship.target.lower() not in requested:
+                    expansion_terms.add(relationship.target)
+                if target_matches and relationship.source.lower() not in requested:
+                    expansion_terms.add(relationship.source)
+                graph_relationships.append(
+                    {
+                        "source": relationship.source,
+                        "target": relationship.target,
+                        "relation_type": relationship.relation_type,
+                        "confidence": relationship.confidence,
+                        "chunk_id": chunk_id,
+                    }
+                )
         return {
             "matched_entities": sorted(set(matched_entities)),
-            "relationship_count": relationship_count,
+            "relationship_count": len(graph_relationships),
+            "relationships": sorted(
+                graph_relationships,
+                key=lambda item: (str(item["source"]).lower(), str(item["target"]).lower(), str(item["relation_type"])),
+            ),
+            "expansion_terms": sorted(expansion_terms),
         }
 
 
@@ -510,7 +530,7 @@ class PostgresDocumentRepository(BaseDocumentRepository):
         entity_names: list[str],
     ) -> dict[str, object]:
         if not knowledge_base_id or not entity_names:
-            return {"matched_entities": [], "relationship_count": 0}
+            return {"matched_entities": [], "relationship_count": 0, "relationships": [], "expansion_terms": []}
         normalized = [name.lower() for name in entity_names]
         placeholders = ", ".join(["%s"] * len(normalized))
         with self._connection() as connection:
@@ -528,18 +548,44 @@ class PostgresDocumentRepository(BaseDocumentRepository):
                 matched_entities = [str(row["name"]) for row in _fetch_dicts(cursor)]
                 cursor.execute(
                     f"""
-                    SELECT COUNT(*) AS relationship_count
+                    SELECT
+                        source_name,
+                        target_name,
+                        relation_type,
+                        confidence,
+                        chunk_id
                     FROM graph_relationships
                     WHERE knowledge_base_id = %s
                       AND (lower(source_name) IN ({placeholders}) OR lower(target_name) IN ({placeholders}))
+                    ORDER BY confidence DESC, created_at DESC
+                    LIMIT 50
                     """,
                     tuple([knowledge_base_id, *normalized, *normalized]),
                 )
-                rows = _fetch_dicts(cursor)
-                relationship_count = int(rows[0]["relationship_count"]) if rows else 0
+                relationships = _fetch_dicts(cursor)
+                graph_relationships = [
+                    {
+                        "source": str(row["source_name"]),
+                        "target": str(row["target_name"]),
+                        "relation_type": str(row["relation_type"]),
+                        "confidence": float(row["confidence"] or 0.0),
+                        "chunk_id": str(row["chunk_id"]) if row.get("chunk_id") else None,
+                    }
+                    for row in relationships
+                ]
+                expansion_terms = sorted(
+                    {
+                        term
+                        for relationship in graph_relationships
+                        for term in (str(relationship["source"]), str(relationship["target"]))
+                        if term.lower() not in normalized
+                    }
+                )
         return {
             "matched_entities": matched_entities,
-            "relationship_count": relationship_count,
+            "relationship_count": len(graph_relationships),
+            "relationships": graph_relationships,
+            "expansion_terms": expansion_terms,
         }
 
     @contextmanager

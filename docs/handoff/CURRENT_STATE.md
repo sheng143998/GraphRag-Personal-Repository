@@ -199,7 +199,25 @@ Validated:
 
 Current remaining large project areas:
 
-- Add dedicated graph traversal/retrieval over persisted graph facts.
+- Build learning and interview assistant product workflows.
+
+---
+
+## 2026-06-08 GraphRAG Traversal Retrieval Update
+
+Completed in this iteration:
+
+- Extended AI repository `find_graph_facts()` results with one-hop graph relationships and expansion terms.
+- `graph-rag` now appends persisted graph expansion terms to the retrieval query.
+- GraphRAG trace and citation metadata now include `graph_expansion_terms` and `graph_traversal_relationships`.
+- Full-chain smoke now verifies traversal metadata from Spring Boot RAG run retrieval results.
+
+Validated so far:
+
+- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests.
+
+Current remaining large project areas:
+
 - Build learning and interview assistant product workflows.
 
 ---

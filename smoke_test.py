@@ -291,6 +291,26 @@ if CREATED_KB_ID:
         r, body = check("Get GraphRAG run", "GET", f"{BASE}/rag/runs/{CREATED_GRAPH_RUN_ID}")
         if r is not None and r.status_code == 200:
             check_field("GraphRAG run status", body, "data.status", "COMPLETED")
+            retrieval_results = body.get("data", {}).get("retrievalResults") if isinstance(body, dict) else None
+            graph_metadata = (
+                retrieval_results[0].get("metadata", {})
+                if retrieval_results and isinstance(retrieval_results[0], dict)
+                else {}
+            )
+            if graph_metadata.get("graph_expansion_terms"):
+                PASS += 1
+                print(f"  PASS  GraphRAG expansion terms present = {len(graph_metadata.get('graph_expansion_terms'))}")
+            else:
+                FAIL += 1
+                ERRORS.append("GraphRAG run metadata expected graph_expansion_terms")
+                print("  FAIL  GraphRAG run metadata expected graph_expansion_terms")
+            if graph_metadata.get("graph_traversal_relationships"):
+                PASS += 1
+                print(f"  PASS  GraphRAG traversal relationships present = {len(graph_metadata.get('graph_traversal_relationships'))}")
+            else:
+                FAIL += 1
+                ERRORS.append("GraphRAG run metadata expected graph_traversal_relationships")
+                print("  FAIL  GraphRAG run metadata expected graph_traversal_relationships")
 else:
     print("  SKIP  No KB, skipping GraphRAG trace test")
 

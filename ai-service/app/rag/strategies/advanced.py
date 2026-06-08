@@ -64,13 +64,20 @@ class AdvancedRagStrategy:
                 entity_names=[entity.name for entity in graph_entities],
             )
             if use_graph
-            else {"matched_entities": [], "relationship_count": 0}
+            else {"matched_entities": [], "relationship_count": 0, "relationships": [], "expansion_terms": []}
+        )
+        graph_query = (
+            _append_graph_expansion_terms(graph_query, persisted_graph_facts.get("expansion_terms", []))
+            if use_graph
+            else graph_query
         )
         if use_graph:
             trace_builder.set_attribute("graph_entities", [entity.__dict__ for entity in graph_entities])
             trace_builder.set_attribute("graph_relationships", [relationship.__dict__ for relationship in graph_relationships])
             trace_builder.set_attribute("graph_augmented_query", graph_query)
             trace_builder.set_attribute("persisted_graph_matches", persisted_graph_facts)
+            trace_builder.set_attribute("graph_expansion_terms", persisted_graph_facts.get("expansion_terms", []))
+            trace_builder.set_attribute("graph_traversal_relationships", persisted_graph_facts.get("relationships", []))
         trace_builder.add_step(
             name="graph_extract",
             status="completed" if use_graph else "skipped",
@@ -81,6 +88,7 @@ class AdvancedRagStrategy:
                 "graph_augmented_query": graph_query,
                 "persisted_match_count": len(persisted_graph_facts.get("matched_entities", [])),
                 "persisted_relationship_count": persisted_graph_facts.get("relationship_count", 0),
+                "graph_expansion_terms": persisted_graph_facts.get("expansion_terms", []),
             },
         )
 
@@ -219,9 +227,28 @@ def _with_graph_metadata(
             "graph_relationship_count": relationship_count,
             "persisted_graph_matched_entities": persisted_graph_facts.get("matched_entities", []),
             "persisted_graph_relationship_count": persisted_graph_facts.get("relationship_count", 0),
+            "graph_expansion_terms": persisted_graph_facts.get("expansion_terms", []),
+            "graph_traversal_relationships": persisted_graph_facts.get("relationships", []),
         }
         updated.append(source.copy(update={"metadata": metadata}))
     return updated
+
+
+def _append_graph_expansion_terms(query: str, expansion_terms: object) -> str:
+    if not isinstance(expansion_terms, list):
+        return query
+    terms: list[str] = []
+    query_lower = query.lower()
+    for value in expansion_terms:
+        term = str(value).strip()
+        if not term or term.lower() in query_lower or term in terms:
+            continue
+        terms.append(term)
+        if len(terms) >= 5:
+            break
+    if not terms:
+        return query
+    return f"{query} {' '.join(terms)}"
 
 
 def _fuse_by_chunk_id(sources: list[SourceMetadata]) -> list[SourceMetadata]:
