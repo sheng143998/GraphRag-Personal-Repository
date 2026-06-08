@@ -126,8 +126,10 @@ export interface LearningWeakPoint {
   expectedAnswer?: string | null;
   sourceHint?: string | null;
   difficulty: string;
+  masteryStatus: string;
   reviewCount: number;
   lastSeenAt: string;
+  lastAssessedAt?: string | null;
   createdAt: string;
 }
 

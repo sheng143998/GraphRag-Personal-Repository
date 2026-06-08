@@ -37,6 +37,7 @@ import {
   fetchSettings,
   fetchWeakPoints,
   sendAssistantTurn,
+  updateWeakPoint,
   updateExperiment,
   updateKnowledgeBase,
   uploadDocuments
@@ -397,6 +398,12 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     }
   }
 
+  async function assessWeakPoint(weakPointId: string, masteryStatus: string): Promise<void> {
+    if (!currentSessionId.value) return;
+    const updated = await updateWeakPoint(currentSessionId.value, weakPointId, masteryStatus);
+    weakPoints.value = weakPoints.value.map((item) => (item.id === updated.id ? updated : item));
+  }
+
   // --- Knowledge bases ---
   async function createKb(payload: {
     name: string;
@@ -570,6 +577,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     lastFeedback,
     // actions
     askQuestion,
+    assessWeakPoint,
     hydrate,
     submitUpload,
     // sessions

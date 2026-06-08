@@ -182,7 +182,15 @@
             <h3 class="item-title">{{ point.topic }}</h3>
             <p class="item-description">{{ point.expectedAnswer }}</p>
             <div class="item-meta">
-              {{ point.difficulty }} · seen {{ point.reviewCount }} time{{ point.reviewCount === 1 ? "" : "s" }}
+              {{ point.difficulty }} · {{ point.masteryStatus }} · seen {{ point.reviewCount }} time{{ point.reviewCount === 1 ? "" : "s" }}
+            </div>
+            <div class="button-row" style="margin-top: 0.75rem;">
+              <button class="button button-secondary" type="button" @click="store.assessWeakPoint(point.id, 'NEEDS_REVIEW')">
+                Review again
+              </button>
+              <button class="button button-primary" type="button" @click="store.assessWeakPoint(point.id, 'MASTERED')">
+                Mastered
+              </button>
             </div>
           </article>
         </div>

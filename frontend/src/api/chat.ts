@@ -132,6 +132,17 @@ export function fetchWeakPoints(sessionId: string): Promise<LearningWeakPoint[]>
   return apiRequest<LearningWeakPoint[]>(`/chat/${sessionId}/weak-points`);
 }
 
+export function updateWeakPoint(
+  sessionId: string,
+  weakPointId: string,
+  masteryStatus: string
+): Promise<LearningWeakPoint> {
+  return apiRequest<LearningWeakPoint>(`/chat/${sessionId}/weak-points/${weakPointId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ masteryStatus }),
+  });
+}
+
 export async function sendChatMessage(payload: ChatRequest): Promise<ChatResponse> {
   const response = await apiRequest<RagQueryApiResponse>("/rag/query", {
     method: "POST",
