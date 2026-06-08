@@ -19,6 +19,12 @@ class AgentWorkflowStep(BaseModel):
     payload: dict[str, object] = Field(default_factory=dict)
 
 
+class StudyPlan(BaseModel):
+    summary: str
+    focus_areas: list[str] = Field(default_factory=list)
+    steps: list[str] = Field(default_factory=list)
+
+
 class AgentInvokeResponse(BaseModel):
     agent_name: str
     output: str
@@ -26,5 +32,6 @@ class AgentInvokeResponse(BaseModel):
     question_type: str = "general"
     selected_strategy_name: str = "basic-rag"
     follow_up_questions: list[str] = Field(default_factory=list)
+    study_plan: StudyPlan | None = None
     workflow_steps: list[AgentWorkflowStep] = Field(default_factory=list)
     trace: TraceMetadata

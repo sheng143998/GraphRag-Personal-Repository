@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from app.core.tracing import TraceBuilder
-from app.schemas.agent import AgentInvokeRequest, AgentWorkflowStep
+from app.schemas.agent import AgentInvokeRequest, AgentWorkflowStep, StudyPlan
 from app.schemas.rag import RagQueryRequest
 from app.services.rag_service import RagService
 
@@ -20,6 +20,7 @@ class AgentWorkflowState:
     answer: str = ""
     citations: list = field(default_factory=list)
     follow_up_questions: list[str] = field(default_factory=list)
+    study_plan: StudyPlan | None = None
     rag_trace_id: str | None = None
     steps: list[AgentWorkflowStep] = field(default_factory=list)
 
@@ -35,6 +36,7 @@ class StudyAgentWorkflow:
         await self._retrieve_and_generate(state, trace_builder)
         self._cite_sources(state, trace_builder)
         self._generate_follow_up_questions(state, trace_builder)
+        self._generate_study_plan(state, trace_builder)
         return state
 
     def _classify_question(self, state: AgentWorkflowState, trace_builder: TraceBuilder) -> None:
@@ -149,6 +151,49 @@ class StudyAgentWorkflow:
             payload={"follow_up_count": len(questions), "follow_up_questions": questions},
         )
 
+    def _generate_study_plan(self, state: AgentWorkflowState, trace_builder: TraceBuilder) -> None:
+        base_topic = _short_topic(state.request.user_input)
+        citation_focus = _citation_focus(state.citations)
+        if state.question_type == "interview":
+            summary = f"Prepare an interview-ready explanation for {base_topic}."
+            steps = [
+                f"Review the core definition and trade-offs of {base_topic}.",
+                f"Practice a concise STAR-style project story about {base_topic}.",
+                "Answer one follow-up question aloud and compare it with the cited sources.",
+            ]
+        elif state.question_type == "implementation":
+            summary = f"Turn {base_topic} into an implementation checklist."
+            steps = [
+                f"Map the main components and data flow for {base_topic}.",
+                "Write one end-to-end test that proves the retrieval or generation path.",
+                "Record one risk, fallback, and observable metric before moving on.",
+            ]
+        elif state.question_type == "troubleshooting":
+            summary = f"Debug {base_topic} with a reproducible evidence trail."
+            steps = [
+                "Capture the failing input, logs, trace id, and expected behavior.",
+                f"Isolate whether {base_topic} fails in retrieval, rerank, generation, or persistence.",
+                "Write the smallest regression check that would catch the issue next time.",
+            ]
+        else:
+            summary = f"Build a compact review loop for {base_topic}."
+            steps = [
+                f"Explain {base_topic} in your own words from memory.",
+                "Compare the explanation with one cited source and patch missing details.",
+                "Ask one follow-up question that connects the topic to a real project.",
+            ]
+
+        focus_areas = [state.question_type, state.selected_strategy_name, *citation_focus][:4]
+        state.study_plan = StudyPlan(summary=summary, focus_areas=focus_areas, steps=steps)
+        trace_builder.set_attribute("study_plan", state.study_plan.dict())
+        self._record_step(
+            state,
+            trace_builder,
+            name="generate_study_plan",
+            detail="Generated a short session-level study plan.",
+            payload={"step_count": len(steps), "focus_areas": focus_areas},
+        )
+
     def _record_step(
         self,
         state: AgentWorkflowState,
@@ -168,3 +213,12 @@ def _short_topic(text: str) -> str:
         return "this topic"
     topic = " ".join(words[:6])
     return topic[:80]
+
+
+def _citation_focus(citations: list) -> list[str]:
+    focus: list[str] = []
+    for citation in citations[:2]:
+        title = getattr(citation, "title", None)
+        if title and title not in focus:
+            focus.append(str(title)[:80])
+    return focus
