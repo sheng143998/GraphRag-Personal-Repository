@@ -4,8 +4,11 @@ import com.example.agentknowledge.common.api.ApiResponse;
 import com.example.agentknowledge.common.api.TraceContext;
 import com.example.agentknowledge.dto.chat.ChatMessageResponse;
 import com.example.agentknowledge.dto.chat.ChatSessionResponse;
+import com.example.agentknowledge.dto.chat.AssistantTurnResponse;
+import com.example.agentknowledge.dto.chat.CreateAssistantTurnRequest;
 import com.example.agentknowledge.dto.chat.CreateChatMessageRequest;
 import com.example.agentknowledge.dto.chat.CreateChatSessionRequest;
+import com.example.agentknowledge.service.AssistantTurnService;
 import com.example.agentknowledge.service.ChatService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -22,9 +25,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class ChatController {
 
     private final ChatService chatService;
+    private final AssistantTurnService assistantTurnService;
 
-    public ChatController(ChatService chatService) {
+    public ChatController(ChatService chatService, AssistantTurnService assistantTurnService) {
         this.chatService = chatService;
+        this.assistantTurnService = assistantTurnService;
     }
 
     @PostMapping("/sessions")
@@ -48,5 +53,13 @@ public class ChatController {
     @GetMapping("/{sessionId}/messages")
     public ApiResponse<List<ChatMessageResponse>> listMessages(@PathVariable UUID sessionId) {
         return ApiResponse.success(chatService.listMessages(sessionId), TraceContext.getTraceId());
+    }
+
+    @PostMapping("/{sessionId}/assistant-turn")
+    public ApiResponse<AssistantTurnResponse> assistantTurn(
+            @PathVariable UUID sessionId,
+            @Valid @RequestBody CreateAssistantTurnRequest request
+    ) {
+        return ApiResponse.success(assistantTurnService.runTurn(sessionId, request), TraceContext.getTraceId());
     }
 }
