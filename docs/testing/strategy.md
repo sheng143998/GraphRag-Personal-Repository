@@ -230,3 +230,13 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Parent chunks are stored as context carriers but excluded from retrieval, embeddings, and graph fact extraction.
 - AI full test suite passed with 22/22 tests.
 - Full-chain local smoke remained green with 142/142 checks.
+
+## 2026-06-08 Configurable Hybrid Retrieval Validation
+
+- AI pytest covers request-level `retrieval_options` trace propagation and normalized hybrid weight parsing.
+- Spring Boot unit tests cover `retrievalOptions` passthrough to the AI RAG query context.
+- Full-chain smoke now sends Advanced RAG `retrievalOptions` and checks persisted retrieval metadata for `vector_weight` / `keyword_weight`.
+- AI full test suite passed with 23/23 tests.
+- Spring Boot full test suite passed with 18/18 tests.
+- Frontend typecheck and build passed.
+- Full-chain local smoke passed with 143/143 checks.

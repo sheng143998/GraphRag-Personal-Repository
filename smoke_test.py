@@ -298,7 +298,8 @@ if CREATED_KB_ID:
                           "knowledgeBaseId": CREATED_KB_ID,
                           "topK": 3,
                           "strategyName": "advanced-rag",
-                          "metadataFilters": {}})
+                          "metadataFilters": {},
+                          "retrievalOptions": {"vectorWeight": 0.6, "keywordWeight": 0.4}})
     if r is not None and r.status_code == 200:
         CREATED_ADVANCED_RUN_ID = check_field("Advanced RAG runId", body, "data.runId")
         check_field("Advanced RAG status", body, "data.status", "COMPLETED")
@@ -320,6 +321,18 @@ if CREATED_KB_ID:
             retrieval_results = body.get("data", {}).get("retrievalResults") if isinstance(body, dict) else None
             first_result = retrieval_results[0] if isinstance(retrieval_results, list) and retrieval_results else None
             if isinstance(first_result, dict) and first_result.get("chunkId"):
+                first_metadata = first_result.get("metadata") if isinstance(first_result.get("metadata"), dict) else {}
+                if first_metadata.get("vector_weight") == 0.6 and first_metadata.get("keyword_weight") == 0.4:
+                    PASS += 1
+                    print("  PASS  Advanced RAG hybrid weights persisted in retrieval metadata")
+                else:
+                    FAIL += 1
+                    ERRORS.append(
+                        f"Advanced RAG hybrid weights expected 0.6/0.4, got {first_metadata.get('vector_weight')}/{first_metadata.get('keyword_weight')}"
+                    )
+                    print(
+                        f"  FAIL  Advanced RAG hybrid weights expected 0.6/0.4, got {first_metadata.get('vector_weight')}/{first_metadata.get('keyword_weight')}"
+                    )
                 ADVANCED_EVALUATION_CASE = {
                     "evaluationCaseId": "smoke-advanced-rag",
                     "relevantChunkIds": [first_result.get("chunkId")],

@@ -48,6 +48,7 @@ class BaseDocumentRepository:
         knowledge_base_id: str,
         top_k: int,
         filters: dict[str, object],
+        retrieval_options: dict[str, object] | None = None,
     ) -> list[SourceMetadata]:
         raise NotImplementedError
 
@@ -118,6 +119,7 @@ class InMemoryDocumentRepository(BaseDocumentRepository):
         knowledge_base_id: str,
         top_k: int,
         filters: dict[str, object],
+        retrieval_options: dict[str, object] | None = None,
     ) -> list[SourceMetadata]:
         from app.rag.retrievers.base import SimpleRetriever
 
@@ -355,10 +357,14 @@ class PostgresDocumentRepository(BaseDocumentRepository):
         knowledge_base_id: str,
         top_k: int,
         filters: dict[str, object],
+        retrieval_options: dict[str, object] | None = None,
     ) -> list[SourceMetadata]:
+        vector_weight, keyword_weight = _hybrid_weights(retrieval_options or {})
         params: list[object] = [
             _vector_literal(query_embedding),
             query,
+            vector_weight,
+            keyword_weight,
             embedding_model,
             knowledge_base_id,
         ]
@@ -369,7 +375,9 @@ class PostgresDocumentRepository(BaseDocumentRepository):
         params.extend(
             [
                 _vector_literal(query_embedding),
+                vector_weight,
                 query,
+                keyword_weight,
                 top_k,
             ]
         )
@@ -389,7 +397,9 @@ class PostgresDocumentRepository(BaseDocumentRepository):
                         c.sheet_name,
                         c.metadata,
                         1 - (e.embedding <=> %s::vector) AS vector_score,
-                        ts_rank_cd(to_tsvector('simple', c.content), plainto_tsquery('simple', %s)) AS keyword_score
+                        ts_rank_cd(to_tsvector('simple', c.content), plainto_tsquery('simple', %s)) AS keyword_score,
+                        %s::double precision AS vector_weight,
+                        %s::double precision AS keyword_weight
                     FROM document_chunks c
                     JOIN documents d ON d.id = c.document_id
                     LEFT JOIN chunk_embeddings e
@@ -399,8 +409,8 @@ class PostgresDocumentRepository(BaseDocumentRepository):
                       AND COALESCE(c.metadata ->> 'chunk_level', 'child') <> 'parent'
                     {filter_sql}
                     ORDER BY
-                        (COALESCE(1 - (e.embedding <=> %s::vector), 0) * 0.7
-                         + COALESCE(ts_rank_cd(to_tsvector('simple', c.content), plainto_tsquery('simple', %s)), 0) * 0.3) DESC,
+                        (COALESCE(1 - (e.embedding <=> %s::vector), 0) * %s::double precision
+                         + COALESCE(ts_rank_cd(to_tsvector('simple', c.content), plainto_tsquery('simple', %s)), 0) * %s::double precision) DESC,
                         c.created_at DESC
                     LIMIT %s
                     """,
@@ -675,7 +685,12 @@ def _row_to_source(row: dict[str, Any]) -> SourceMetadata:
         metadata["chunk_index"] = row["chunk_index"]
     metadata["vector_score"] = float(row["vector_score"] or 0.0)
     metadata["keyword_score"] = float(row["keyword_score"] or 0.0)
-    score = metadata["vector_score"] * 0.7 + metadata["keyword_score"] * 0.3
+    metadata["vector_weight"] = float(row.get("vector_weight") or 0.7)
+    metadata["keyword_weight"] = float(row.get("keyword_weight") or 0.3)
+    score = (
+        metadata["vector_score"] * metadata["vector_weight"]
+        + metadata["keyword_score"] * metadata["keyword_weight"]
+    )
     return SourceMetadata(
         document_id=str(row["document_id"]),
         chunk_id=str(row["chunk_id"]),
@@ -700,6 +715,26 @@ def _metadata(value: Any) -> dict[str, object]:
 
 def _vector_literal(embedding: list[float]) -> str:
     return "[" + ",".join(str(value) for value in embedding) + "]"
+
+
+def _hybrid_weights(options: dict[str, object]) -> tuple[float, float]:
+    vector_weight = _float_option(options, "vector_weight", "vectorWeight", default=0.7)
+    keyword_weight = _float_option(options, "keyword_weight", "keywordWeight", default=0.3)
+    if vector_weight < 0:
+        vector_weight = 0.0
+    if keyword_weight < 0:
+        keyword_weight = 0.0
+    total = vector_weight + keyword_weight
+    if total <= 0:
+        return 0.7, 0.3
+    return round(vector_weight / total, 6), round(keyword_weight / total, 6)
+
+
+def _float_option(options: dict[str, object], snake_key: str, camel_key: str, *, default: float) -> float:
+    try:
+        return float(options.get(snake_key, options.get(camel_key, default)))
+    except (TypeError, ValueError):
+        return default
 
 
 def _mark_parent_child_unsupported(source: SourceMetadata) -> SourceMetadata:

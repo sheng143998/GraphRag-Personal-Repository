@@ -96,7 +96,8 @@ public class RagService {
                             request.knowledgeBaseId(),
                             request.sessionId(),
                             request.messageId(),
-                            request.metadataFilters() == null ? Collections.emptyMap() : request.metadataFilters()
+                            request.metadataFilters() == null ? Collections.emptyMap() : request.metadataFilters(),
+                            request.retrievalOptions() == null ? Collections.emptyMap() : request.retrievalOptions()
                     )
             ), TraceContext.getTraceId());
 

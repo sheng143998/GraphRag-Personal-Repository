@@ -35,6 +35,7 @@ class AdvancedRagStrategy:
         top_k: int,
         trace_builder: TraceBuilder,
         filters: dict[str, object],
+        retrieval_options: dict[str, object] | None = None,
         knowledge_base_id: str | None = None,
         query_embedding: list[float] | None = None,
         embedding_model: str | None = None,
@@ -45,6 +46,9 @@ class AdvancedRagStrategy:
         use_parent_child = strategy_name in {"parent-child", "advanced-rag", "graph-rag"}
         use_graph = strategy_name == "graph-rag"
         active_filters = filters if strategy_name in {"metadata-filter", "advanced-rag", "graph-rag"} else {}
+        active_retrieval_options = retrieval_options or {}
+        if active_retrieval_options:
+            trace_builder.set_attribute("retrieval_options", active_retrieval_options)
 
         rewritten_query = self.query_rewriter.rewrite(query) if use_rewrite else query
         trace_builder.set_attribute("rewritten_query", rewritten_query)
@@ -128,6 +132,7 @@ class AdvancedRagStrategy:
                 chunks=repository.list_chunks(knowledge_base_id),
                 top_k=per_query_limit,
                 filters=active_filters,
+                retrieval_options=active_retrieval_options,
                 knowledge_base_id=knowledge_base_id,
                 query_embedding=embedding,
                 embedding_model=embedding_model,
@@ -147,6 +152,7 @@ class AdvancedRagStrategy:
                 "query_count": len(retrieve_queries),
                 "result_count": len(retrieved),
                 "metadata_filter_enabled": bool(active_filters),
+                "retrieval_options_enabled": bool(active_retrieval_options),
             },
         )
 

@@ -1575,5 +1575,16 @@ README 更新规则：
 - Parent chunks are stored as context carriers but excluded from retrieval, embeddings, and graph fact extraction.
 - Default flat `SimpleChunker` behavior remains unchanged.
 - AI pytest validates chunker output, ingest selection, default flat chunking, and query-level parent-child hydration.
-- Local full-chain smoke remained green with 131/131 checks.
+- Local full-chain smoke remained green with 142/142 checks.
 - Key documents: `docs/plans/2026-06-08-parent-child-chunking-strategy.md`, `docs/reviews/2026-06-08-parent-child-chunking-strategy-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
+
+---
+
+## 2026-06-08 Configurable Hybrid Retrieval Update
+
+- Added request-level `retrieval_options` / `retrievalOptions` for Advanced RAG hybrid retrieval.
+- Default hybrid ranking remains 0.7 vector / 0.3 keyword; request weights are normalized and bounded in FastAPI.
+- Spring Boot and frontend only pass the option through the existing `/api/rag/query` path.
+- Citation metadata now records `vector_score`, `keyword_score`, `vector_weight`, and `keyword_weight` for RAG evaluation.
+- Local full-chain smoke passed with 143/143 checks.
+- Key documents: `docs/plans/2026-06-08-configurable-hybrid-retrieval.md`, `docs/reviews/2026-06-08-configurable-hybrid-retrieval-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.

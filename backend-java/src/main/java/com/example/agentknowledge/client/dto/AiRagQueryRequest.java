@@ -14,7 +14,8 @@ public record AiRagQueryRequest(
             @JsonProperty("knowledge_base_id") UUID knowledgeBaseId,
             @JsonProperty("session_id") UUID sessionId,
             @JsonProperty("message_id") UUID messageId,
-            @JsonProperty("metadata_filters") Map<String, Object> metadataFilters
+            @JsonProperty("metadata_filters") Map<String, Object> metadataFilters,
+            @JsonProperty("retrieval_options") Map<String, Object> retrievalOptions
     ) {
     }
 }

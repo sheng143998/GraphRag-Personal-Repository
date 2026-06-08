@@ -174,6 +174,7 @@ export async function sendChatMessage(payload: ChatRequest): Promise<ChatRespons
       strategyName: payload.strategy,
       retrieverType: payload.retrieverType ?? "hybrid",
       metadataFilters: payload.metadataFilters,
+      retrievalOptions: payload.retrievalOptions,
       topK: payload.topK ?? 5
     })
   });

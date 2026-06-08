@@ -86,6 +86,7 @@ export interface ChatRequest {
   strategy: string;
   retrieverType?: string;
   metadataFilters?: Record<string, unknown>;
+  retrievalOptions?: Record<string, unknown>;
   topK?: number;
 }
 

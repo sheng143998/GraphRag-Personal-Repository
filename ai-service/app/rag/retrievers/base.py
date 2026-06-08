@@ -13,6 +13,7 @@ class BaseRetriever:
         chunks: list[ChunkRecord],
         top_k: int,
         filters: dict[str, object],
+        retrieval_options: dict[str, object] | None = None,
     ) -> list[SourceMetadata]:
         raise NotImplementedError
 
@@ -25,6 +26,7 @@ class SimpleRetriever(BaseRetriever):
         chunks: list[ChunkRecord],
         top_k: int,
         filters: dict[str, object],
+        retrieval_options: dict[str, object] | None = None,
     ) -> list[SourceMetadata]:
         lowered_query = query.lower()
         candidates: list[SourceMetadata] = []
@@ -91,6 +93,7 @@ class DatabaseRetriever(BaseRetriever):
         knowledge_base_id: str | None = None,
         query_embedding: list[float] | None = None,
         embedding_model: str | None = None,
+        retrieval_options: dict[str, object] | None = None,
     ) -> list[SourceMetadata]:
         if not knowledge_base_id or query_embedding is None or not embedding_model:
             return SimpleRetriever.score_chunks(
@@ -106,4 +109,5 @@ class DatabaseRetriever(BaseRetriever):
             knowledge_base_id=knowledge_base_id,
             top_k=top_k,
             filters=filters,
+            retrieval_options=retrieval_options or {},
         )

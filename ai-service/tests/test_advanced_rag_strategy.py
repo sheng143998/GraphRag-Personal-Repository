@@ -8,7 +8,7 @@ os.environ["EMBEDDING_PROVIDER"] = "stub"
 os.environ["RERANK_PROVIDER"] = "stub"
 
 from app.core.constants import DocumentType, FileType
-from app.db.repositories import repository
+from app.db.repositories import _hybrid_weights, repository
 from app.schemas.common import SourceMetadata
 from app.schemas.ingest import ChunkRecord, DocumentIngestRequest, DocumentPayload
 from app.schemas.rag import RagEvaluateRequest, RagEvaluationCase, RagQueryRequest, RagRequestContext
@@ -23,6 +23,7 @@ def test_advanced_rag_applies_rewrite_filters_fusion_parent_context_and_rerank()
     assert all(source.metadata["topic"] == "advanced-rag" for source in response.citations)
     assert response.trace.attributes["rewritten_query"] != response.question
     assert "retrieval augmented generation" in str(response.trace.attributes["rewritten_query"])
+    assert response.trace.attributes["retrieval_options"] == {"vectorWeight": 0.6, "keywordWeight": 0.4}
 
     step_statuses = {step.name: step.status for step in response.trace.steps}
     assert step_statuses["query_rewrite"] == "completed"
@@ -30,6 +31,8 @@ def test_advanced_rag_applies_rewrite_filters_fusion_parent_context_and_rerank()
     assert step_statuses["fusion"] == "completed"
     assert step_statuses["parent_child_context"] == "completed"
     assert step_statuses["rerank"] == "completed"
+    retrieve_step = next(step for step in response.trace.steps if step.name == "retrieve")
+    assert retrieve_step.payload["retrieval_options_enabled"] is True
 
     top_source = response.citations[0]
     assert top_source.rerank_score is not None
@@ -193,6 +196,13 @@ def test_graph_rag_extracts_entities_and_augments_retrieval_trace() -> None:
     assert response.citations[0].metadata["graph_traversal_relationships"]
 
 
+def test_hybrid_weight_options_are_normalized_and_bounded() -> None:
+    assert _hybrid_weights({"vectorWeight": 6, "keywordWeight": 4}) == (0.6, 0.4)
+    assert _hybrid_weights({"vector_weight": -1, "keyword_weight": 2}) == (0.0, 1.0)
+    assert _hybrid_weights({"vectorWeight": 0, "keywordWeight": 0}) == (0.7, 0.3)
+    assert _hybrid_weights({"vectorWeight": "bad", "keywordWeight": "bad"}) == (0.7, 0.3)
+
+
 async def _advanced_query():
     _clear_in_memory_repository()
     ingest_service = IngestService()
@@ -229,6 +239,7 @@ async def _advanced_query():
             context=RagRequestContext(
                 knowledge_base_id="kb-test-advanced",
                 metadata_filters={"topic": "advanced-rag"},
+                retrieval_options={"vectorWeight": 0.6, "keywordWeight": 0.4},
             ),
         )
     )

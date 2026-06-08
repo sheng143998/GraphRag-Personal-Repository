@@ -14,6 +14,7 @@ public record RagQueryRequest(
         @Size(max = 100) String strategyName,
         @Size(max = 100) String retrieverType,
         Map<String, Object> metadataFilters,
+        Map<String, Object> retrievalOptions,
         Integer topK
 ) {
 }

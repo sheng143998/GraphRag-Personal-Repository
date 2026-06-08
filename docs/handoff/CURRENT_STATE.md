@@ -744,3 +744,28 @@ Current remaining large project areas:
 
 - Continue GraphRAG metric refinement and Advanced RAG evaluation depth.
 - Add UI/API affordances for selecting parent-child chunking during document upload if product needs it.
+
+---
+
+## 2026-06-08 Configurable Hybrid Retrieval Update
+
+Completed in this iteration:
+
+- Added request-level `retrieval_options` / `retrievalOptions` passthrough from frontend and Spring Boot to FastAPI.
+- Advanced RAG now records retrieval options in trace attributes when provided.
+- PostgreSQL hybrid retrieval now normalizes vector/keyword weights per request while preserving the 0.7/0.3 default.
+- Retrieval citation metadata now includes `vector_score`, `keyword_score`, `vector_weight`, and `keyword_weight`.
+- Full-chain smoke now verifies configured hybrid weights are persisted in retrieval metadata.
+
+Validated:
+
+- `.\.venv\bin\python.exe -m pytest tests -q` passed with 23 tests.
+- `mvn test -f backend-java/pom.xml` passed with 18 tests.
+- `npm.cmd --prefix frontend run typecheck` passed.
+- `npm.cmd --prefix frontend run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 143/143 smoke checks.
+
+Current remaining large project areas:
+
+- Add UI controls and experiment records for comparing hybrid weight presets.
+- Continue context compression and GraphRAG metric refinement.

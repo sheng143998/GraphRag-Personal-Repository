@@ -110,6 +110,7 @@ class RagServiceTest {
                 "advanced-rag",
                 "hybrid",
                 Map.of("topic", "advanced-rag"),
+                Map.of("vectorWeight", 0.6, "keywordWeight", 0.4),
                 3
         ));
 
@@ -120,6 +121,7 @@ class RagServiceTest {
         ArgumentCaptor<AiRagQueryRequest> aiRequest = ArgumentCaptor.forClass(AiRagQueryRequest.class);
         verify(aiServiceGateway).queryRag(aiRequest.capture(), any());
         assertThat(aiRequest.getValue().context().metadataFilters()).containsEntry("topic", "advanced-rag");
+        assertThat(aiRequest.getValue().context().retrievalOptions()).containsEntry("vectorWeight", 0.6);
 
         ArgumentCaptor<RagRun> runCaptor = ArgumentCaptor.forClass(RagRun.class);
         verify(ragRunRepository, org.mockito.Mockito.atLeast(2)).save(runCaptor.capture());
@@ -153,6 +155,7 @@ class RagServiceTest {
                 null,
                 null,
                 "Why did the model fail?",
+                null,
                 null,
                 null,
                 null,
@@ -200,6 +203,7 @@ class RagServiceTest {
                 null,
                 null,
                 "What is RAG?",
+                null,
                 null,
                 null,
                 null,

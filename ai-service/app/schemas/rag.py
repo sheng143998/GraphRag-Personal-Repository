@@ -13,6 +13,7 @@ class RagRequestContext(BaseModel):
     document_types: list[DocumentType] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     metadata_filters: dict[str, object] = Field(default_factory=dict)
+    retrieval_options: dict[str, object] = Field(default_factory=dict)
 
 
 class RagRetrieveRequest(BaseModel):
