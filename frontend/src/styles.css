@@ -659,6 +659,28 @@ a {
   font-size: 13px;
 }
 
+.evaluation-dashboard {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.dashboard-metric {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.dashboard-metric strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
 .history-list {
   display: grid;
   gap: 8px;
@@ -685,6 +707,26 @@ a {
   color: var(--text);
   font-size: 12px;
   font-weight: 700;
+}
+
+.history-question {
+  margin-bottom: 4px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .evaluation-dashboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .evaluation-dashboard {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ---- Scrollbar ---- */

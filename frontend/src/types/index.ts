@@ -194,6 +194,12 @@ export interface ExperimentEvaluationHistory {
   id: string;
   experimentId: string;
   runId: string;
+  runQuestion?: string | null;
+  runStrategyName?: string | null;
+  runRetrieverType?: string | null;
+  runModelName?: string | null;
+  runLatencyMs?: number | null;
+  runCreatedAt?: string | null;
   groundedScore?: number | null;
   retrievalScore?: number | null;
   expectedAnswer?: string | null;

@@ -74,7 +74,26 @@
         <div v-if="store.experiments.length === 0" class="empty-state">
           No experiment records yet.
         </div>
-        <div v-else class="item-list">
+        <div v-else class="evaluation-dashboard">
+          <div class="dashboard-metric">
+            <span class="metric-label">Evaluations</span>
+            <strong>{{ evaluationDashboard.evaluationCount }}</strong>
+          </div>
+          <div class="dashboard-metric">
+            <span class="metric-label">Avg grounded</span>
+            <strong>{{ formatScore(evaluationDashboard.averageGrounded) }}</strong>
+          </div>
+          <div class="dashboard-metric">
+            <span class="metric-label">Avg retrieval</span>
+            <strong>{{ formatScore(evaluationDashboard.averageRetrieval) }}</strong>
+          </div>
+          <div class="dashboard-metric">
+            <span class="metric-label">Best latest</span>
+            <strong>{{ evaluationDashboard.bestExperimentName }}</strong>
+          </div>
+        </div>
+
+        <div v-if="store.experiments.length > 0" class="item-list">
           <article v-for="experiment in store.experiments" :key="experiment.id" class="item-card">
             <h3 class="item-title">{{ experiment.name }}</h3>
             <div v-if="experiment.description" class="item-meta">{{ experiment.description }}</div>
@@ -98,6 +117,17 @@
                 <span class="metric-label">Samples</span>
                 <span class="metric-value">{{ experiment.sampleCount }}</span>
               </div>
+              <div v-if="experimentHistorySummary(experiment).count > 0" class="metric-row">
+                <span class="metric-label">History avg</span>
+                <span class="metric-value">
+                  {{ formatScore(experimentHistorySummary(experiment).averageGrounded) }}
+                  / {{ formatScore(experimentHistorySummary(experiment).averageRetrieval) }}
+                </span>
+              </div>
+              <div v-if="experimentHistorySummary(experiment).trendLabel" class="metric-row">
+                <span class="metric-label">Latest trend</span>
+                <span class="metric-value">{{ experimentHistorySummary(experiment).trendLabel }}</span>
+              </div>
             </div>
 
             <div v-if="experiment.notes" class="item-meta" style="margin-top: 0.5rem;">{{ experiment.notes }}</div>
@@ -109,12 +139,22 @@
                 class="history-row"
               >
                 <div class="history-main">
-                  <span class="history-run">Run {{ shortId(evaluation.runId) }}</span>
+                  <span class="history-run">{{ evaluation.runStrategyName ?? experiment.strategy }}</span>
                   <span class="item-meta">{{ formatDate(evaluation.createdAt) }}</span>
                 </div>
+                <div class="history-question">{{ summarize(evaluation.runQuestion) }}</div>
                 <div class="item-meta">
                   grounded {{ formatScore(evaluation.groundedScore ?? undefined) }}
                   | retrieval {{ formatScore(evaluation.retrievalScore ?? undefined) }}
+                  <span v-if="evaluationDeltaLabel(experiment, evaluation)">
+                    | {{ evaluationDeltaLabel(experiment, evaluation) }}
+                  </span>
+                  <span v-if="evaluation.runLatencyMs != null"> | {{ evaluation.runLatencyMs }}ms</span>
+                </div>
+                <div class="item-meta">
+                  Run {{ shortId(evaluation.runId) }}
+                  <span v-if="evaluation.runRetrieverType"> | {{ evaluation.runRetrieverType }}</span>
+                  <span v-if="evaluation.runModelName"> | {{ evaluation.runModelName }}</span>
                 </div>
                 <div v-if="evaluation.notes" class="item-meta">{{ evaluation.notes }}</div>
               </div>
@@ -160,8 +200,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
-import type { ExperimentRecord, RagRunSummary } from "../../types";
+import { computed, onMounted, reactive, ref } from "vue";
+import type { ExperimentEvaluationHistory, ExperimentRecord, RagRunSummary } from "../../types";
 import { useWorkbenchStore } from "../../stores/workbench";
 
 const store = useWorkbenchStore();
@@ -181,14 +221,106 @@ const formNotes = ref("");
 const selectedRunIds = reactive<Record<string, string>>({});
 const expectedAnswers = reactive<Record<string, string>>({});
 
+interface ExperimentHistorySummary {
+  count: number;
+  averageGrounded?: number;
+  averageRetrieval?: number;
+  trendLabel?: string;
+}
+
+interface EvaluationDashboard {
+  evaluationCount: number;
+  averageGrounded?: number;
+  averageRetrieval?: number;
+  bestExperimentName: string;
+}
+
+const evaluationDashboard = computed<EvaluationDashboard>(() => {
+  const evaluations = store.experiments.flatMap((experiment) =>
+    (experiment.evaluations ?? []).map((evaluation) => ({ experiment, evaluation }))
+  );
+
+  if (evaluations.length === 0) {
+    return {
+      evaluationCount: 0,
+      bestExperimentName: "pending"
+    };
+  }
+
+  const latestByExperiment = store.experiments
+    .map((experiment) => ({ experiment, evaluation: sortEvaluations(experiment.evaluations ?? [])[0] }))
+    .filter((item): item is { experiment: ExperimentRecord; evaluation: ExperimentEvaluationHistory } =>
+      Boolean(item.evaluation)
+    );
+
+  const best = latestByExperiment
+    .filter(({ evaluation }) => evaluation.groundedScore != null || evaluation.retrievalScore != null)
+    .sort((left, right) => evaluationQuality(right.evaluation) - evaluationQuality(left.evaluation))[0];
+
+  return {
+    evaluationCount: evaluations.length,
+    averageGrounded: averageScore(evaluations.map(({ evaluation }) => evaluation.groundedScore)),
+    averageRetrieval: averageScore(evaluations.map(({ evaluation }) => evaluation.retrievalScore)),
+    bestExperimentName: best?.experiment.name ?? "pending"
+  };
+});
+
 function formatScore(value?: number): string {
   if (value == null) return "pending";
   return `${Math.round(value * 100)}%`;
 }
 
+function averageScore(values: Array<number | null | undefined>): number | undefined {
+  const valid = values.filter((value): value is number => value != null);
+  if (valid.length === 0) return undefined;
+  return valid.reduce((total, value) => total + value, 0) / valid.length;
+}
+
+function evaluationQuality(evaluation: ExperimentEvaluationHistory): number {
+  return averageScore([evaluation.groundedScore, evaluation.retrievalScore]) ?? 0;
+}
+
+function sortEvaluations(evaluations: ExperimentEvaluationHistory[]): ExperimentEvaluationHistory[] {
+  return [...evaluations].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
+function experimentHistorySummary(experiment: ExperimentRecord): ExperimentHistorySummary {
+  const evaluations = sortEvaluations(experiment.evaluations ?? []);
+  const latest = evaluations[0];
+  const previous = evaluations[1];
+  const latestQuality = latest ? evaluationQuality(latest) : undefined;
+  const previousQuality = previous ? evaluationQuality(previous) : undefined;
+  const delta = latestQuality != null && previousQuality != null ? latestQuality - previousQuality : undefined;
+
+  return {
+    count: evaluations.length,
+    averageGrounded: averageScore(evaluations.map((evaluation) => evaluation.groundedScore)),
+    averageRetrieval: averageScore(evaluations.map((evaluation) => evaluation.retrievalScore)),
+    trendLabel: formatTrend(delta)
+  };
+}
+
+function evaluationDeltaLabel(experiment: ExperimentRecord, evaluation: ExperimentEvaluationHistory): string | undefined {
+  const evaluations = sortEvaluations(experiment.evaluations ?? []);
+  const index = evaluations.findIndex((item) => item.id === evaluation.id);
+  if (index < 0 || index >= evaluations.length - 1) return undefined;
+  return formatTrend(evaluationQuality(evaluation) - evaluationQuality(evaluations[index + 1]));
+}
+
+function formatTrend(value?: number): string | undefined {
+  if (value == null) return undefined;
+  const sign = value >= 0 ? "+" : "";
+  return `${sign}${Math.round(value * 100)} pts`;
+}
+
 function runLabel(run: RagRunSummary): string {
   const question = run.question.length > 64 ? `${run.question.slice(0, 64)}...` : run.question;
   return `${run.strategyName} | ${run.status} | ${question}`;
+}
+
+function summarize(value?: string | null, maxLength = 92): string {
+  if (!value) return "No question snapshot";
+  return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 }
 
 function shortId(value: string): string {

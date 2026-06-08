@@ -259,10 +259,17 @@ public class RagExperimentService {
     }
 
     private RagExperimentEvaluationHistoryResponse toEvaluationHistoryResponse(RagExperimentEvaluation evaluation) {
+        RagRun run = evaluation.getRun();
         return new RagExperimentEvaluationHistoryResponse(
                 evaluation.getId(),
                 evaluation.getExperiment().getId(),
-                evaluation.getRun().getId(),
+                run.getId(),
+                run.getQuestion(),
+                run.getStrategyName(),
+                run.getRetrieverType(),
+                run.getModelName(),
+                run.getLatencyMs(),
+                run.getCreatedAt(),
                 evaluation.getGroundedScore(),
                 evaluation.getRetrievalScore(),
                 evaluation.getExpectedAnswer(),

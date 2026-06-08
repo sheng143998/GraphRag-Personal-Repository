@@ -152,7 +152,43 @@ export const mockExperiments: ExperimentRecord[] = [
     precision: "0.78",
     recall: "0.84",
     createdAt: "2026-05-25T17:20:00",
-    updatedAt: "2026-05-25 17:20"
+    updatedAt: "2026-05-25 17:20",
+    evaluations: [
+      {
+        id: "eval-1-latest",
+        experimentId: "exp-1",
+        runId: "run-advanced-2",
+        runQuestion: "How does advanced RAG use metadata filters and rerank?",
+        runStrategyName: "advanced-rag",
+        runRetrieverType: "hybrid",
+        runModelName: "stub-llm",
+        runLatencyMs: 42,
+        runCreatedAt: "2026-06-08T16:39:00",
+        groundedScore: 0.86,
+        retrievalScore: 0.81,
+        expectedAnswer: "Hybrid retrieval should cite rerank evidence.",
+        generatedAnswer: "Hybrid retrieval cites rerank evidence and metadata filters.",
+        notes: "Improved after metadata filter tuning.",
+        createdAt: "2026-06-08T16:40:00"
+      },
+      {
+        id: "eval-1-previous",
+        experimentId: "exp-1",
+        runId: "run-advanced-1",
+        runQuestion: "How should hybrid rerank cite retrieval evidence?",
+        runStrategyName: "hybrid-rerank",
+        runRetrieverType: "hybrid",
+        runModelName: "stub-llm",
+        runLatencyMs: 57,
+        runCreatedAt: "2026-06-08T15:39:00",
+        groundedScore: 0.78,
+        retrievalScore: 0.75,
+        expectedAnswer: "Hybrid retrieval should cite rerank evidence.",
+        generatedAnswer: "Hybrid retrieval cites one source.",
+        notes: "Baseline evaluation.",
+        createdAt: "2026-06-08T15:40:00"
+      }
+    ]
   },
   {
     id: "exp-2",
@@ -161,7 +197,24 @@ export const mockExperiments: ExperimentRecord[] = [
     precision: "0.74",
     recall: "0.89",
     createdAt: "2026-05-24T22:15:00",
-    updatedAt: "2026-05-24 22:15"
+    updatedAt: "2026-05-24 22:15",
+    evaluations: [
+      {
+        id: "eval-2-latest",
+        experimentId: "exp-2",
+        runId: "run-parent-child-1",
+        runQuestion: "How does parent-child retrieval improve project review answers?",
+        runStrategyName: "parent-child",
+        runRetrieverType: "vector",
+        runModelName: "stub-llm",
+        runLatencyMs: 61,
+        runCreatedAt: "2026-06-08T14:19:00",
+        groundedScore: 0.74,
+        retrievalScore: 0.88,
+        notes: "Parent context improved recall.",
+        createdAt: "2026-06-08T14:20:00"
+      }
+    ]
   }
 ];
 
