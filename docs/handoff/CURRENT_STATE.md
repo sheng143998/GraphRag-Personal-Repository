@@ -466,6 +466,26 @@ Current remaining large project areas:
 
 ---
 
+## 2026-06-08 RAG Evaluator Answer Alignment And Comparison Page Update
+
+Completed in this iteration:
+
+- Improved the FastAPI deterministic RAG evaluator to factor in expected/generated answer alignment.
+- Added AI pytest coverage for matched versus mismatched answers with the same citation set.
+- Added Spring unit coverage for `expectedAnswer` forwarding to the evaluator request.
+- Added frontend route `/experiments/comparison` with summary metrics, strategy ranking, experiment ranking, and recent evaluation rows.
+- Kept browser traffic within the existing Spring Boot `/api/*` boundary.
+
+Validated:
+
+- `ai-service/.venv/bin/python.exe -m pytest tests -q` passed with 14 tests.
+- `mvn test` passed with 15 tests.
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 115/115 smoke checks.
+
+---
+
 ## 2026-06-08 Weak Point Practice Flow Update
 
 Completed in this iteration:

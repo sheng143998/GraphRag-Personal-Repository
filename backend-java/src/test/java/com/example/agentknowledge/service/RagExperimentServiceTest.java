@@ -134,6 +134,7 @@ class RagExperimentServiceTest {
         verify(aiServiceGateway).evaluateRag(aiRequest.capture(), any());
         assertThat(aiRequest.getValue().question()).isEqualTo(run.getQuestion());
         assertThat(aiRequest.getValue().generatedAnswer()).isEqualTo(run.getAnswer());
+        assertThat(aiRequest.getValue().expectedAnswer()).isEqualTo("Expected answer");
         assertThat(aiRequest.getValue().citations()).hasSize(1);
         assertThat(aiRequest.getValue().context().knowledgeBaseId()).isEqualTo(knowledgeBaseId);
 

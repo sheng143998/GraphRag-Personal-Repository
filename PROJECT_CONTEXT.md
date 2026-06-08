@@ -1461,3 +1461,21 @@ README 更新规则：
 - Frontend dashboard now loads the backend summary during hydrate and refreshes it after experiment evaluation.
 - `smoke_test.py` verifies the summary endpoint after two evaluations; local full-chain smoke passed with 115/115 checks.
 - Key documents: `docs/plans/2026-06-08-rag-evaluation-summary-endpoint.md`, `docs/reviews/2026-06-08-rag-evaluation-summary-endpoint-review-prompt.md`, `docs/testing/strategy.md`, `docs/architecture/api-design.md`, and `docs/handoff/CURRENT_STATE.md`.
+
+---
+
+## 2026-06-08 RAG Evaluator Answer Alignment Update
+
+- Improved the deterministic FastAPI RAG evaluator so grounded score combines citation support with optional expected/generated answer alignment.
+- Added AI pytest coverage proving a mismatched answer scores lower than a matched answer with the same citation set.
+- Added Spring unit coverage asserting `expectedAnswer` is forwarded into the evaluator request.
+- Key documents: `docs/plans/2026-06-08-rag-evaluator-answer-alignment.md`, `docs/reviews/2026-06-08-rag-evaluator-answer-alignment-review-prompt.md`, and `docs/testing/strategy.md`.
+
+---
+
+## 2026-06-08 RAG Evaluation Comparison Page Update
+
+- Added frontend route `/experiments/comparison` for persisted RAG evaluation comparison.
+- The page reuses the Spring Boot summary endpoint through the existing Pinia store and aggregates recent rows by strategy and experiment.
+- Added comparison ranking and recent evaluation context so Advanced RAG, Basic RAG, and GraphRAG results can be inspected outside the CRUD-heavy experiment page.
+- Key documents: `docs/plans/2026-06-08-rag-evaluation-comparison-page.md`, `docs/reviews/2026-06-08-rag-evaluation-comparison-page-review-prompt.md`, and `docs/testing/strategy.md`.

@@ -155,3 +155,14 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Frontend typecheck/build covers `fetchExperimentEvaluationSummary()`, Pinia summary state, hydrate loading, and dashboard usage.
 - `smoke_test.py` verifies `GET /api/rag/experiment-evaluations/summary?limit=10` after two experiment evaluations.
 - Local full-chain smoke passed with 115/115 checks.
+
+## 2026-06-08 RAG Evaluator Answer Alignment Validation
+
+- AI pytest covers matched versus mismatched expected/generated answers with the same citation set.
+- The deterministic evaluator now combines citation support with answer alignment, so citation presence alone does not force a perfect grounded score.
+- Backend Maven tests assert Spring forwards `expectedAnswer` into the FastAPI evaluator request.
+
+## 2026-06-08 RAG Evaluation Comparison Page Validation
+
+- Frontend typecheck/build covers `/experiments/comparison`, summary reuse, strategy-level aggregation, experiment-level aggregation, and recent evaluation rows.
+- The page reuses `GET /api/rag/experiment-evaluations/summary`; the existing full-chain smoke continues to validate the API contract after Advanced RAG and Basic RAG evaluations.

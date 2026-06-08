@@ -47,6 +47,15 @@ def test_rag_evaluation_scores_grounded_citations() -> None:
     assert response.trace.status == "completed"
 
 
+def test_rag_evaluation_penalizes_answer_mismatch() -> None:
+    matched = asyncio.run(_evaluate_grounded_answer())
+    mismatched = asyncio.run(_evaluate_mismatched_answer())
+
+    assert matched.result.grounded_score > mismatched.result.grounded_score
+    assert mismatched.result.grounded_score < 0.75
+    assert matched.result.retrieval_score == mismatched.result.retrieval_score
+
+
 def test_graph_rag_extracts_entities_and_augments_retrieval_trace() -> None:
     response = asyncio.run(_graph_rag_query())
 
@@ -144,6 +153,29 @@ async def _evaluate_grounded_answer():
         RagEvaluateRequest(
             question="What does Advanced RAG use?",
             generated_answer="Advanced RAG uses query rewrite and rerank.",
+            expected_answer="Advanced RAG uses query rewrite and rerank.",
+            citations=[
+                SourceMetadata(
+                    document_id="22222222-2222-2222-2222-222222222222",
+                    chunk_id="chunk-1",
+                    title="Advanced RAG Notes",
+                    score=0.9,
+                    metadata={"content_preview": "Advanced RAG uses query rewrite and rerank."},
+                )
+            ],
+            strategy_name="advanced-rag",
+            context=RagRequestContext(knowledge_base_id="kb-test-advanced"),
+        )
+    )
+
+
+async def _evaluate_mismatched_answer():
+    rag_service = RagService()
+    return await rag_service.evaluate(
+        RagEvaluateRequest(
+            question="What does Advanced RAG use?",
+            generated_answer="Basic CRUD manages create read update delete screens.",
+            expected_answer="Advanced RAG uses query rewrite and rerank.",
             citations=[
                 SourceMetadata(
                     document_id="22222222-2222-2222-2222-222222222222",
