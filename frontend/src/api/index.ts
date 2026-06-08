@@ -3,6 +3,7 @@ export * from "./client";
 export * from "./documents";
 export * from "./experiments";
 export * from "./feedback";
+export * from "./graph";
 export * from "./knowledgeBases";
 export * from "./rag";
 export * from "./settings";

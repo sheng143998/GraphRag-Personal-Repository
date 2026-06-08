@@ -246,6 +246,44 @@ export interface RagRunDetail {
   retrievalResults: RetrievalResult[];
 }
 
+// --- Graph Facts Types ---
+
+export interface GraphEntityFact {
+  id: string;
+  documentId?: string | null;
+  chunkId?: string | null;
+  name: string;
+  normalizedName: string;
+  entityType: string;
+  aliases: unknown;
+  metadata: Record<string, unknown>;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface GraphRelationshipFact {
+  id: string;
+  documentId?: string | null;
+  chunkId?: string | null;
+  sourceEntityId?: string | null;
+  targetEntityId?: string | null;
+  sourceName: string;
+  targetName: string;
+  relationType: string;
+  confidence: number;
+  metadata: Record<string, unknown>;
+  createdAt?: string | null;
+}
+
+export interface GraphFactsResponse {
+  knowledgeBaseId: string;
+  entity?: string | null;
+  entityCount: number;
+  relationshipCount: number;
+  entities: GraphEntityFact[];
+  relationships: GraphRelationshipFact[];
+}
+
 // --- Experiment Request Types ---
 
 export interface ExperimentRequest {

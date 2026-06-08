@@ -53,6 +53,15 @@ const router = createRouter({
       }
     },
     {
+      path: "/graph",
+      name: "graph",
+      component: () => import("../pages/graph/GraphPage.vue"),
+      meta: {
+        title: "图谱事实",
+        subtitle: "查看 GraphRAG 入库实体、关系和知识库过滤结果。"
+      }
+    },
+    {
       path: "/settings",
       name: "settings",
       component: () => import("../pages/settings/SettingsPage.vue"),
