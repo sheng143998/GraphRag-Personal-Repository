@@ -548,6 +548,41 @@ Spring Boot reads the persisted `rag_runs` row and ordered `rag_retrieval_result
 
 响应 `data`：`ChatMessageResponse[]`
 
+### 7.5 Weak Point Practice Turn
+
+`POST /api/chat/{sessionId}/weak-points/{weakPointId}/practice-turn`
+
+Request:
+
+```json
+{
+  "strategyName": "advanced-rag",
+  "topK": 4,
+  "userAnswer": "Optional rough answer"
+}
+```
+
+Response `data`:
+
+```json
+{
+  "weakPoint": {
+    "id": "uuid",
+    "topic": "Graph traversal recall",
+    "masteryStatus": "NEEDS_REVIEW"
+  },
+  "turn": {
+    "userMessage": {},
+    "assistantMessage": {},
+    "reviewCards": [],
+    "weakPoints": [],
+    "workflowSteps": []
+  }
+}
+```
+
+Spring Boot validates weak point ownership and reuses the existing assistant-turn flow. FastAPI generation still happens through `/ai/agent/invoke`.
+
 ## 8. 反馈接口
 
 ### 8.1 创建反馈
@@ -865,7 +900,7 @@ Base URL：`http://localhost:8001`，Spring Boot 通过 `AI_SERVICE_BASE_URL` / 
 | --- | --- |
 | `frontend/src/api/knowledgeBases.ts` | `GET /knowledge-bases`、`POST /knowledge-bases`、`GET /knowledge-bases/{id}`、`PUT /knowledge-bases/{id}`、`DELETE /knowledge-bases/{id}` |
 | `frontend/src/api/documents.ts` | `GET /documents`、`GET /documents/{id}`、`POST /documents/upload`、`DELETE /documents/{id}` |
-| `frontend/src/api/chat.ts` | `POST /chat/sessions`、`GET /chat/sessions`、`POST /chat/{sessionId}/messages`、`GET /chat/{sessionId}/messages`、`POST /chat/{sessionId}/assistant-turn`、`GET /chat/{sessionId}/weak-points`、`PATCH /chat/{sessionId}/weak-points/{weakPointId}`、`POST /rag/query` |
+| `frontend/src/api/chat.ts` | `POST /chat/sessions`、`GET /chat/sessions`、`POST /chat/{sessionId}/messages`、`GET /chat/{sessionId}/messages`、`POST /chat/{sessionId}/assistant-turn`、`GET /chat/{sessionId}/weak-points`、`PATCH /chat/{sessionId}/weak-points/{weakPointId}`、`POST /chat/{sessionId}/weak-points/{weakPointId}/practice-turn`、`POST /rag/query` |
 | `frontend/src/api/experiments.ts` | `GET /rag/experiments`、`GET /rag/experiments/{id}`、`POST /rag/experiments`、`PUT /rag/experiments/{id}`、`DELETE /rag/experiments/{id}` |
 | `frontend/src/api/feedback.ts` | `POST /feedback` |
 | `frontend/src/api/graph.ts` | `GET /graph/facts?knowledgeBaseId={uuid}&entity={optional}` |

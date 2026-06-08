@@ -376,6 +376,29 @@ Current remaining large project areas:
 
 ---
 
+## 2026-06-08 Weak Point Practice Flow Update
+
+Completed in this iteration:
+
+- Added Spring Boot `POST /api/chat/{sessionId}/weak-points/{weakPointId}/practice-turn`.
+- Practice turns validate the selected weak point, build a controlled practice prompt, and reuse the existing assistant-turn path for Agent invocation, message persistence, review cards, and weak point refresh.
+- Frontend weak point cards now include a `Practice` action that starts a practice turn from the chat workbench.
+- Full-chain smoke verifies the persisted weak point to practice turn path.
+
+Validated so far:
+
+- `mvn test` passed with 13 tests.
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 99/99 smoke checks.
+
+Current remaining large project areas:
+
+- Add a frontend experiment evaluation action with a clear run picker.
+- Add richer RAG evaluation dashboards and historical evaluation comparisons.
+
+---
+
 ## 2026-06-08 GraphRAG Traversal Retrieval Update
 
 Completed in this iteration:

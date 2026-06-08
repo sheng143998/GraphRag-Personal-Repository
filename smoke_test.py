@@ -588,6 +588,28 @@ if CREATED_SESSION_ID:
             print(f"  PASS  Persisted weak points present = {len(weak_points)}")
             first_weak_point_id = weak_points[0].get("id") if isinstance(weak_points[0], dict) else None
             if first_weak_point_id:
+                r, body = check("Practice weak point turn", "POST",
+                                f"{BASE}/chat/{CREATED_SESSION_ID}/weak-points/{first_weak_point_id}/practice-turn",
+                                json={"strategyName": "advanced-rag", "topK": 4})
+                if r is not None and r.status_code == 200:
+                    check_field("Practice weak point id", body, "data.weakPoint.id", first_weak_point_id)
+                    check_field("Practice assistant message", body, "data.turn.assistantMessage.id")
+                    practice_cards = body.get("data", {}).get("turn", {}).get("reviewCards") if isinstance(body, dict) else None
+                    if isinstance(practice_cards, list) and practice_cards:
+                        PASS += 1
+                        print(f"  PASS  Practice review cards present = {len(practice_cards)}")
+                    else:
+                        FAIL += 1
+                        ERRORS.append("Weak point practice expected reviewCards")
+                        print("  FAIL  Weak point practice expected reviewCards")
+                    practice_weak_points = body.get("data", {}).get("turn", {}).get("weakPoints") if isinstance(body, dict) else None
+                    if isinstance(practice_weak_points, list) and practice_weak_points:
+                        PASS += 1
+                        print(f"  PASS  Practice weak points present = {len(practice_weak_points)}")
+                    else:
+                        FAIL += 1
+                        ERRORS.append("Weak point practice expected weakPoints")
+                        print("  FAIL  Weak point practice expected weakPoints")
                 r, body = check("Update weak point mastery", "PATCH",
                                 f"{BASE}/chat/{CREATED_SESSION_ID}/weak-points/{first_weak_point_id}",
                                 json={"masteryStatus": "MASTERED"})

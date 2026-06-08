@@ -1414,3 +1414,12 @@ README 更新规则：
 - The endpoint stores evaluator `grounded_score` as experiment `precisionScore`, evaluator `retrieval_score` as `recallScore`, marks the experiment `COMPLETED`, and appends evaluation notes.
 - `smoke_test.py` now covers Advanced RAG query, persisted run detail, and experiment evaluation in one full-chain path; local full-chain smoke passed with 94/94 checks.
 - Key documents: `docs/plans/2026-06-08-rag-experiment-evaluation.md`, `docs/reviews/2026-06-08-rag-experiment-evaluation-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
+
+---
+
+## 2026-06-08 Weak Point Practice Flow Update
+
+- Added Spring Boot `POST /api/chat/{sessionId}/weak-points/{weakPointId}/practice-turn`, reusing the assistant-turn workflow for weak point practice.
+- Frontend weak point cards now expose a `Practice` action that starts an Agent-backed practice turn while preserving explicit mastery assessment.
+- `smoke_test.py` now covers persisted weak point practice; local full-chain smoke passed with 99/99 checks.
+- Key documents: `docs/plans/2026-06-08-weak-point-practice-flow.md`, `docs/reviews/2026-06-08-weak-point-practice-flow-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
