@@ -146,8 +146,34 @@ Validated:
 - `mvn test` passed with 6 tests.
 - `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 47/47 smoke checks.
 
-Current remaining large project areas:
+Current remaining large project areas after Phase 5:
 
-- GraphRAG / knowledge graph enhancement.
+- GraphRAG / knowledge graph enhancement, addressed in the next section as a first engineering loop.
 - Learning and interview assistant product workflows.
 - Optional future replacement of the local node-style runner with a real `langgraph` dependency-backed graph.
+
+---
+
+## 2026-06-08 Phase 6 GraphRAG First Loop Update
+
+Completed in this iteration:
+
+- Added deterministic query entity and relationship extraction under `ai-service/app/rag/graph/`.
+- Added `graph-rag` as a supported Advanced RAG strategy.
+- GraphRAG now stores graph entities, relationships, and the graph-augmented query in trace attributes.
+- Citation metadata now includes graph entity and relationship context.
+- Frontend strategy options now include `GraphRAG`.
+- `smoke_test.py` now covers GraphRAG through Spring Boot `/api/rag/query`.
+
+Validated:
+
+- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests.
+- `npm.cmd run typecheck` and `npm.cmd run build` passed.
+- `mvn test` passed with 6 tests.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 54/54 smoke checks.
+
+Current remaining large project areas:
+
+- Persist graph entities and relationships with Flyway-managed tables.
+- Implement graph-aware retrieval over persisted graph facts.
+- Build learning and interview assistant product workflows.

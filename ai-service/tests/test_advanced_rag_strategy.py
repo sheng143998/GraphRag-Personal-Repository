@@ -47,6 +47,19 @@ def test_rag_evaluation_scores_grounded_citations() -> None:
     assert response.trace.status == "completed"
 
 
+def test_graph_rag_extracts_entities_and_augments_retrieval_trace() -> None:
+    response = asyncio.run(_graph_rag_query())
+
+    assert response.citations
+    assert response.trace.attributes["graph_entities"]
+    assert response.trace.attributes["graph_relationships"]
+    assert "GraphRAG" in response.trace.attributes["graph_augmented_query"]
+    step_statuses = {step.name: step.status for step in response.trace.steps}
+    assert step_statuses["graph_extract"] == "completed"
+    assert response.citations[0].metadata["graph_entities"]
+    assert response.citations[0].metadata["graph_relationship_count"] > 0
+
+
 async def _advanced_query():
     _clear_in_memory_repository()
     ingest_service = IngestService()
@@ -84,6 +97,35 @@ async def _advanced_query():
                 knowledge_base_id="kb-test-advanced",
                 metadata_filters={"topic": "advanced-rag"},
             ),
+        )
+    )
+
+
+async def _graph_rag_query():
+    _clear_in_memory_repository()
+    ingest_service = IngestService()
+    rag_service = RagService()
+
+    await ingest_service.ingest_document(
+        _document(
+            knowledge_base_id="kb-test-graph",
+            document_id="44444444-4444-4444-4444-444444444444",
+            title="GraphRAG Architecture Notes",
+            topic="graph-rag",
+            content=(
+                "GraphRAG extracts Entities and Relationships from chunks. "
+                "GraphRAG connects Query Rewrite, Entity Retrieval, and relationship-aware citations. "
+                * 10
+            ),
+        )
+    )
+
+    return await rag_service.query(
+        RagQueryRequest(
+            question="How does GraphRAG use Entities and Relationships?",
+            top_k=2,
+            strategy_name="graph-rag",
+            context=RagRequestContext(knowledge_base_id="kb-test-graph"),
         )
     )
 

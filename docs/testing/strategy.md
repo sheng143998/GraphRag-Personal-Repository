@@ -39,3 +39,9 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - AI pytest covers question classification, automatic strategy selection, RAG execution, citations, and workflow step trace metadata.
 - Backend Maven tests cover the Spring Boot `/api/agent/invoke` bridge request/response mapping.
 - Local full-chain smoke covers Spring Boot -> FastAPI Agent invocation and now passes 47/47 checks.
+
+## 2026-06-08 GraphRAG Validation
+
+- AI pytest covers deterministic GraphRAG entity/relationship extraction, graph query augmentation, trace attributes, and citation graph metadata.
+- Frontend typecheck/build verifies the `GraphRAG` strategy option is available to the workbench.
+- Local full-chain smoke covers Spring Boot -> FastAPI `strategyName=graph-rag` invocation and now passes 54/54 checks.

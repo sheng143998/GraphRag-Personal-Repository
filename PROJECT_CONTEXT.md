@@ -1299,3 +1299,13 @@ README 更新规则：
 - Spring Boot now exposes `/api/agent/invoke` as a bridge to FastAPI, preserving frontend-to-Spring-only browser boundaries.
 - Local full-chain smoke now includes Agent workflow invocation and passed 47/47 checks.
 - Key document: `docs/plans/2026-06-08-agent-workflow-phase5.md`.
+
+---
+
+## 2026-06-08 Phase 6 GraphRAG First Loop Update
+
+- Completed the first verifiable GraphRAG engineering loop with deterministic query entity/relationship extraction in `ai-service/app/rag/graph/`.
+- Added `graph-rag` strategy support to Advanced RAG; it augments retrieval queries, records graph entities/relationships in trace attributes, and enriches citation metadata.
+- Frontend strategy options now include `GraphRAG`.
+- Local full-chain smoke now includes GraphRAG invocation and passed 54/54 checks.
+- Key document: `docs/plans/2026-06-08-graphrag-phase6.md`.

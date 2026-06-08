@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.core.tracing import TraceBuilder
 from app.db.repositories import repository
+from app.rag.graph import RuleBasedGraphExtractor
 from app.rag.query_transformers.base import RuleBasedMultiQueryExpander, RuleBasedQueryRewriter
 from app.rag.rerankers.base import BaseReranker
 from app.rag.retrievers.base import BaseRetriever
@@ -11,7 +12,7 @@ from app.services.adapters.registry import get_embedding_model_name, get_rerank_
 
 
 class AdvancedRagStrategy:
-    supported_strategy_names = {"hybrid-rerank", "metadata-filter", "parent-child", "advanced-rag"}
+    supported_strategy_names = {"hybrid-rerank", "metadata-filter", "parent-child", "advanced-rag", "graph-rag"}
 
     def __init__(
         self,
@@ -25,6 +26,7 @@ class AdvancedRagStrategy:
         self.embedding_adapter = embedding_adapter
         self.query_rewriter = RuleBasedQueryRewriter()
         self.multi_query_expander = RuleBasedMultiQueryExpander()
+        self.graph_extractor = RuleBasedGraphExtractor()
 
     async def run(
         self,
@@ -40,8 +42,9 @@ class AdvancedRagStrategy:
         strategy_name = trace_builder.trace.strategy_name
         use_rewrite = strategy_name == "advanced-rag"
         use_multi_query = strategy_name == "advanced-rag"
-        use_parent_child = strategy_name in {"parent-child", "advanced-rag"}
-        active_filters = filters if strategy_name in {"metadata-filter", "advanced-rag"} else {}
+        use_parent_child = strategy_name in {"parent-child", "advanced-rag", "graph-rag"}
+        use_graph = strategy_name == "graph-rag"
+        active_filters = filters if strategy_name in {"metadata-filter", "advanced-rag", "graph-rag"} else {}
 
         rewritten_query = self.query_rewriter.rewrite(query) if use_rewrite else query
         trace_builder.set_attribute("rewritten_query", rewritten_query)
@@ -52,10 +55,28 @@ class AdvancedRagStrategy:
             payload={"original_query": query, "rewritten_query": rewritten_query},
         )
 
+        graph_entities = self.graph_extractor.extract_entities(rewritten_query) if use_graph else []
+        graph_relationships = self.graph_extractor.extract_relationships(graph_entities) if use_graph else []
+        graph_query = self.graph_extractor.augment_query(rewritten_query, graph_entities) if use_graph else rewritten_query
+        if use_graph:
+            trace_builder.set_attribute("graph_entities", [entity.__dict__ for entity in graph_entities])
+            trace_builder.set_attribute("graph_relationships", [relationship.__dict__ for relationship in graph_relationships])
+            trace_builder.set_attribute("graph_augmented_query", graph_query)
+        trace_builder.add_step(
+            name="graph_extract",
+            status="completed" if use_graph else "skipped",
+            detail="Extracted query entities and relationships." if use_graph else "Graph extraction is not enabled.",
+            payload={
+                "entity_count": len(graph_entities),
+                "relationship_count": len(graph_relationships),
+                "graph_augmented_query": graph_query,
+            },
+        )
+
         retrieve_queries = (
             self.multi_query_expander.expand(rewritten_query, original_query=query, max_queries=3)
             if use_multi_query
-            else [rewritten_query]
+            else [graph_query]
         )
         if use_rewrite and rewritten_query in retrieve_queries:
             retrieve_queries = [rewritten_query] + [item for item in retrieve_queries if item != rewritten_query]
@@ -92,7 +113,11 @@ class AdvancedRagStrategy:
                 query_embedding=embedding,
                 embedding_model=embedding_model,
             )
-            retrieved.extend(_with_matched_query(sources, retrieve_query))
+            retrieved.extend(_with_graph_metadata(
+                _with_matched_query(sources, retrieve_query),
+                entity_names=[entity.name for entity in graph_entities],
+                relationship_count=len(graph_relationships),
+            ))
 
         trace_builder.add_step(
             name="retrieve",
@@ -154,6 +179,32 @@ def _with_matched_query(sources: list[SourceMetadata], query: str) -> list[Sourc
         if query not in matched_queries:
             matched_queries.append(query)
         metadata["matched_queries"] = matched_queries
+        updated.append(source.copy(update={"metadata": metadata}))
+    return updated
+
+
+def _with_graph_metadata(
+    sources: list[SourceMetadata],
+    *,
+    entity_names: list[str],
+    relationship_count: int,
+) -> list[SourceMetadata]:
+    if not entity_names:
+        return sources
+    updated: list[SourceMetadata] = []
+    for source in sources:
+        content_preview = str(source.metadata.get("content_preview", ""))
+        matched_entities = [
+            entity_name
+            for entity_name in entity_names
+            if entity_name.lower() in content_preview.lower() or entity_name.lower() in source.title.lower()
+        ]
+        metadata = {
+            **source.metadata,
+            "graph_entities": entity_names,
+            "graph_matched_entities": matched_entities,
+            "graph_relationship_count": relationship_count,
+        }
         updated.append(source.copy(update={"metadata": metadata}))
     return updated
 

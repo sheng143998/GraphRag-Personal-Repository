@@ -21,6 +21,7 @@ CREATED_MSG_ID = None
 CREATED_RUN_ID = None
 CREATED_ADVANCED_RUN_ID = None
 CREATED_AGENT_RUN_ID = None
+CREATED_GRAPH_RUN_ID = None
 TEST_UUID = str(uuid.uuid4())  # for use as placeholder UUIDs
 
 
@@ -256,6 +257,38 @@ if CREATED_KB_ID:
             print("  FAIL  Agent workflow expected at least four workflow steps")
 else:
     print("  SKIP  No KB, skipping agent workflow test")
+
+
+# ============================================================
+section("4D. GRAPH RAG TRACE")
+# ============================================================
+
+if CREATED_KB_ID:
+    r, body = check("GraphRAG query", "POST", f"{BASE}/rag/query",
+                    json={"question": "How does GraphRAG use entities and relationships?",
+                          "knowledgeBaseId": CREATED_KB_ID,
+                          "topK": 3,
+                          "strategyName": "graph-rag",
+                          "metadataFilters": {}})
+    if r is not None and r.status_code == 200:
+        CREATED_GRAPH_RUN_ID = check_field("GraphRAG runId", body, "data.runId")
+        check_field("GraphRAG status", body, "data.status", "COMPLETED")
+        check_field("GraphRAG strategy", body, "data.strategyName", "graph-rag")
+        citations = body.get("data", {}).get("citations") if isinstance(body, dict) else None
+        if citations:
+            PASS += 1
+            print(f"  PASS  GraphRAG citations present = {len(citations)}")
+        else:
+            FAIL += 1
+            ERRORS.append("GraphRAG citations expected at least one result")
+            print("  FAIL  GraphRAG citations expected at least one result")
+
+    if CREATED_GRAPH_RUN_ID:
+        r, body = check("Get GraphRAG run", "GET", f"{BASE}/rag/runs/{CREATED_GRAPH_RUN_ID}")
+        if r is not None and r.status_code == 200:
+            check_field("GraphRAG run status", body, "data.status", "COMPLETED")
+else:
+    print("  SKIP  No KB, skipping GraphRAG trace test")
 
 
 # ============================================================

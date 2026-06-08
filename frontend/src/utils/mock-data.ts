@@ -33,6 +33,11 @@ export const ragStrategyOptions: RagStrategyOption[] = [
     value: "advanced-rag",
     label: "Advanced RAG",
     description: "组合查询改写、多查询、metadata filter、混合召回、重排和上下文增强。"
+  },
+  {
+    value: "graph-rag",
+    label: "GraphRAG",
+    description: "Graph-enhanced retrieval with entity and relationship extraction for traceable graph context."
   }
 ];
 
