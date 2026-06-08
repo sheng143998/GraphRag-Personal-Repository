@@ -1,4 +1,5 @@
 import re
+from dataclasses import dataclass
 
 from app.schemas.rag import RagEvaluateRequest, RagEvaluationResult
 from app.rag.evaluators.strategy_comparison import (
@@ -26,11 +27,13 @@ class SimpleRagEvaluator(BaseRagEvaluator):
         else:
             grounded_score = min(0.2, answer_alignment * 0.2)
         structured_metrics = _structured_retrieval_metrics(payload)
-        retrieval_score = (
+        base_retrieval_score = (
             _structured_retrieval_score(structured_metrics)
             if structured_metrics is not None
             else min(1.0, len(payload.citations) / 5) if payload.citations else 0.0
         )
+        graph_metrics = _graph_retrieval_metrics(payload)
+        retrieval_score = _combine_retrieval_scores(base_retrieval_score, graph_metrics)
         notes = [
             "Skeleton evaluator uses citation support and answer alignment heuristic scoring.",
         ]
@@ -43,6 +46,13 @@ class SimpleRagEvaluator(BaseRagEvaluator):
                 f"precision@k={structured_metrics.precision_at_k:.2f}, "
                 f"mrr={structured_metrics.mrr:.2f}, "
                 f"citation_hit={structured_metrics.citation_hit:.2f}."
+            )
+        if graph_metrics is not None:
+            notes.append(
+                "GraphRAG metadata scored "
+                f"entity_coverage={graph_metrics.entity_coverage:.2f}, "
+                f"relationship_hit={graph_metrics.relationship_hit:.2f}, "
+                f"expansion_term_hit={graph_metrics.expansion_term_hit:.2f}."
             )
         return RagEvaluationResult(
             grounded_score=grounded_score,
@@ -120,6 +130,91 @@ def _structured_retrieval_score(metrics) -> float:
         + metrics.mrr
         + metrics.citation_hit
     ) / 4
+
+
+@dataclass(frozen=True)
+class GraphRetrievalMetrics:
+    entity_coverage: float
+    relationship_hit: float
+    expansion_term_hit: float
+
+    @property
+    def score(self) -> float:
+        return (self.entity_coverage + self.relationship_hit + self.expansion_term_hit) / 3
+
+
+def _graph_retrieval_metrics(payload: RagEvaluateRequest) -> GraphRetrievalMetrics | None:
+    if not payload.citations:
+        return None
+
+    graph_entities: set[str] = set()
+    matched_entities: set[str] = set()
+    expansion_terms: set[str] = set()
+    matched_expansion_terms: set[str] = set()
+    relationship_hit = False
+
+    for citation in payload.citations:
+        metadata = getattr(citation, "metadata", None) or {}
+        preview = str(metadata.get("content_preview") or "")
+        title = str(getattr(citation, "title", "") or "")
+        searchable_text = f"{title} {preview}".lower()
+
+        graph_entities.update(_string_values(metadata.get("graph_entities")))
+        matched_entities.update(_string_values(metadata.get("graph_matched_entities")))
+        matched_entities.update(_string_values(metadata.get("persisted_graph_matched_entities")))
+
+        citation_expansion_terms = set(_string_values(metadata.get("graph_expansion_terms")))
+        expansion_terms.update(citation_expansion_terms)
+        matched_expansion_terms.update(
+            term
+            for term in citation_expansion_terms
+            if term.lower() in searchable_text
+        )
+
+        if _relationship_count(metadata.get("graph_relationship_count")) > 0:
+            relationship_hit = True
+        if _relationship_count(metadata.get("persisted_graph_relationship_count")) > 0:
+            relationship_hit = True
+        if _string_values(metadata.get("graph_traversal_relationships")):
+            relationship_hit = True
+
+    if not graph_entities and not expansion_terms and not relationship_hit:
+        return None
+
+    return GraphRetrievalMetrics(
+        entity_coverage=(len(matched_entities & graph_entities) / len(graph_entities)) if graph_entities else 0.0,
+        relationship_hit=1.0 if relationship_hit else 0.0,
+        expansion_term_hit=(len(matched_expansion_terms) / len(expansion_terms)) if expansion_terms else 0.0,
+    )
+
+
+def _combine_retrieval_scores(base_score: float, graph_metrics: GraphRetrievalMetrics | None) -> float:
+    if graph_metrics is None:
+        return base_score
+    return (base_score * 0.7) + (graph_metrics.score * 0.3)
+
+
+def _string_values(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        results: list[str] = []
+        for item in value:
+            if isinstance(item, dict):
+                results.extend(str(candidate) for candidate in item.values() if candidate)
+            elif item:
+                results.append(str(item))
+        return results
+    if isinstance(value, dict):
+        return [str(item) for item in value.values() if item]
+    return [str(value)]
+
+
+def _relationship_count(value: object) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _content_tokens(value: str) -> set[str]:

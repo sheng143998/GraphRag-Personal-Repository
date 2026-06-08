@@ -247,3 +247,12 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Full-chain smoke now checks parent-child run metadata includes `context_compression_mode=query-aware-sentence-pack`.
 - AI full test suite passed with 24/24 tests.
 - Full-chain local smoke passed with 144/144 checks.
+
+## 2026-06-08 GraphRAG Evaluation Metrics Validation
+
+- AI pytest covers GraphRAG evaluator notes for entity coverage, relationship hit, and expansion-term hit.
+- Full-chain smoke evaluates a persisted GraphRAG run and verifies evaluator notes include GraphRAG metadata metrics.
+- AI full test suite passed with 25/25 tests.
+- Spring Boot full test suite passed with 18/18 tests.
+- Frontend typecheck and build passed.
+- Full-chain local smoke passed with 146/146 checks.

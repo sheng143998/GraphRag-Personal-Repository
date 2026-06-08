@@ -655,6 +655,22 @@ if CREATED_KB_ID:
                 FAIL += 1
                 ERRORS.append("GraphRAG run metadata expected graph_traversal_relationships")
                 print("  FAIL  GraphRAG run metadata expected graph_traversal_relationships")
+        if CREATED_EXP_ID:
+            r, body = check("Evaluate experiment from GraphRAG run", "POST",
+                            f"{BASE}/rag/experiments/{CREATED_EXP_ID}/evaluate",
+                            json={
+                                "runId": CREATED_GRAPH_RUN_ID,
+                                "expectedAnswer": "GraphRAG should use entities, relationships, and graph expansion terms.",
+                            })
+            if r is not None and r.status_code == 200:
+                notes = body.get("data", {}).get("notes") if isinstance(body, dict) else None
+                if isinstance(notes, list) and any("GraphRAG metadata scored" in str(note) for note in notes):
+                    PASS += 1
+                    print("  PASS  GraphRAG evaluation used graph metadata metrics")
+                else:
+                    FAIL += 1
+                    ERRORS.append("GraphRAG evaluation expected graph metadata metric notes")
+                    print("  FAIL  GraphRAG evaluation expected graph metadata metric notes")
 else:
     print("  SKIP  No KB, skipping GraphRAG trace test")
 

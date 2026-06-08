@@ -1599,3 +1599,13 @@ README 更新规则：
 - Full-chain smoke now validates parent-child compression metadata.
 - Local full-chain smoke passed with 144/144 checks.
 - Key documents: `docs/plans/2026-06-08-query-aware-context-compression.md`, `docs/reviews/2026-06-08-query-aware-context-compression-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
+
+---
+
+## 2026-06-08 GraphRAG Evaluation Metrics Update
+
+- FastAPI evaluator now scores GraphRAG citation metadata: entity coverage, relationship hit, and expansion-term hit.
+- GraphRAG metric notes are included in RAG evaluation responses and full-chain smoke now checks the persisted GraphRAG run evaluation path.
+- Spring Boot continues to forward evaluation data only; it does not implement GraphRAG scoring.
+- Local full-chain smoke passed with 146/146 checks.
+- Key documents: `docs/plans/2026-06-08-graphrag-evaluation-metrics.md`, `docs/reviews/2026-06-08-graphrag-evaluation-metrics-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.

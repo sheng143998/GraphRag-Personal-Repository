@@ -238,6 +238,16 @@ def test_rag_evaluation_uses_structured_case_for_retrieval_metrics() -> None:
     assert structured.trace.status == "completed"
 
 
+def test_rag_evaluation_scores_graphrag_metadata_metrics() -> None:
+    response = asyncio.run(_evaluate_graph_metadata_answer())
+
+    assert response.result.retrieval_score > 0.2
+    assert any("GraphRAG metadata scored" in note for note in response.result.notes)
+    assert any("entity_coverage=1.00" in note for note in response.result.notes)
+    assert any("relationship_hit=1.00" in note for note in response.result.notes)
+    assert any("expansion_term_hit=1.00" in note for note in response.result.notes)
+
+
 def test_graph_rag_extracts_entities_and_augments_retrieval_trace() -> None:
     response = asyncio.run(_graph_rag_query())
 
@@ -412,6 +422,39 @@ async def _evaluate_structured_case():
                 expected_citation_chunk_ids=["advanced-rerank"],
                 top_k=1,
             ),
+        )
+    )
+
+
+async def _evaluate_graph_metadata_answer():
+    rag_service = RagService()
+    return await rag_service.evaluate(
+        RagEvaluateRequest(
+            question="How does GraphRAG connect entities and relationships?",
+            generated_answer="GraphRAG connects entities with relationship-aware citations.",
+            expected_answer="GraphRAG connects entities with relationship-aware citations.",
+            citations=[
+                SourceMetadata(
+                    document_id="graph-doc",
+                    chunk_id="graph-citation-context",
+                    title="GraphRAG Citation Context",
+                    score=0.9,
+                    metadata={
+                        "content_preview": "GraphRAG uses entities, relationships, and expansion terms for relationship-aware citations.",
+                        "graph_entities": ["GraphRAG", "Entities", "Relationships"],
+                        "graph_matched_entities": ["GraphRAG", "Entities"],
+                        "persisted_graph_matched_entities": ["Relationships"],
+                        "graph_relationship_count": 2,
+                        "persisted_graph_relationship_count": 2,
+                        "graph_expansion_terms": ["relationship-aware", "citations"],
+                        "graph_traversal_relationships": [
+                            {"source": "GraphRAG", "target": "Relationships", "relation_type": "connects"}
+                        ],
+                    },
+                )
+            ],
+            strategy_name="graph-rag",
+            context=RagRequestContext(knowledge_base_id="kb-test-graph"),
         )
     )
 

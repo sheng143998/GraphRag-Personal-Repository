@@ -792,3 +792,28 @@ Current remaining large project areas:
 
 - Add UI controls and experiment records for comparing hybrid weight presets.
 - Continue GraphRAG metric refinement and LLM-backed rewrite/extraction work.
+
+---
+
+## 2026-06-08 GraphRAG Evaluation Metrics Update
+
+Completed in this iteration:
+
+- FastAPI RAG evaluator now derives GraphRAG metadata metrics from persisted citations.
+- Evaluator notes report entity coverage, relationship evidence hit, and expansion-term hit.
+- Retrieval score blends the existing retrieval score with GraphRAG metadata score when graph metadata is present.
+- Full-chain smoke now evaluates a persisted GraphRAG run and checks the GraphRAG metric note.
+
+Validated:
+
+- `.\.venv\bin\python.exe -m pytest tests/test_advanced_rag_strategy.py tests/test_strategy_comparison_evaluator.py -q` passed with 14 tests.
+- `.\.venv\bin\python.exe -m pytest tests -q` passed with 25 tests.
+- `mvn test -f backend-java/pom.xml` passed with 18 tests.
+- `npm.cmd --prefix frontend run typecheck` passed.
+- `npm.cmd --prefix frontend run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 146/146 smoke checks.
+
+Current remaining large project areas:
+
+- Add UI display for GraphRAG metric notes and strategy comparison details.
+- Continue LLM-backed rewrite/extraction work.
