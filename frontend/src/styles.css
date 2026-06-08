@@ -717,6 +717,132 @@ a {
   overflow-wrap: anywhere;
 }
 
+.comparison-columns {
+  align-items: start;
+}
+
+.comparison-section {
+  display: grid;
+  gap: 12px;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.comparison-list {
+  display: grid;
+  gap: 10px;
+}
+
+.comparison-row {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.comparison-row-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  overflow-wrap: anywhere;
+}
+
+.comparison-row-main span {
+  color: var(--text-soft);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.score-bars {
+  display: grid;
+  gap: 8px;
+}
+
+.score-bar {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 56px;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.score-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(130, 136, 166, 0.16);
+}
+
+.score-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brand);
+}
+
+.score-fill-alt {
+  background: var(--success);
+}
+
+.compact-metrics {
+  gap: 6px;
+}
+
+.compact-metrics .metric-row {
+  padding: 6px 0;
+}
+
+.comparison-table {
+  display: grid;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.comparison-table-head,
+.comparison-table-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.1fr) minmax(130px, 0.8fr) minmax(260px, 1.6fr) minmax(120px, 0.7fr) minmax(120px, 0.7fr);
+  gap: 14px;
+  min-width: 900px;
+  padding: 12px 14px;
+}
+
+.comparison-table-head {
+  color: var(--text-subtle);
+  font-size: 12px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+  background: rgba(245, 248, 255, 0.8);
+}
+
+.comparison-table-row {
+  align-items: start;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.comparison-table-row:last-child {
+  border-bottom: 0;
+}
+
+.comparison-table-row span {
+  overflow-wrap: anywhere;
+}
+
+.comparison-table-row small {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-soft);
+  font-size: 11px;
+}
+
 @media (max-width: 900px) {
   .evaluation-dashboard {
     grid-template-columns: repeat(2, minmax(0, 1fr));

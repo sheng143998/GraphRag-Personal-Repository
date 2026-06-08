@@ -57,6 +57,7 @@ const navigation: NavigationItem[] = [
   { label: "文档中心", to: "/documents", description: "上传与处理状态" },
   { label: "知识库", to: "/knowledge-base", description: "知识库概览" },
   { label: "实验评估", to: "/experiments", description: "策略对比" },
+  { label: "评估对比", to: "/experiments/comparison", description: "RAG 评估聚合" },
   { label: "图谱事实", to: "/graph", description: "实体与关系" },
   { label: "用户反馈", to: "/feedback", description: "提交与查看反馈" },
   { label: "系统设置", to: "/settings", description: "接口和默认参数" },

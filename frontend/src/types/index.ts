@@ -193,6 +193,7 @@ export interface ExperimentRecord {
 export interface ExperimentEvaluationHistory {
   id: string;
   experimentId: string;
+  experimentName?: string | null;
   runId: string;
   runQuestion?: string | null;
   runStrategyName?: string | null;

@@ -44,6 +44,15 @@ const router = createRouter({
       }
     },
     {
+      path: "/experiments/comparison",
+      name: "experiment-comparison",
+      component: () => import("../pages/experiments/ExperimentComparisonPage.vue"),
+      meta: {
+        title: "RAG 评估比较",
+        subtitle: "按策略和实验聚合最近评估结果，追踪 Advanced RAG 与 GraphRAG 表现。"
+      }
+    },
+    {
       path: "/feedback",
       name: "feedback",
       component: () => import("../pages/feedback/FeedbackPage.vue"),
