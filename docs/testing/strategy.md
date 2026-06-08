@@ -256,3 +256,9 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Spring Boot full test suite passed with 18/18 tests.
 - Frontend typecheck and build passed.
 - Full-chain local smoke passed with 146/146 checks.
+
+## 2026-06-08 GraphRAG Metrics UI Validation
+
+- Frontend typecheck/build covers parsing GraphRAG evaluator notes and displaying compact entity, relationship, and expansion-term metrics in experiment views.
+- The UI change reuses persisted Spring Boot evaluation history; no new FastAPI browser call was added.
+- Full-chain local smoke remained green with 146/146 checks.

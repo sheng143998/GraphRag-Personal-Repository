@@ -817,3 +817,25 @@ Current remaining large project areas:
 
 - Add UI display for GraphRAG metric notes and strategy comparison details.
 - Continue LLM-backed rewrite/extraction work.
+
+---
+
+## 2026-06-08 GraphRAG Metrics UI Update
+
+Completed in this iteration:
+
+- Added frontend parsing for GraphRAG evaluator notes.
+- Experiment history rows now show compact entity, relation, and expansion metrics when notes contain GraphRAG metric data.
+- The comparison page now includes a Graph metrics column and counts graph-metric evaluations in strategy rows.
+- Mock data includes a GraphRAG metric example for offline UI inspection.
+
+Validated:
+
+- `npm.cmd --prefix frontend run typecheck` passed.
+- `npm.cmd --prefix frontend run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 146/146 smoke checks.
+
+Current remaining large project areas:
+
+- Continue LLM-backed rewrite/extraction work.
+- Add richer controls for hybrid retrieval presets and GraphRAG evaluation comparisons.

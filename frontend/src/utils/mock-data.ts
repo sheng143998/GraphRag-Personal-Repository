@@ -122,7 +122,7 @@ const demoSources: CitationSource[] = [
     id: "src-2",
     title: "RAG 实验复盘-召回失败案例.docx",
     location: "page 3 · lesson learned",
-    strategy: "Parent-Child",
+    strategy: "graph-rag",
     score: 0.87,
     snippet: "多轮追问场景建议保留上一轮 rewritten query 与检索过滤条件。"
   }
@@ -203,16 +203,16 @@ export const mockExperiments: ExperimentRecord[] = [
       {
         id: "eval-2-latest",
         experimentId: "exp-2",
-        runId: "run-parent-child-1",
-        runQuestion: "How does parent-child retrieval improve project review answers?",
-        runStrategyName: "parent-child",
-        runRetrieverType: "vector",
+        runId: "run-graph-rag-1",
+        runQuestion: "How does GraphRAG use entities and relationships?",
+        runStrategyName: "graph-rag",
+        runRetrieverType: "hybrid",
         runModelName: "stub-llm",
         runLatencyMs: 61,
         runCreatedAt: "2026-06-08T14:19:00",
         groundedScore: 0.74,
         retrievalScore: 0.88,
-        notes: "Parent context improved recall.",
+        notes: "GraphRAG metadata scored entity_coverage=1.00, relationship_hit=1.00, expansion_term_hit=0.75.",
         createdAt: "2026-06-08T14:20:00"
       }
     ]

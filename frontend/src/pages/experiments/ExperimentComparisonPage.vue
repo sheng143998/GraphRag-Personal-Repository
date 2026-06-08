@@ -87,6 +87,7 @@
                 <p class="item-meta">
                   Latest {{ formatDate(row.latestAt) }}
                   <span v-if="row.averageLatencyMs != null"> | avg latency {{ Math.round(row.averageLatencyMs) }}ms</span>
+                  <span v-if="row.graphMetricCount"> | graph metrics {{ row.graphMetricCount }}</span>
                 </p>
               </article>
             </div>
@@ -127,6 +128,7 @@
               <span>Strategy</span>
               <span>Question</span>
               <span>Scores</span>
+              <span>Graph metrics</span>
               <span>Run</span>
             </div>
             <div v-for="evaluation in filteredRows" :key="evaluation.id" class="comparison-table-row">
@@ -145,6 +147,12 @@
                 <small v-if="evaluation.runLatencyMs != null">{{ evaluation.runLatencyMs }}ms</small>
               </span>
               <span>
+                <template v-if="graphMetricSummary(evaluation)">
+                  {{ graphMetricSummary(evaluation) }}
+                </template>
+                <template v-else>None</template>
+              </span>
+              <span>
                 {{ shortId(evaluation.runId) }}
                 <small>{{ evaluation.runModelName ?? "model pending" }}</small>
               </span>
@@ -160,6 +168,7 @@
 import { computed, onMounted, ref } from "vue";
 import type { ExperimentEvaluationHistory } from "../../types";
 import { useWorkbenchStore } from "../../stores/workbench";
+import { formatMetricPercent, hasGraphRagMetricNote, parseGraphRagMetricNote } from "../../utils/evaluation-notes";
 
 const store = useWorkbenchStore();
 const selectedStrategy = ref("");
@@ -174,6 +183,7 @@ interface AggregateRow {
   averageRetrieval?: number;
   quality?: number;
   averageLatencyMs?: number;
+  graphMetricCount: number;
   latestAt: string;
   latestStrategy: string;
 }
@@ -239,6 +249,7 @@ function aggregateRows(
       averageRetrieval,
       quality: averageScore([averageGrounded, averageRetrieval]),
       averageLatencyMs: averageScore(items.map((item) => item.runLatencyMs)),
+      graphMetricCount: items.filter(hasGraphRagMetricNote).length,
       latestAt: latest.createdAt,
       latestStrategy: latest.runStrategyName ?? "unknown"
     };
@@ -268,6 +279,16 @@ function scoreWidth(value?: number): string {
 function summarize(value?: string | null, maxLength = 92): string {
   if (!value) return "No question snapshot";
   return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
+}
+
+function graphMetricSummary(evaluation: ExperimentEvaluationHistory): string | undefined {
+  const metrics = parseGraphRagMetricNote(evaluation.notes);
+  if (!metrics) return undefined;
+  return [
+    `E ${formatMetricPercent(metrics.entityCoverage)}`,
+    `R ${formatMetricPercent(metrics.relationshipHit)}`,
+    `X ${formatMetricPercent(metrics.expansionTermHit)}`
+  ].join(" / ");
 }
 
 function shortId(value: string): string {

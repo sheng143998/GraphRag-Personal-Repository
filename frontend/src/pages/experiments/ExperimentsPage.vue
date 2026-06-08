@@ -157,6 +157,12 @@
                   <span v-if="evaluation.runModelName"> | {{ evaluation.runModelName }}</span>
                 </div>
                 <div v-if="evaluation.notes" class="item-meta">{{ evaluation.notes }}</div>
+                <div v-if="graphMetricItems(evaluation).length" class="graph-metric-strip">
+                  <div v-for="metric in graphMetricItems(evaluation)" :key="metric.label" class="graph-metric">
+                    <span>{{ metric.label }}</span>
+                    <strong>{{ metric.value }}</strong>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -229,6 +235,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import type { ExperimentEvaluationHistory, ExperimentRecord, ExperimentEvaluationRequest, RagRunSummary } from "../../types";
 import { useWorkbenchStore } from "../../stores/workbench";
+import { formatMetricPercent, parseGraphRagMetricNote } from "../../utils/evaluation-notes";
 
 const store = useWorkbenchStore();
 
@@ -351,6 +358,16 @@ function evaluationDeltaLabel(experiment: ExperimentRecord, evaluation: Experime
   const index = evaluations.findIndex((item) => item.id === evaluation.id);
   if (index < 0 || index >= evaluations.length - 1) return undefined;
   return formatTrend(evaluationQuality(evaluation) - evaluationQuality(evaluations[index + 1]));
+}
+
+function graphMetricItems(evaluation: ExperimentEvaluationHistory): Array<{ label: string; value: string }> {
+  const metrics = parseGraphRagMetricNote(evaluation.notes);
+  if (!metrics) return [];
+  return [
+    { label: "Entity", value: formatMetricPercent(metrics.entityCoverage) },
+    { label: "Relation", value: formatMetricPercent(metrics.relationshipHit) },
+    { label: "Expansion", value: formatMetricPercent(metrics.expansionTermHit) }
+  ];
 }
 
 function formatTrend(value?: number): string | undefined {

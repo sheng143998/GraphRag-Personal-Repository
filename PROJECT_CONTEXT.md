@@ -1609,3 +1609,12 @@ README 更新规则：
 - Spring Boot continues to forward evaluation data only; it does not implement GraphRAG scoring.
 - Local full-chain smoke passed with 146/146 checks.
 - Key documents: `docs/plans/2026-06-08-graphrag-evaluation-metrics.md`, `docs/reviews/2026-06-08-graphrag-evaluation-metrics-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
+
+---
+
+## 2026-06-08 GraphRAG Metrics UI Update
+
+- Frontend experiment views now parse GraphRAG evaluator notes and show entity, relation, and expansion-term metrics.
+- The comparison page includes a Graph metrics column while continuing to use Spring Boot evaluation history only.
+- Local full-chain smoke remained green with 146/146 checks.
+- Key documents: `docs/plans/2026-06-08-graphrag-metrics-ui.md`, `docs/reviews/2026-06-08-graphrag-metrics-ui-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
