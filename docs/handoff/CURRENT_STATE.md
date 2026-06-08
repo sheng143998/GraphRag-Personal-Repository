@@ -398,6 +398,29 @@ Current remaining large project areas:
 
 ---
 
+## 2026-06-08 RAG Evaluation History Update
+
+Completed in this iteration:
+
+- Added Flyway-managed `rag_experiment_evaluations` table for per-evaluation history.
+- Added Spring Boot entity/repository/DTO support and made experiment evaluation transactional.
+- `POST /api/rag/experiments/{id}/evaluate` now returns the newly saved evaluation row plus recent history.
+- Frontend experiments page displays recent evaluation history for each experiment.
+- Full-chain smoke now asserts Advanced RAG evaluation history fields in the response.
+
+Validated so far:
+
+- `mvn test` passed with 14 tests.
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 104/104 smoke checks.
+
+Current remaining large project areas:
+
+- Continue richer RAG evaluation dashboards and historical comparison views.
+
+---
+
 ## 2026-06-08 Weak Point Practice Flow Update
 
 Completed in this iteration:

@@ -134,3 +134,10 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Frontend typecheck/build covers recent run loading, experiment evaluation API mapping, and the experiments page run selector.
 - `smoke_test.py` now verifies `GET /api/rag/runs?limit=10` includes the created run before experiment evaluation.
 - Local full-chain smoke now passes 101/101 checks.
+
+## 2026-06-08 RAG Evaluation History Validation
+
+- Backend Maven tests include `RagExperimentServiceTest`, covering transactional experiment evaluation, evaluator request mapping, score persistence, and `rag_experiment_evaluations` history row creation.
+- Frontend typecheck/build covers `ExperimentEvaluationHistory` response typing and the experiments page recent evaluation history list.
+- `smoke_test.py` now verifies the Advanced RAG experiment evaluation response includes `data.evaluation.runId`, non-empty `data.history`, and non-empty `data.experiment.evaluations`.
+- Local full-chain smoke passed with 104/104 checks after adding the history assertions.

@@ -14,6 +14,7 @@
 
 - `backend-java/src/main/resources/db/migration/V202605251930__init_agent_knowledge_schema.sql`
 - `backend-java/src/main/resources/db/migration/V202605270930__create_rag_experiments.sql`
+- `backend-java/src/main/resources/db/migration/V202606081630__create_rag_experiment_evaluations.sql`
 
 ## 2. 扩展依赖
 
@@ -221,3 +222,11 @@ FastAPI 可以读取业务表，例如按 `knowledge_base_id` 检索文档和 ch
 - RAG trace 字段是否足够支撑后续调试、评估和复盘。
 - 向量维度、索引类型和 metadata 过滤限制是否已明确。
 - 未落地能力是否清楚标注为后续演进。
+## 2026-06-08 RAG Evaluation History Addendum
+
+- New migration: `backend-java/src/main/resources/db/migration/V202606081630__create_rag_experiment_evaluations.sql`.
+- New table: `rag_experiment_evaluations`.
+- Purpose: store immutable per-evaluation history linked to `rag_experiments` and `rag_runs`, including grounded score, retrieval score, expected answer, generated answer, evaluator notes, and creation time.
+- Write owner: Spring Boot. It calls FastAPI `/ai/rag/evaluate` for scoring, then stores the business history row and updates the experiment summary in one transaction.
+- Query path: recent history is indexed by `(experiment_id, created_at DESC)` and returned in experiment responses for the frontend workbench.
+- Deletion behavior: rows cascade when the parent experiment or evaluated run is deleted.

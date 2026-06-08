@@ -478,6 +478,13 @@ Response `data`:
 
 Spring Boot reads the persisted `rag_runs` row and ordered `rag_retrieval_results`, then calls FastAPI `POST /ai/rag/evaluate`. Evaluator scoring logic stays in the AI service.
 
+2026-06-08 history extension:
+
+- `RagExperimentResponse` now includes `evaluations`, the most recent persisted evaluation history rows.
+- `RagExperimentEvaluationResponse` now includes `evaluation`, the newly saved history row, and `history`, the recent rows after the evaluation.
+- Each history row contains `id`, `experimentId`, `runId`, `groundedScore`, `retrievalScore`, `expectedAnswer`, `generatedAnswer`, `notes`, and `createdAt`.
+- Spring Boot stores these rows in `rag_experiment_evaluations`; FastAPI remains responsible for evaluator scoring through `/ai/rag/evaluate`.
+
 ### 6.7 List Recent RAG Runs
 
 `GET /api/rag/runs?limit=20`

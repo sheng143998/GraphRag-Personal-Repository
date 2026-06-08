@@ -11,23 +11,29 @@ import com.example.agentknowledge.client.dto.AiRagEvaluateRequest;
 import com.example.agentknowledge.client.dto.AiRagEvaluateResponse;
 import com.example.agentknowledge.domain.KnowledgeBase;
 import com.example.agentknowledge.domain.RagExperiment;
+import com.example.agentknowledge.domain.RagExperimentEvaluation;
 import com.example.agentknowledge.domain.RagRetrievalResult;
 import com.example.agentknowledge.domain.RagRun;
 import com.example.agentknowledge.dto.rag.EvaluateRagExperimentRequest;
 import com.example.agentknowledge.dto.rag.RagExperimentEvaluationResponse;
+import com.example.agentknowledge.repository.RagExperimentEvaluationRepository;
 import com.example.agentknowledge.repository.RagExperimentRepository;
 import com.example.agentknowledge.repository.RagRetrievalResultRepository;
 import com.example.agentknowledge.repository.RagRunRepository;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.PageRequest;
 
 class RagExperimentServiceTest {
 
     private final RagExperimentRepository experimentRepository = mock(RagExperimentRepository.class);
+    private final RagExperimentEvaluationRepository evaluationRepository = mock(RagExperimentEvaluationRepository.class);
     private final RagRunRepository ragRunRepository = mock(RagRunRepository.class);
     private final RagRetrievalResultRepository retrievalResultRepository = mock(RagRetrievalResultRepository.class);
     private final KnowledgeBaseService knowledgeBaseService = mock(KnowledgeBaseService.class);
@@ -35,6 +41,7 @@ class RagExperimentServiceTest {
 
     private final RagExperimentService service = new RagExperimentService(
             experimentRepository,
+            evaluationRepository,
             ragRunRepository,
             retrievalResultRepository,
             knowledgeBaseService,
@@ -81,6 +88,18 @@ class RagExperimentServiceTest {
                 )
         );
         when(experimentRepository.save(experiment)).thenReturn(experiment);
+        AtomicReference<RagExperimentEvaluation> savedEvaluationRef = new AtomicReference<>();
+        when(evaluationRepository.save(any(RagExperimentEvaluation.class))).thenAnswer(invocation -> {
+            RagExperimentEvaluation saved = invocation.getArgument(0);
+            saved.setId(UUID.randomUUID());
+            saved.setCreatedAt(Instant.parse("2026-06-08T16:45:00Z"));
+            savedEvaluationRef.set(saved);
+            return saved;
+        });
+        when(evaluationRepository.findByExperiment_IdOrderByCreatedAtDesc(
+                any(UUID.class),
+                any(PageRequest.class)
+        )).thenAnswer(invocation -> savedEvaluationRef.get() == null ? List.of() : List.of(savedEvaluationRef.get()));
 
         RagExperimentEvaluationResponse response = service.evaluate(
                 experimentId,
@@ -93,6 +112,11 @@ class RagExperimentServiceTest {
         assertThat(response.experiment().precisionScore()).isEqualTo(0.91);
         assertThat(response.experiment().recallScore()).isEqualTo(0.82);
         assertThat(response.experiment().notes()).contains("Evaluation run " + runId);
+        assertThat(response.evaluation().runId()).isEqualTo(runId);
+        assertThat(response.evaluation().expectedAnswer()).isEqualTo("Expected answer");
+        assertThat(response.evaluation().generatedAnswer()).isEqualTo(run.getAnswer());
+        assertThat(response.history()).hasSize(1);
+        assertThat(response.experiment().evaluations()).hasSize(1);
 
         ArgumentCaptor<AiRagEvaluateRequest> aiRequest = ArgumentCaptor.forClass(AiRagEvaluateRequest.class);
         verify(aiServiceGateway).evaluateRag(aiRequest.capture(), any());
@@ -100,5 +124,13 @@ class RagExperimentServiceTest {
         assertThat(aiRequest.getValue().generatedAnswer()).isEqualTo(run.getAnswer());
         assertThat(aiRequest.getValue().citations()).hasSize(1);
         assertThat(aiRequest.getValue().context().knowledgeBaseId()).isEqualTo(knowledgeBaseId);
+
+        ArgumentCaptor<RagExperimentEvaluation> historyRecord = ArgumentCaptor.forClass(RagExperimentEvaluation.class);
+        verify(evaluationRepository).save(historyRecord.capture());
+        assertThat(historyRecord.getValue().getExperiment().getId()).isEqualTo(experimentId);
+        assertThat(historyRecord.getValue().getRun().getId()).isEqualTo(runId);
+        assertThat(historyRecord.getValue().getGroundedScore()).isEqualTo(0.91);
+        assertThat(historyRecord.getValue().getRetrievalScore()).isEqualTo(0.82);
+        assertThat(historyRecord.getValue().getNotes()).contains("Grounded answer");
     }
 }

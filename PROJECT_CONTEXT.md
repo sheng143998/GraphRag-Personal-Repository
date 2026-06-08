@@ -1432,3 +1432,13 @@ README 更新规则：
 - Frontend experiments page now supports selecting a recent RAG run and calling experiment evaluation with an optional expected answer.
 - `smoke_test.py` now covers recent RAG run listing; local full-chain smoke passed with 101/101 checks.
 - Key documents: `docs/plans/2026-06-08-rag-evaluation-workbench.md`, `docs/reviews/2026-06-08-rag-evaluation-workbench-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
+
+---
+
+## 2026-06-08 RAG Evaluation History Update
+
+- Added Flyway-managed `rag_experiment_evaluations` table for per-evaluation experiment history.
+- Spring Boot `POST /api/rag/experiments/{id}/evaluate` now stores the evaluator result as history, updates the experiment summary in one transaction, and returns the new row plus recent history.
+- Frontend experiments page displays recent evaluation history while browser calls remain under Spring Boot `/api/*`.
+- `smoke_test.py` now asserts Advanced RAG evaluation history response fields; local full-chain smoke passed with 104/104 checks.
+- Key documents: `docs/plans/2026-06-08-rag-evaluation-history.md`, `docs/reviews/2026-06-08-rag-evaluation-history-review-prompt.md`, `docs/testing/strategy.md`, `docs/architecture/api-design.md`, `docs/architecture/database-design.md`, and `docs/handoff/CURRENT_STATE.md`.

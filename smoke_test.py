@@ -253,6 +253,7 @@ if CREATED_KB_ID:
                 check_field("Experiment evaluation status", body, "data.experiment.status", "COMPLETED")
                 check_field("Experiment grounded score", body, "data.groundedScore")
                 check_field("Experiment retrieval score", body, "data.retrievalScore")
+                check_field("Experiment evaluation run", body, "data.evaluation.runId", CREATED_ADVANCED_RUN_ID)
                 notes = body.get("data", {}).get("notes") if isinstance(body, dict) else None
                 if isinstance(notes, list) and notes:
                     PASS += 1
@@ -261,6 +262,22 @@ if CREATED_KB_ID:
                     FAIL += 1
                     ERRORS.append("Experiment evaluation expected non-empty notes")
                     print("  FAIL  Experiment evaluation expected non-empty notes")
+                history = body.get("data", {}).get("history") if isinstance(body, dict) else None
+                experiment_history = body.get("data", {}).get("experiment", {}).get("evaluations") if isinstance(body, dict) else None
+                if isinstance(history, list) and any(item.get("runId") == CREATED_ADVANCED_RUN_ID for item in history if isinstance(item, dict)):
+                    PASS += 1
+                    print(f"  PASS  Experiment evaluation history includes run = {CREATED_ADVANCED_RUN_ID}")
+                else:
+                    FAIL += 1
+                    ERRORS.append("Experiment evaluation history expected evaluated run")
+                    print("  FAIL  Experiment evaluation history expected evaluated run")
+                if isinstance(experiment_history, list) and experiment_history:
+                    PASS += 1
+                    print(f"  PASS  Experiment response evaluations present = {len(experiment_history)}")
+                else:
+                    FAIL += 1
+                    ERRORS.append("Experiment response expected evaluations history")
+                    print("  FAIL  Experiment response expected evaluations history")
 else:
     print("  SKIP  No KB, skipping advanced RAG trace test")
 
