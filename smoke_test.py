@@ -17,6 +17,7 @@ CREATED_SESSION_ID = None
 CREATED_EXP_ID = None
 CREATED_MSG_ID = None
 CREATED_RUN_ID = None
+CREATED_ADVANCED_RUN_ID = None
 TEST_UUID = str(uuid.uuid4())  # for use as placeholder UUIDs
 
 
@@ -159,22 +160,14 @@ else:
 section("4. RAG QUERY + RUNS + EXPERIMENTS")
 # ============================================================
 
-# RAG query - may fail if KB has no ingested/embedded chunks yet
 rag_kb_id = CREATED_KB_ID or "00000000-0000-0000-0000-000000000001"
 print(f"  INFO  RAG query with KB={rag_kb_id}")
-r, body = do("POST", f"{BASE}/rag/query",
-             json={"question": "What is machine learning?",
-                    "knowledgeBaseId": rag_kb_id,
-                    "topK": 3})
+r, body = check("RAG query", "POST", f"{BASE}/rag/query",
+                json={"question": "What is machine learning?",
+                      "knowledgeBaseId": rag_kb_id,
+                      "topK": 3})
 if r is not None and r.status_code == 200:
-    PASS += 1
-    print(f"  PASS  [200] RAG query")
     CREATED_RUN_ID = check_field("RAG runId", body, "data.runId")
-else:
-    status = r.status_code if r is not None else 'N/A'
-    PASS += 1
-    print(f"  PASS  [{status}] RAG query (graceful - KB may have no chunks yet)")
-    print(f"        Response: {str(body)[:150]}")
 
 # Experiments CRUD
 check("List experiments", "GET", f"{BASE}/rag/experiments")
@@ -201,6 +194,39 @@ if CREATED_EXP_ID:
 
 if CREATED_RUN_ID:
     check("Get RAG run", "GET", f"{BASE}/rag/runs/{CREATED_RUN_ID}")
+
+
+# ============================================================
+section("4B. ADVANCED RAG HTTP TRACE")
+# ============================================================
+
+if CREATED_KB_ID:
+    r, body = check("Advanced RAG query", "POST", f"{BASE}/rag/query",
+                    json={"question": "How does advanced RAG use metadata filters and rerank?",
+                          "knowledgeBaseId": CREATED_KB_ID,
+                          "topK": 3,
+                          "strategyName": "advanced-rag",
+                          "metadataFilters": {}})
+    if r is not None and r.status_code == 200:
+        CREATED_ADVANCED_RUN_ID = check_field("Advanced RAG runId", body, "data.runId")
+        check_field("Advanced RAG status", body, "data.status", "COMPLETED")
+        check_field("Advanced RAG strategy", body, "data.strategyName", "advanced-rag")
+        citations = body.get("data", {}).get("citations") if isinstance(body, dict) else None
+        if citations:
+            PASS += 1
+            print(f"  PASS  Advanced RAG citations present = {len(citations)}")
+        else:
+            FAIL += 1
+            ERRORS.append("Advanced RAG citations expected at least one result")
+            print("  FAIL  Advanced RAG citations expected at least one result")
+
+    if CREATED_ADVANCED_RUN_ID:
+        r, body = check("Get Advanced RAG run", "GET", f"{BASE}/rag/runs/{CREATED_ADVANCED_RUN_ID}")
+        if r is not None and r.status_code == 200:
+            check_field("Advanced RAG run status", body, "data.status", "COMPLETED")
+            check_field("Advanced RAG rewritten query", body, "data.rewrittenQuery")
+else:
+    print("  SKIP  No KB, skipping advanced RAG trace test")
 
 
 # ============================================================
