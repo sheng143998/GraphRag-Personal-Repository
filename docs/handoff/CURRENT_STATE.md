@@ -356,6 +356,26 @@ Current remaining large project areas:
 
 ---
 
+## 2026-06-08 RAG Experiment Evaluation Update
+
+Completed in this iteration:
+
+- Added Spring Boot `POST /api/rag/experiments/{id}/evaluate`.
+- The endpoint evaluates a persisted RAG run through FastAPI `/ai/rag/evaluate` and stores grounded/retrieval evaluator scores on the experiment summary fields.
+- Full-chain smoke now evaluates the created experiment from an Advanced RAG run and verifies status, scores, and notes.
+
+Validated so far:
+
+- `mvn test` passed with 12 tests.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 94/94 smoke checks.
+
+Current remaining large project areas:
+
+- Add a frontend experiment evaluation action with a clear run picker.
+- Add richer RAG evaluation dashboards and historical evaluation comparisons.
+
+---
+
 ## 2026-06-08 GraphRAG Traversal Retrieval Update
 
 Completed in this iteration:

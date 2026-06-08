@@ -234,6 +234,23 @@ if CREATED_KB_ID:
         if r is not None and r.status_code == 200:
             check_field("Advanced RAG run status", body, "data.status", "COMPLETED")
             check_field("Advanced RAG rewritten query", body, "data.rewrittenQuery")
+        if CREATED_EXP_ID:
+            r, body = check("Evaluate experiment from Advanced RAG run", "POST",
+                            f"{BASE}/rag/experiments/{CREATED_EXP_ID}/evaluate",
+                            json={"runId": CREATED_ADVANCED_RUN_ID,
+                                  "expectedAnswer": "Advanced RAG should use metadata filters and rerank evidence."})
+            if r is not None and r.status_code == 200:
+                check_field("Experiment evaluation status", body, "data.experiment.status", "COMPLETED")
+                check_field("Experiment grounded score", body, "data.groundedScore")
+                check_field("Experiment retrieval score", body, "data.retrievalScore")
+                notes = body.get("data", {}).get("notes") if isinstance(body, dict) else None
+                if isinstance(notes, list) and notes:
+                    PASS += 1
+                    print(f"  PASS  Experiment evaluation notes present = {len(notes)}")
+                else:
+                    FAIL += 1
+                    ERRORS.append("Experiment evaluation expected non-empty notes")
+                    print("  FAIL  Experiment evaluation expected non-empty notes")
 else:
     print("  SKIP  No KB, skipping advanced RAG trace test")
 

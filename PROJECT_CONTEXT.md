@@ -1405,3 +1405,12 @@ README 更新规则：
 - Spring Boot weak point listing now prioritizes `NEEDS_REVIEW` before `MASTERED`, then ranks by difficulty, review count, and recency.
 - `smoke_test.py` now verifies the order after a mastery update; local full-chain smoke passed with 89/89 checks.
 - Key documents: `docs/plans/2026-06-08-weak-point-prioritization.md`, `docs/reviews/2026-06-08-weak-point-prioritization-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
+
+---
+
+## 2026-06-08 RAG Experiment Evaluation Update
+
+- Added Spring Boot `POST /api/rag/experiments/{id}/evaluate`, which evaluates a persisted RAG run through FastAPI `/ai/rag/evaluate`.
+- The endpoint stores evaluator `grounded_score` as experiment `precisionScore`, evaluator `retrieval_score` as `recallScore`, marks the experiment `COMPLETED`, and appends evaluation notes.
+- `smoke_test.py` now covers Advanced RAG query, persisted run detail, and experiment evaluation in one full-chain path; local full-chain smoke passed with 94/94 checks.
+- Key documents: `docs/plans/2026-06-08-rag-experiment-evaluation.md`, `docs/reviews/2026-06-08-rag-experiment-evaluation-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.

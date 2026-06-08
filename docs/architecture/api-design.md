@@ -446,6 +446,38 @@ Base URL：`http://localhost:8080`
 
 响应 `data`：`null`
 
+### 6.6 Evaluate Experiment From Persisted RAG Run
+
+`POST /api/rag/experiments/{id}/evaluate`
+
+Request:
+
+```json
+{
+  "runId": "uuid",
+  "expectedAnswer": "Optional reference answer"
+}
+```
+
+Response `data`:
+
+```json
+{
+  "experiment": {
+    "id": "uuid",
+    "status": "COMPLETED",
+    "precisionScore": 1.0,
+    "recallScore": 0.2,
+    "notes": "Evaluation run ..."
+  },
+  "groundedScore": 1.0,
+  "retrievalScore": 0.2,
+  "notes": ["Evaluator note"]
+}
+```
+
+Spring Boot reads the persisted `rag_runs` row and ordered `rag_retrieval_results`, then calls FastAPI `POST /ai/rag/evaluate`. Evaluator scoring logic stays in the AI service.
+
 ## 7. Chat 接口
 
 当前 Chat 接口主要记录会话和消息，RAG 问答仍走 `/api/rag/query`。
