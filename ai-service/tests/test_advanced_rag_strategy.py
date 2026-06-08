@@ -54,10 +54,14 @@ def test_graph_rag_extracts_entities_and_augments_retrieval_trace() -> None:
     assert response.trace.attributes["graph_entities"]
     assert response.trace.attributes["graph_relationships"]
     assert "GraphRAG" in response.trace.attributes["graph_augmented_query"]
+    assert response.trace.attributes["persisted_graph_matches"]["matched_entities"]
+    assert response.trace.attributes["persisted_graph_matches"]["relationship_count"] > 0
     step_statuses = {step.name: step.status for step in response.trace.steps}
     assert step_statuses["graph_extract"] == "completed"
     assert response.citations[0].metadata["graph_entities"]
     assert response.citations[0].metadata["graph_relationship_count"] > 0
+    assert response.citations[0].metadata["persisted_graph_matched_entities"]
+    assert response.citations[0].metadata["persisted_graph_relationship_count"] > 0
 
 
 async def _advanced_query():
@@ -178,3 +182,7 @@ def _clear_in_memory_repository() -> None:
         repository.documents.clear()
     if hasattr(repository, "chunks"):
         repository.chunks.clear()
+    if hasattr(repository, "graph_entities"):
+        repository.graph_entities.clear()
+    if hasattr(repository, "graph_relationships"):
+        repository.graph_relationships.clear()

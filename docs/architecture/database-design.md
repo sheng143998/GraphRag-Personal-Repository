@@ -183,7 +183,7 @@ FastAPI 可以读取业务表，例如按 `knowledge_base_id` 检索文档和 ch
 ## 7. 当前限制
 
 - `chunk_embeddings.embedding` 当前固定为 `vector(1536)`，暂不支持同表多维度向量混存。
-- `graph_entities` 和 `graph_relationships` 仍处于规划阶段，当前迁移尚未创建。
+- `graph_entities` 和 `graph_relationships` 已通过 `V202606081300__create_graph_facts.sql` 创建；当前仍需补充专用查询 API、图遍历检索和抽取质量评估。
 - 文档上传、多格式解析、MinerU PDF 解析还未完整落地，`parser_name`、`parser_version`、`page_number`、`sheet_name`、`row_range` 等字段先作为预留能力。
 - `rag_experiments` 当前只记录实验摘要指标，还没有评估样本、逐题结果、实验运行批次和指标历史。
 - 当前没有用户、权限和审计表，`owner_id` 只是知识库层面的预留字段。
@@ -204,8 +204,8 @@ FastAPI 可以读取业务表，例如按 `knowledge_base_id` 检索文档和 ch
 
 ### 8.3 GraphRAG 增强
 
-- 增加 `graph_entities`，记录实体名称、类型、别名、摘要和来源 chunk。
-- 增加 `graph_relationships`，记录实体关系、关系类型、置信度和来源 chunk。
+- 已增加 `graph_entities`，记录实体名称、类型、别名、来源 knowledge base / document / chunk 与 metadata。
+- 已增加 `graph_relationships`，记录实体关系、关系类型、置信度、来源 chunk 与 metadata。
 - 后续如果图查询复杂度上升，再评估是否接入专门图数据库；早期可以先在 PostgreSQL 中沉淀实体和关系。
 
 ### 8.4 运维与安全

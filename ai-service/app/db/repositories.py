@@ -9,6 +9,7 @@ from urllib.parse import unquote, urlparse
 from app.core.config import settings
 from app.schemas.common import SourceMetadata
 from app.schemas.ingest import ChunkRecord, ParsedDocument
+from app.rag.graph import GraphEntity, GraphRelationship
 
 try:
     import pg8000.dbapi
@@ -53,11 +54,32 @@ class BaseDocumentRepository:
     def hydrate_parent_context(self, sources: list[SourceMetadata]) -> list[SourceMetadata]:
         return [_mark_parent_child_unsupported(source) for source in sources]
 
+    def save_graph_facts(
+        self,
+        *,
+        knowledge_base_id: str,
+        document_id: str,
+        chunk_id: str,
+        entities: list[GraphEntity],
+        relationships: list[GraphRelationship],
+    ) -> None:
+        raise NotImplementedError
+
+    def find_graph_facts(
+        self,
+        *,
+        knowledge_base_id: str | None,
+        entity_names: list[str],
+    ) -> dict[str, object]:
+        raise NotImplementedError
+
 
 @dataclass
 class InMemoryDocumentRepository(BaseDocumentRepository):
     documents: dict[str, ParsedDocument] = field(default_factory=dict)
     chunks: dict[str, list[ChunkRecord]] = field(default_factory=dict)
+    graph_entities: dict[str, list[GraphEntity]] = field(default_factory=dict)
+    graph_relationships: dict[str, list[GraphRelationship]] = field(default_factory=dict)
 
     def save_document(self, parsed_document: ParsedDocument, *, request: Any | None = None) -> None:
         self.documents[parsed_document.document_id] = parsed_document
@@ -129,6 +151,47 @@ class InMemoryDocumentRepository(BaseDocumentRepository):
             except Exception as exc:  # pragma: no cover - defensive fallback
                 hydrated.append(_mark_parent_child_error(source, exc))
         return hydrated
+
+    def save_graph_facts(
+        self,
+        *,
+        knowledge_base_id: str,
+        document_id: str,
+        chunk_id: str,
+        entities: list[GraphEntity],
+        relationships: list[GraphRelationship],
+    ) -> None:
+        key = f"{knowledge_base_id}:{chunk_id}"
+        self.graph_entities[key] = entities
+        self.graph_relationships[key] = relationships
+
+    def find_graph_facts(
+        self,
+        *,
+        knowledge_base_id: str | None,
+        entity_names: list[str],
+    ) -> dict[str, object]:
+        requested = {name.lower() for name in entity_names}
+        matched_entities: list[str] = []
+        relationship_count = 0
+        for key, entities in self.graph_entities.items():
+            if knowledge_base_id and not key.startswith(f"{knowledge_base_id}:"):
+                continue
+            for entity in entities:
+                if entity.name.lower() in requested:
+                    matched_entities.append(entity.name)
+        for key, relationships in self.graph_relationships.items():
+            if knowledge_base_id and not key.startswith(f"{knowledge_base_id}:"):
+                continue
+            relationship_count += sum(
+                1
+                for relationship in relationships
+                if relationship.source.lower() in requested or relationship.target.lower() in requested
+            )
+        return {
+            "matched_entities": sorted(set(matched_entities)),
+            "relationship_count": relationship_count,
+        }
 
 
 class PostgresDocumentRepository(BaseDocumentRepository):
@@ -376,6 +439,108 @@ class PostgresDocumentRepository(BaseDocumentRepository):
         metadata["context_source_chunk_ids"] = [str(row["id"]) for row in neighbors]
         metadata["content_preview"] = "\n\n".join(str(row.get("content") or "") for row in neighbors)[:1200]
         return source.copy(update={"metadata": metadata})
+
+    def save_graph_facts(
+        self,
+        *,
+        knowledge_base_id: str,
+        document_id: str,
+        chunk_id: str,
+        entities: list[GraphEntity],
+        relationships: list[GraphRelationship],
+    ) -> None:
+        if not entities:
+            return
+        with self._connection() as connection:
+            with _cursor(connection) as cursor:
+                cursor.execute("DELETE FROM graph_relationships WHERE chunk_id = %s", (chunk_id,))
+                cursor.execute("DELETE FROM graph_entities WHERE chunk_id = %s", (chunk_id,))
+                entity_ids: dict[str, str] = {}
+                for entity in entities:
+                    cursor.execute(
+                        """
+                        INSERT INTO graph_entities (
+                            knowledge_base_id, document_id, chunk_id, name, normalized_name,
+                            entity_type, aliases, metadata
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb)
+                        RETURNING id
+                        """,
+                        (
+                            knowledge_base_id,
+                            document_id,
+                            chunk_id,
+                            entity.name,
+                            entity.name.lower(),
+                            entity.entity_type,
+                            json.dumps(list(entity.aliases), ensure_ascii=False),
+                            json.dumps({"source": "rule-based-graph-extractor"}, ensure_ascii=False),
+                        ),
+                    )
+                    entity_ids[entity.name] = str(cursor.fetchone()[0])
+
+                for relationship in relationships:
+                    cursor.execute(
+                        """
+                        INSERT INTO graph_relationships (
+                            knowledge_base_id, document_id, chunk_id, source_entity_id, target_entity_id,
+                            source_name, target_name, relation_type, confidence, metadata
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+                        ON CONFLICT (chunk_id, source_name, target_name, relation_type) DO NOTHING
+                        """,
+                        (
+                            knowledge_base_id,
+                            document_id,
+                            chunk_id,
+                            entity_ids.get(relationship.source),
+                            entity_ids.get(relationship.target),
+                            relationship.source,
+                            relationship.target,
+                            relationship.relation_type,
+                            relationship.confidence,
+                            json.dumps({"source": "rule-based-graph-extractor"}, ensure_ascii=False),
+                        ),
+                    )
+
+    def find_graph_facts(
+        self,
+        *,
+        knowledge_base_id: str | None,
+        entity_names: list[str],
+    ) -> dict[str, object]:
+        if not knowledge_base_id or not entity_names:
+            return {"matched_entities": [], "relationship_count": 0}
+        normalized = [name.lower() for name in entity_names]
+        placeholders = ", ".join(["%s"] * len(normalized))
+        with self._connection() as connection:
+            with _cursor(connection) as cursor:
+                cursor.execute(
+                    f"""
+                    SELECT DISTINCT name
+                    FROM graph_entities
+                    WHERE knowledge_base_id = %s
+                      AND normalized_name IN ({placeholders})
+                    ORDER BY name
+                    """,
+                    tuple([knowledge_base_id, *normalized]),
+                )
+                matched_entities = [str(row["name"]) for row in _fetch_dicts(cursor)]
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(*) AS relationship_count
+                    FROM graph_relationships
+                    WHERE knowledge_base_id = %s
+                      AND (lower(source_name) IN ({placeholders}) OR lower(target_name) IN ({placeholders}))
+                    """,
+                    tuple([knowledge_base_id, *normalized, *normalized]),
+                )
+                rows = _fetch_dicts(cursor)
+                relationship_count = int(rows[0]["relationship_count"]) if rows else 0
+        return {
+            "matched_entities": matched_entities,
+            "relationship_count": relationship_count,
+        }
 
     @contextmanager
     def _connection(self):

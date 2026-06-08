@@ -172,8 +172,33 @@ Validated:
 - `mvn test` passed with 6 tests.
 - `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 54/54 smoke checks.
 
+Current remaining large project areas after the first GraphRAG loop:
+
+- Persist graph entities and relationships with Flyway-managed tables, addressed in the next section.
+- Implement graph-aware retrieval over persisted graph facts.
+- Build learning and interview assistant product workflows.
+
+---
+
+## 2026-06-08 GraphRAG Persistence Update
+
+Completed in this iteration:
+
+- Added `backend-java/src/main/resources/db/migration/V202606081300__create_graph_facts.sql`.
+- Added `graph_entities` and `graph_relationships` tables with knowledge base, document, and chunk references.
+- Added AI repository methods for graph fact writes and graph fact lookup in both in-memory and PostgreSQL modes.
+- AI ingest now extracts and saves graph facts for chunks.
+- `graph-rag` now reads persisted graph matches into trace attributes and citation metadata.
+
+Validated:
+
+- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests.
+- `mvn test` passed with 6 tests.
+- `npm.cmd run typecheck` and `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 54/54 smoke checks.
+
 Current remaining large project areas:
 
-- Persist graph entities and relationships with Flyway-managed tables.
-- Implement graph-aware retrieval over persisted graph facts.
+- Add dedicated graph traversal/retrieval over persisted graph facts.
+- Add graph fact inspection APIs and UI.
 - Build learning and interview assistant product workflows.

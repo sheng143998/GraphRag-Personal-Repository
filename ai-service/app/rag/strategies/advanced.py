@@ -58,10 +58,19 @@ class AdvancedRagStrategy:
         graph_entities = self.graph_extractor.extract_entities(rewritten_query) if use_graph else []
         graph_relationships = self.graph_extractor.extract_relationships(graph_entities) if use_graph else []
         graph_query = self.graph_extractor.augment_query(rewritten_query, graph_entities) if use_graph else rewritten_query
+        persisted_graph_facts = (
+            repository.find_graph_facts(
+                knowledge_base_id=knowledge_base_id,
+                entity_names=[entity.name for entity in graph_entities],
+            )
+            if use_graph
+            else {"matched_entities": [], "relationship_count": 0}
+        )
         if use_graph:
             trace_builder.set_attribute("graph_entities", [entity.__dict__ for entity in graph_entities])
             trace_builder.set_attribute("graph_relationships", [relationship.__dict__ for relationship in graph_relationships])
             trace_builder.set_attribute("graph_augmented_query", graph_query)
+            trace_builder.set_attribute("persisted_graph_matches", persisted_graph_facts)
         trace_builder.add_step(
             name="graph_extract",
             status="completed" if use_graph else "skipped",
@@ -70,6 +79,8 @@ class AdvancedRagStrategy:
                 "entity_count": len(graph_entities),
                 "relationship_count": len(graph_relationships),
                 "graph_augmented_query": graph_query,
+                "persisted_match_count": len(persisted_graph_facts.get("matched_entities", [])),
+                "persisted_relationship_count": persisted_graph_facts.get("relationship_count", 0),
             },
         )
 
@@ -117,6 +128,7 @@ class AdvancedRagStrategy:
                 _with_matched_query(sources, retrieve_query),
                 entity_names=[entity.name for entity in graph_entities],
                 relationship_count=len(graph_relationships),
+                persisted_graph_facts=persisted_graph_facts,
             ))
 
         trace_builder.add_step(
@@ -188,6 +200,7 @@ def _with_graph_metadata(
     *,
     entity_names: list[str],
     relationship_count: int,
+    persisted_graph_facts: dict[str, object],
 ) -> list[SourceMetadata]:
     if not entity_names:
         return sources
@@ -204,6 +217,8 @@ def _with_graph_metadata(
             "graph_entities": entity_names,
             "graph_matched_entities": matched_entities,
             "graph_relationship_count": relationship_count,
+            "persisted_graph_matched_entities": persisted_graph_facts.get("matched_entities", []),
+            "persisted_graph_relationship_count": persisted_graph_facts.get("relationship_count", 0),
         }
         updated.append(source.copy(update={"metadata": metadata}))
     return updated

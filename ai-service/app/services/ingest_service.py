@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.core.tracing import TraceBuilder
 from app.db.repositories import repository
 from app.rag.chunkers.base import SimpleChunker
+from app.rag.graph import RuleBasedGraphExtractor
 from app.rag.loaders.base import InlineContentLoader
 from app.rag.parsers.registry import ParserRegistry
 from app.schemas.ingest import (
@@ -25,6 +26,7 @@ class IngestService:
         self.loader = InlineContentLoader()
         self.chunker = SimpleChunker()
         self.parser_registry = ParserRegistry()
+        self.graph_extractor = RuleBasedGraphExtractor()
 
     async def ingest_document(self, payload: DocumentIngestRequest) -> DocumentIngestResponse:
         trace_builder = TraceBuilder(
@@ -67,6 +69,30 @@ class IngestService:
             status="completed",
             detail="Built chunk records for storage.",
             payload={"chunk_count": len(chunks)},
+        )
+
+        graph_entity_count = 0
+        graph_relationship_count = 0
+        for chunk in chunks:
+            entities = self.graph_extractor.extract_entities(chunk.content)
+            relationships = self.graph_extractor.extract_relationships(entities)
+            graph_entity_count += len(entities)
+            graph_relationship_count += len(relationships)
+            repository.save_graph_facts(
+                knowledge_base_id=payload.knowledge_base_id,
+                document_id=payload.document_id,
+                chunk_id=chunk.chunk_id,
+                entities=entities,
+                relationships=relationships,
+            )
+        trace_builder.add_step(
+            name="extract_graph_facts",
+            status="completed",
+            detail="Extracted graph entities and relationships from chunks.",
+            payload={
+                "entity_count": graph_entity_count,
+                "relationship_count": graph_relationship_count,
+            },
         )
 
         if chunks:

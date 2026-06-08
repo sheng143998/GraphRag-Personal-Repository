@@ -45,3 +45,9 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - AI pytest covers deterministic GraphRAG entity/relationship extraction, graph query augmentation, trace attributes, and citation graph metadata.
 - Frontend typecheck/build verifies the `GraphRAG` strategy option is available to the workbench.
 - Local full-chain smoke covers Spring Boot -> FastAPI `strategyName=graph-rag` invocation and now passes 54/54 checks.
+
+## 2026-06-08 GraphRAG Persistence Validation
+
+- Flyway migration `V202606081300__create_graph_facts.sql` is included in the backend package and executed during local Spring Boot startup.
+- AI pytest covers persisted graph fact lookup through the in-memory repository.
+- Full-chain smoke remains 54/54 after adding graph fact tables and ingest-time graph extraction.

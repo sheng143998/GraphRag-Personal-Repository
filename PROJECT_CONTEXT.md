@@ -1309,3 +1309,13 @@ README 更新规则：
 - Frontend strategy options now include `GraphRAG`.
 - Local full-chain smoke now includes GraphRAG invocation and passed 54/54 checks.
 - Key document: `docs/plans/2026-06-08-graphrag-phase6.md`.
+
+---
+
+## 2026-06-08 GraphRAG Persistence Update
+
+- Added Flyway-managed graph fact tables: `graph_entities` and `graph_relationships`.
+- AI document ingest now extracts graph entities/relationships from chunks and persists them through repository methods.
+- `graph-rag` now reads persisted graph matches and includes them in trace attributes and citation metadata.
+- Verified AI pytest, backend Maven tests, frontend typecheck/build, and local full-chain smoke; full-chain remains 54/54.
+- Key document: `docs/plans/2026-06-08-graphrag-persistence.md`.
