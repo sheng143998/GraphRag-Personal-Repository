@@ -52,11 +52,17 @@ public class LearningWeakPoint {
     @Column(nullable = false, length = 32)
     private String difficulty = "medium";
 
+    @Column(name = "mastery_status", nullable = false, length = 32)
+    private String masteryStatus = "NEEDS_REVIEW";
+
     @Column(name = "review_count", nullable = false)
     private Integer reviewCount = 1;
 
     @Column(name = "last_seen_at", nullable = false)
     private Instant lastSeenAt;
+
+    @Column(name = "last_assessed_at")
+    private Instant lastAssessedAt;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

@@ -98,8 +98,10 @@ class AssistantTurnServiceTest {
                 "State the concept, trade-off, and project proof.",
                 "source",
                 "medium",
+                "NEEDS_REVIEW",
                 1,
                 Instant.parse("2026-06-08T00:00:00Z"),
+                null,
                 Instant.parse("2026-06-08T00:00:00Z")
         )));
 

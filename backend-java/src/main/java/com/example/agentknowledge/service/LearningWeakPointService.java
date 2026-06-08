@@ -5,6 +5,7 @@ import com.example.agentknowledge.domain.ChatSession;
 import com.example.agentknowledge.domain.LearningWeakPoint;
 import com.example.agentknowledge.dto.agent.AgentInvokeResponse;
 import com.example.agentknowledge.dto.chat.LearningWeakPointResponse;
+import com.example.agentknowledge.dto.chat.UpdateLearningWeakPointRequest;
 import com.example.agentknowledge.repository.LearningWeakPointRepository;
 import java.time.Instant;
 import java.util.List;
@@ -64,6 +65,24 @@ public class LearningWeakPointService {
                 .toList();
     }
 
+    @Transactional
+    public LearningWeakPointResponse updateWeakPoint(
+            UUID sessionId,
+            UUID weakPointId,
+            UpdateLearningWeakPointRequest request
+    ) {
+        chatService.getSession(sessionId);
+        LearningWeakPoint weakPoint = learningWeakPointRepository.findByIdAndSession_Id(weakPointId, sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Learning weak point not found: " + weakPointId));
+        String status = normalizeMasteryStatus(request.masteryStatus());
+        weakPoint.setMasteryStatus(status);
+        weakPoint.setLastAssessedAt(Instant.now());
+        if ("MASTERED".equals(status)) {
+            weakPoint.setDifficulty("easy");
+        }
+        return toResponse(learningWeakPointRepository.save(weakPoint));
+    }
+
     private LearningWeakPoint createWeakPoint(ChatSession session, String topic) {
         LearningWeakPoint weakPoint = new LearningWeakPoint();
         weakPoint.setSession(session);
@@ -76,6 +95,14 @@ public class LearningWeakPointService {
         return value == null ? "" : value.trim().replaceAll("\\s+", " ");
     }
 
+    private static String normalizeMasteryStatus(String value) {
+        String status = value == null ? "" : value.trim().toUpperCase();
+        if (!status.equals("MASTERED") && !status.equals("NEEDS_REVIEW")) {
+            throw new IllegalArgumentException("Unsupported masteryStatus: " + value);
+        }
+        return status;
+    }
+
     private LearningWeakPointResponse toResponse(LearningWeakPoint weakPoint) {
         return new LearningWeakPointResponse(
                 weakPoint.getId(),
@@ -86,8 +113,10 @@ public class LearningWeakPointService {
                 weakPoint.getExpectedAnswer(),
                 weakPoint.getSourceHint(),
                 weakPoint.getDifficulty(),
+                weakPoint.getMasteryStatus(),
                 weakPoint.getReviewCount(),
                 weakPoint.getLastSeenAt(),
+                weakPoint.getLastAssessedAt(),
                 weakPoint.getCreatedAt()
         );
     }

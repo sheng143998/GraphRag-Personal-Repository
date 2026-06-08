@@ -9,6 +9,7 @@ import com.example.agentknowledge.dto.chat.CreateAssistantTurnRequest;
 import com.example.agentknowledge.dto.chat.CreateChatMessageRequest;
 import com.example.agentknowledge.dto.chat.CreateChatSessionRequest;
 import com.example.agentknowledge.dto.chat.LearningWeakPointResponse;
+import com.example.agentknowledge.dto.chat.UpdateLearningWeakPointRequest;
 import com.example.agentknowledge.service.AssistantTurnService;
 import com.example.agentknowledge.service.ChatService;
 import com.example.agentknowledge.service.LearningWeakPointService;
@@ -16,6 +17,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -66,6 +68,18 @@ public class ChatController {
     @GetMapping("/{sessionId}/weak-points")
     public ApiResponse<List<LearningWeakPointResponse>> listWeakPoints(@PathVariable UUID sessionId) {
         return ApiResponse.success(learningWeakPointService.listWeakPoints(sessionId), TraceContext.getTraceId());
+    }
+
+    @PatchMapping("/{sessionId}/weak-points/{weakPointId}")
+    public ApiResponse<LearningWeakPointResponse> updateWeakPoint(
+            @PathVariable UUID sessionId,
+            @PathVariable UUID weakPointId,
+            @Valid @RequestBody UpdateLearningWeakPointRequest request
+    ) {
+        return ApiResponse.success(
+                learningWeakPointService.updateWeakPoint(sessionId, weakPointId, request),
+                TraceContext.getTraceId()
+        );
     }
 
     @PostMapping("/{sessionId}/assistant-turn")

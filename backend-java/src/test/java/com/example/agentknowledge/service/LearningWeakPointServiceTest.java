@@ -10,6 +10,7 @@ import com.example.agentknowledge.domain.KnowledgeBase;
 import com.example.agentknowledge.domain.LearningWeakPoint;
 import com.example.agentknowledge.dto.agent.AgentInvokeResponse;
 import com.example.agentknowledge.dto.chat.LearningWeakPointResponse;
+import com.example.agentknowledge.dto.chat.UpdateLearningWeakPointRequest;
 import com.example.agentknowledge.repository.LearningWeakPointRepository;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,5 +63,34 @@ class LearningWeakPointServiceTest {
         assertThat(responses.get(0).topic()).isEqualTo("How would you prove rerank works?");
         assertThat(responses.get(0).reviewCount()).isEqualTo(1);
         assertThat(responses.get(0).difficulty()).isEqualTo("hard");
+        assertThat(responses.get(0).masteryStatus()).isEqualTo("NEEDS_REVIEW");
+    }
+
+    @Test
+    void updateWeakPointStoresMasteryStatusAndAssessmentTime() {
+        UUID sessionId = UUID.randomUUID();
+        UUID weakPointId = UUID.randomUUID();
+        ChatSession session = new ChatSession();
+        session.setId(sessionId);
+        LearningWeakPoint weakPoint = new LearningWeakPoint();
+        weakPoint.setId(weakPointId);
+        weakPoint.setSession(session);
+        weakPoint.setTopic("How would you prove rerank works?");
+        weakPoint.setDifficulty("hard");
+        weakPoint.setReviewCount(2);
+
+        when(chatService.getSession(sessionId)).thenReturn(session);
+        when(repository.findByIdAndSession_Id(weakPointId, sessionId)).thenReturn(Optional.of(weakPoint));
+        when(repository.save(weakPoint)).thenReturn(weakPoint);
+
+        LearningWeakPointResponse response = service.updateWeakPoint(
+                sessionId,
+                weakPointId,
+                new UpdateLearningWeakPointRequest("MASTERED")
+        );
+
+        assertThat(response.masteryStatus()).isEqualTo("MASTERED");
+        assertThat(response.difficulty()).isEqualTo("easy");
+        assertThat(response.lastAssessedAt()).isNotNull();
     }
 }

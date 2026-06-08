@@ -12,8 +12,10 @@ public record LearningWeakPointResponse(
         String expectedAnswer,
         String sourceHint,
         String difficulty,
+        String masteryStatus,
         Integer reviewCount,
         Instant lastSeenAt,
+        Instant lastAssessedAt,
         Instant createdAt
 ) {
 }
