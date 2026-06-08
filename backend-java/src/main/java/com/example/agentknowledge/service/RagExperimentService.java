@@ -7,26 +7,32 @@ import com.example.agentknowledge.client.dto.AiSourceMetadata;
 import com.example.agentknowledge.common.api.TraceContext;
 import com.example.agentknowledge.common.exception.ResourceNotFoundException;
 import com.example.agentknowledge.domain.RagExperiment;
+import com.example.agentknowledge.domain.RagExperimentEvaluation;
 import com.example.agentknowledge.domain.RagRetrievalResult;
 import com.example.agentknowledge.domain.RagRun;
 import com.example.agentknowledge.dto.rag.CreateRagExperimentRequest;
 import com.example.agentknowledge.dto.rag.EvaluateRagExperimentRequest;
 import com.example.agentknowledge.dto.rag.RagExperimentEvaluationResponse;
+import com.example.agentknowledge.dto.rag.RagExperimentEvaluationHistoryResponse;
 import com.example.agentknowledge.dto.rag.RagExperimentResponse;
 import com.example.agentknowledge.dto.rag.UpdateRagExperimentRequest;
 import com.example.agentknowledge.repository.RagExperimentRepository;
+import com.example.agentknowledge.repository.RagExperimentEvaluationRepository;
 import com.example.agentknowledge.repository.RagRetrievalResultRepository;
 import com.example.agentknowledge.repository.RagRunRepository;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class RagExperimentService {
 
     private final RagExperimentRepository ragExperimentRepository;
+    private final RagExperimentEvaluationRepository ragExperimentEvaluationRepository;
     private final RagRunRepository ragRunRepository;
     private final RagRetrievalResultRepository ragRetrievalResultRepository;
     private final KnowledgeBaseService knowledgeBaseService;
@@ -34,12 +40,14 @@ public class RagExperimentService {
 
     public RagExperimentService(
             RagExperimentRepository ragExperimentRepository,
+            RagExperimentEvaluationRepository ragExperimentEvaluationRepository,
             RagRunRepository ragRunRepository,
             RagRetrievalResultRepository ragRetrievalResultRepository,
             KnowledgeBaseService knowledgeBaseService,
             AiServiceGateway aiServiceGateway
     ) {
         this.ragExperimentRepository = ragExperimentRepository;
+        this.ragExperimentEvaluationRepository = ragExperimentEvaluationRepository;
         this.ragRunRepository = ragRunRepository;
         this.ragRetrievalResultRepository = ragRetrievalResultRepository;
         this.knowledgeBaseService = knowledgeBaseService;
@@ -109,6 +117,7 @@ public class RagExperimentService {
         return toResponse(ragExperimentRepository.save(experiment));
     }
 
+    @Transactional
     public RagExperimentEvaluationResponse evaluate(UUID id, EvaluateRagExperimentRequest request) {
         RagExperiment experiment = getEntity(id);
         RagRun run = ragRunRepository.findById(request.runId())
@@ -143,8 +152,24 @@ public class RagExperimentService {
                 : experiment.getSampleCount());
         experiment.setStatus("COMPLETED");
         experiment.setNotes(formatEvaluationNotes(experiment.getNotes(), run.getId(), notes));
-        RagExperimentResponse updated = toResponse(ragExperimentRepository.save(experiment));
-        return new RagExperimentEvaluationResponse(updated, groundedScore, retrievalScore, notes);
+        RagExperiment savedExperiment = ragExperimentRepository.save(experiment);
+        RagExperimentEvaluation savedEvaluation = saveEvaluationHistory(
+                savedExperiment,
+                run,
+                request.expectedAnswer(),
+                groundedScore,
+                retrievalScore,
+                notes
+        );
+        RagExperimentResponse updated = toResponse(savedExperiment);
+        return new RagExperimentEvaluationResponse(
+                updated,
+                toEvaluationHistoryResponse(savedEvaluation),
+                groundedScore,
+                retrievalScore,
+                notes,
+                updated.evaluations()
+        );
     }
 
     public void delete(UUID id) {
@@ -167,7 +192,8 @@ public class RagExperimentService {
                 experiment.getStatus(),
                 experiment.getNotes(),
                 experiment.getCreatedAt(),
-                experiment.getUpdatedAt()
+                experiment.getUpdatedAt(),
+                listEvaluationHistory(experiment.getId())
         );
     }
 
@@ -199,6 +225,50 @@ public class RagExperimentService {
                 null,
                 null,
                 result.getMetadata()
+        );
+    }
+
+    private RagExperimentEvaluation saveEvaluationHistory(
+            RagExperiment experiment,
+            RagRun run,
+            String expectedAnswer,
+            Double groundedScore,
+            Double retrievalScore,
+            List<String> notes
+    ) {
+        RagExperimentEvaluation evaluation = new RagExperimentEvaluation();
+        evaluation.setExperiment(experiment);
+        evaluation.setRun(run);
+        evaluation.setGroundedScore(groundedScore);
+        evaluation.setRetrievalScore(retrievalScore);
+        evaluation.setExpectedAnswer(expectedAnswer);
+        evaluation.setGeneratedAnswer(run.getAnswer());
+        evaluation.setNotes(String.join("\n", notes));
+        return ragExperimentEvaluationRepository.save(evaluation);
+    }
+
+    private List<RagExperimentEvaluationHistoryResponse> listEvaluationHistory(UUID experimentId) {
+        if (experimentId == null) {
+            return List.of();
+        }
+        return ragExperimentEvaluationRepository
+                .findByExperiment_IdOrderByCreatedAtDesc(experimentId, PageRequest.of(0, 5))
+                .stream()
+                .map(this::toEvaluationHistoryResponse)
+                .toList();
+    }
+
+    private RagExperimentEvaluationHistoryResponse toEvaluationHistoryResponse(RagExperimentEvaluation evaluation) {
+        return new RagExperimentEvaluationHistoryResponse(
+                evaluation.getId(),
+                evaluation.getExperiment().getId(),
+                evaluation.getRun().getId(),
+                evaluation.getGroundedScore(),
+                evaluation.getRetrievalScore(),
+                evaluation.getExpectedAnswer(),
+                evaluation.getGeneratedAnswer(),
+                evaluation.getNotes(),
+                evaluation.getCreatedAt()
         );
     }
 

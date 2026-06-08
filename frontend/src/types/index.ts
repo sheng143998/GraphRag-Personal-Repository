@@ -187,6 +187,19 @@ export interface ExperimentRecord {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+  evaluations?: ExperimentEvaluationHistory[];
+}
+
+export interface ExperimentEvaluationHistory {
+  id: string;
+  experimentId: string;
+  runId: string;
+  groundedScore?: number | null;
+  retrievalScore?: number | null;
+  expectedAnswer?: string | null;
+  generatedAnswer?: string | null;
+  notes?: string | null;
+  createdAt: string;
 }
 
 export interface AppSettings {
@@ -395,9 +408,11 @@ export interface ExperimentEvaluationRequest {
 
 export interface ExperimentEvaluationResponse {
   experiment: ExperimentRecord;
+  evaluation?: ExperimentEvaluationHistory;
   groundedScore?: number | null;
   retrievalScore?: number | null;
   notes: string[];
+  history?: ExperimentEvaluationHistory[];
 }
 
 // --- Health ---

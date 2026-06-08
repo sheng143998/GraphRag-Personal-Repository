@@ -102,6 +102,24 @@
 
             <div v-if="experiment.notes" class="item-meta" style="margin-top: 0.5rem;">{{ experiment.notes }}</div>
 
+            <div v-if="experiment.evaluations?.length" class="history-list">
+              <div
+                v-for="evaluation in experiment.evaluations"
+                :key="evaluation.id"
+                class="history-row"
+              >
+                <div class="history-main">
+                  <span class="history-run">Run {{ shortId(evaluation.runId) }}</span>
+                  <span class="item-meta">{{ formatDate(evaluation.createdAt) }}</span>
+                </div>
+                <div class="item-meta">
+                  grounded {{ formatScore(evaluation.groundedScore ?? undefined) }}
+                  | retrieval {{ formatScore(evaluation.retrievalScore ?? undefined) }}
+                </div>
+                <div v-if="evaluation.notes" class="item-meta">{{ evaluation.notes }}</div>
+              </div>
+            </div>
+
             <div class="form-grid" style="margin-top: 0.75rem;">
               <label class="form-row">
                 <span class="form-label">RAG run</span>
@@ -171,6 +189,15 @@ function formatScore(value?: number): string {
 function runLabel(run: RagRunSummary): string {
   const question = run.question.length > 64 ? `${run.question.slice(0, 64)}...` : run.question;
   return `${run.strategyName} | ${run.status} | ${question}`;
+}
+
+function shortId(value: string): string {
+  return value.slice(0, 8);
+}
+
+function formatDate(value: string): string {
+  if (!value) return "";
+  return value.replace("T", " ").slice(0, 16);
 }
 
 function resetForm(): void {

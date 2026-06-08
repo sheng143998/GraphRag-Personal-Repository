@@ -1,6 +1,7 @@
 package com.example.agentknowledge.dto.rag;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record RagExperimentResponse(
@@ -18,6 +19,7 @@ public record RagExperimentResponse(
         String status,
         String notes,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        List<RagExperimentEvaluationHistoryResponse> evaluations
 ) {
 }
