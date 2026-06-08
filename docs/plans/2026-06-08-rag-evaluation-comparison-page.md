@@ -10,6 +10,7 @@ Add a dedicated frontend comparison page for persisted RAG experiment evaluation
 - Add a route and sidebar entry for `/experiments/comparison`.
 - Reuse Pinia `experimentEvaluationSummary`; do not call FastAPI directly from the browser.
 - Show aggregate ranking by strategy and experiment, plus recent evaluation rows with run context.
+- Add frontend-only filters for strategy and experiment so users can focus the ranking and recent rows without new API calls.
 
 ## Validation
 

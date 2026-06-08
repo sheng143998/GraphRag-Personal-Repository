@@ -721,6 +721,17 @@ a {
   align-items: start;
 }
 
+.comparison-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.4fr) auto;
+  gap: 12px;
+  align-items: end;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
 .comparison-section {
   display: grid;
   gap: 12px;
@@ -846,6 +857,10 @@ a {
 @media (max-width: 900px) {
   .evaluation-dashboard {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .comparison-filter-bar {
+    grid-template-columns: 1fr;
   }
 }
 

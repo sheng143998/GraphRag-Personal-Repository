@@ -31,7 +31,35 @@
           No persisted RAG evaluations yet. Run an experiment evaluation first.
         </div>
 
-        <div v-else class="split-columns comparison-columns">
+        <div v-if="summary.evaluationCount > 0" class="comparison-filter-bar">
+          <label class="form-row">
+            <span class="form-label">Strategy</span>
+            <select v-model="selectedStrategy" class="input">
+              <option value="">All strategies</option>
+              <option v-for="strategy in strategyOptions" :key="strategy" :value="strategy">
+                {{ strategy }}
+              </option>
+            </select>
+          </label>
+          <label class="form-row">
+            <span class="form-label">Experiment</span>
+            <select v-model="selectedExperimentId" class="input">
+              <option value="">All experiments</option>
+              <option v-for="experiment in experimentOptions" :key="experiment.id" :value="experiment.id">
+                {{ experiment.name }}
+              </option>
+            </select>
+          </label>
+          <button class="button button-secondary" type="button" :disabled="!hasActiveFilters" @click="clearFilters">
+            Clear filters
+          </button>
+        </div>
+
+        <div v-if="summary.evaluationCount > 0 && filteredRows.length === 0" class="empty-state">
+          No evaluations match the current filters.
+        </div>
+
+        <div v-if="summary.evaluationCount > 0 && filteredRows.length > 0" class="split-columns comparison-columns">
           <section class="comparison-section">
             <h3 class="section-title">Strategy Ranking</h3>
             <div class="comparison-list">
@@ -91,7 +119,7 @@
           </section>
         </div>
 
-        <section v-if="recentRows.length" class="comparison-section">
+        <section v-if="filteredRows.length" class="comparison-section">
           <h3 class="section-title">Recent Evaluations</h3>
           <div class="comparison-table">
             <div class="comparison-table-head">
@@ -101,7 +129,7 @@
               <span>Scores</span>
               <span>Run</span>
             </div>
-            <div v-for="evaluation in recentRows" :key="evaluation.id" class="comparison-table-row">
+            <div v-for="evaluation in filteredRows" :key="evaluation.id" class="comparison-table-row">
               <span>
                 <strong>{{ evaluation.experimentName ?? experimentName(evaluation.experimentId) }}</strong>
                 <small>{{ formatDate(evaluation.createdAt) }}</small>
@@ -129,11 +157,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 import type { ExperimentEvaluationHistory } from "../../types";
 import { useWorkbenchStore } from "../../stores/workbench";
 
 const store = useWorkbenchStore();
+const selectedStrategy = ref("");
+const selectedExperimentId = ref("");
 
 interface AggregateRow {
   experimentId: string;
@@ -150,14 +180,37 @@ interface AggregateRow {
 
 const summary = computed(() => store.experimentEvaluationSummary);
 const recentRows = computed(() => summary.value.recentEvaluations ?? []);
+const filteredRows = computed(() =>
+  recentRows.value.filter((evaluation) =>
+    (!selectedStrategy.value || (evaluation.runStrategyName ?? "unknown") === selectedStrategy.value)
+    && (!selectedExperimentId.value || evaluation.experimentId === selectedExperimentId.value)
+  )
+);
+
+const hasActiveFilters = computed(() => Boolean(selectedStrategy.value || selectedExperimentId.value));
+
+const strategyOptions = computed(() =>
+  [...new Set(recentRows.value.map((evaluation) => evaluation.runStrategyName ?? "unknown"))]
+    .sort((left, right) => left.localeCompare(right))
+);
+
+const experimentOptions = computed(() => {
+  const options = new Map<string, string>();
+  for (const evaluation of recentRows.value) {
+    options.set(evaluation.experimentId, evaluation.experimentName ?? experimentName(evaluation.experimentId));
+  }
+  return [...options.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+});
 
 const strategyRows = computed(() =>
-  aggregateRows(recentRows.value, (evaluation) => evaluation.runStrategyName ?? "unknown")
+  aggregateRows(filteredRows.value, (evaluation) => evaluation.runStrategyName ?? "unknown")
     .sort((left, right) => (right.quality ?? 0) - (left.quality ?? 0))
 );
 
 const experimentRows = computed(() =>
-  aggregateRows(recentRows.value, (evaluation) => evaluation.experimentId)
+  aggregateRows(filteredRows.value, (evaluation) => evaluation.experimentId)
     .sort((left, right) => (right.quality ?? 0) - (left.quality ?? 0))
 );
 
@@ -224,6 +277,11 @@ function shortId(value: string): string {
 function formatDate(value?: string | null): string {
   if (!value) return "";
   return value.replace("T", " ").slice(0, 16);
+}
+
+function clearFilters(): void {
+  selectedStrategy.value = "";
+  selectedExperimentId.value = "";
 }
 
 onMounted(() => {

@@ -519,6 +519,22 @@ Validated:
 
 ---
 
+## 2026-06-08 RAG Evaluation Comparison Filters Update
+
+Completed in this iteration:
+
+- Added frontend-only strategy and experiment filters to `/experiments/comparison`.
+- Filtered rows now drive strategy ranking, experiment ranking, and recent evaluation details.
+- Added a clear empty state for filter combinations with no matching evaluations.
+
+Validated:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 122/122 smoke checks.
+
+---
+
 ## 2026-06-08 Weak Point Practice Flow Update
 
 Completed in this iteration:

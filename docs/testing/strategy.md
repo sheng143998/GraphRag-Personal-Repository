@@ -177,3 +177,4 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 
 - Frontend typecheck/build covers `/experiments/comparison`, summary reuse, strategy-level aggregation, experiment-level aggregation, and recent evaluation rows.
 - The page reuses `GET /api/rag/experiment-evaluations/summary`; the existing full-chain smoke continues to validate the API contract after Advanced RAG and Basic RAG evaluations.
+- Frontend typecheck/build also covers the comparison page strategy and experiment filters, including filtered aggregate rows and empty-state paths.

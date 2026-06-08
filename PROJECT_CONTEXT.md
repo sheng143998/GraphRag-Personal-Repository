@@ -1496,3 +1496,12 @@ README 更新规则：
 - Frontend chat now displays weak point progress metrics and the next suggested practice item while keeping browser calls under Spring Boot `/api/*`.
 - Full-chain smoke now validates weak point summary before and after mastery assessment.
 - Key documents: `docs/plans/2026-06-08-weak-point-progress-summary.md`, `docs/reviews/2026-06-08-weak-point-progress-summary-review-prompt.md`, `docs/architecture/api-design.md`, and `docs/testing/strategy.md`.
+
+---
+
+## 2026-06-08 RAG Evaluation Comparison Filters Update
+
+- Added frontend-only strategy and experiment filters to `/experiments/comparison`.
+- Filtered rows now drive strategy ranking, experiment ranking, and recent evaluation details while the global summary remains visible.
+- No backend or FastAPI contract changed.
+- Key documents: `docs/plans/2026-06-08-rag-evaluation-comparison-filters.md`, `docs/reviews/2026-06-08-rag-evaluation-comparison-filters-review-prompt.md`, and `docs/testing/strategy.md`.
