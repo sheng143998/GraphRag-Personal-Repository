@@ -651,3 +651,27 @@ Current remaining large project areas:
 
 - Add dedicated graph traversal/retrieval over persisted graph facts.
 - Build learning and interview assistant product workflows.
+
+---
+
+## 2026-06-08 Weak Point Review Schedule Update
+
+Completed in this iteration:
+
+- Added weak point schedule persistence fields: `practiceCount`, `lastPracticeScore`, and `nextReviewAt`.
+- Added `dueReviewCount` to weak point summaries.
+- Prioritized due weak points in the session weak point list.
+- Scheduled next review dates from manual mastery updates and practice answer assessments.
+- Displayed due counts, practice counts, last scores, and next review dates in the chat workbench.
+- Extended full-chain smoke checks for the new weak point schedule fields.
+
+Validated:
+
+- `mvn test` passed with 18 tests.
+- `npm.cmd run typecheck` and `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 130/130 smoke checks.
+
+Current remaining large project areas:
+
+- Continue Advanced RAG quality iteration with stronger parent-child chunk modeling and richer GraphRAG metrics.
+- Add learning workflow refinements such as due-only filters and review queue controls.

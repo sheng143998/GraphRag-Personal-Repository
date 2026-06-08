@@ -1535,3 +1535,13 @@ README 更新规则：
 - Frontend weak point cards now provide an answer box and show the latest assessment feedback.
 - Full-chain smoke validates the answer submission path; latest local smoke passed with 126/126 checks.
 - Key documents: `docs/plans/2026-06-08-weak-point-practice-assessment.md`, `docs/reviews/2026-06-08-weak-point-practice-assessment-review-prompt.md`, and `docs/testing/strategy.md`.
+
+---
+
+## 2026-06-08 Weak Point Review Schedule Update
+
+- Added weak point practice scheduling fields in Spring Boot: practice count, last practice score, and next review time.
+- Weak point summaries now expose due review count, and due items are prioritized for the next practice queue.
+- Frontend chat displays due counts and per-item schedule metadata while keeping browser traffic on Spring Boot `/api/*`.
+- Full-chain smoke validates the new schedule fields; latest local smoke passed with 130/130 checks.
+- Key documents: `docs/plans/2026-06-08-weak-point-review-schedule.md`, `docs/reviews/2026-06-08-weak-point-review-schedule-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.

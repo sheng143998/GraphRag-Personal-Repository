@@ -200,3 +200,11 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Frontend typecheck/build covers weak point answer inputs, practice assessment display, and store refresh behavior.
 - `smoke_test.py` now submits `userAnswer` to the weak point practice endpoint and verifies assessment status, updated weak point, and summary.
 - Local full-chain smoke passed with 126/126 checks.
+
+## 2026-06-08 Weak Point Review Schedule Validation
+
+- Backend Maven tests cover practice count, last practice score, next review time, and due review summary aggregation.
+- The Flyway migration adds weak point schedule fields without changing existing required columns.
+- Frontend typecheck/build covers weak point schedule fields in shared types and the chat workbench display.
+- `smoke_test.py` verifies weak point summaries expose `dueReviewCount` and practice assessment responses expose `practiceCount`, `lastPracticeScore`, and `nextReviewAt`.
+- Local full-chain smoke passed with 130/130 checks.

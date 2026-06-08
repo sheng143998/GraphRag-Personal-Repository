@@ -195,11 +195,18 @@
               <span class="metric-label">Reviews</span>
               <strong>{{ store.weakPointSummary.totalReviewCount }}</strong>
             </div>
+            <div class="dashboard-metric">
+              <span class="metric-label">Due</span>
+              <strong>{{ store.weakPointSummary.dueReviewCount ?? 0 }}</strong>
+            </div>
           </div>
           <article v-if="store.weakPointSummary?.nextWeakPoint" class="item-card item-card-active">
             <h3 class="item-title">Next practice: {{ store.weakPointSummary.nextWeakPoint.topic }}</h3>
             <div class="item-meta">
               {{ store.weakPointSummary.nextWeakPoint.difficulty }} · {{ store.weakPointSummary.nextWeakPoint.masteryStatus }}
+              <span v-if="store.weakPointSummary.nextWeakPoint.nextReviewAt">
+                · next {{ formatDate(store.weakPointSummary.nextWeakPoint.nextReviewAt) }}
+              </span>
             </div>
           </article>
           <article v-for="point in store.weakPoints" :key="point.id" class="item-card">
@@ -207,6 +214,9 @@
             <p class="item-description">{{ point.expectedAnswer }}</p>
             <div class="item-meta">
               {{ point.difficulty }} · {{ point.masteryStatus }} · seen {{ point.reviewCount }} time{{ point.reviewCount === 1 ? "" : "s" }}
+              <span v-if="point.practiceCount != null"> · practiced {{ point.practiceCount }}</span>
+              <span v-if="point.lastPracticeScore != null"> · last score {{ formatPercent(point.lastPracticeScore) }}</span>
+              <span v-if="point.nextReviewAt"> · next {{ formatDate(point.nextReviewAt) }}</span>
             </div>
             <label class="form-row" style="margin-top: 0.75rem;">
               <span class="form-label">Practice answer</span>
@@ -306,5 +316,9 @@ async function submitPracticeAnswer(weakPointId: string): Promise<void> {
 
 function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`;
+}
+
+function formatDate(value: string): string {
+  return value.replace("T", " ").slice(0, 16);
 }
 </script>

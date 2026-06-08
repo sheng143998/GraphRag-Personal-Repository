@@ -102,6 +102,9 @@ class AssistantTurnServiceTest {
                 1,
                 Instant.parse("2026-06-08T00:00:00Z"),
                 null,
+                0,
+                null,
+                Instant.parse("2026-06-08T00:00:00Z"),
                 Instant.parse("2026-06-08T00:00:00Z")
         )));
 

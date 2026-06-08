@@ -130,6 +130,9 @@ export interface LearningWeakPoint {
   reviewCount: number;
   lastSeenAt: string;
   lastAssessedAt?: string | null;
+  practiceCount?: number | null;
+  lastPracticeScore?: number | null;
+  nextReviewAt?: string | null;
   createdAt: string;
 }
 
@@ -155,6 +158,7 @@ export interface LearningWeakPointSummary {
   masteredCount: number;
   hardCount: number;
   totalReviewCount: number;
+  dueReviewCount?: number;
   completionRate: number;
   nextWeakPoint?: LearningWeakPoint | null;
 }

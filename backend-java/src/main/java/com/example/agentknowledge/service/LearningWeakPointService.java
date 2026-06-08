@@ -10,6 +10,7 @@ import com.example.agentknowledge.dto.chat.UpdateLearningWeakPointRequest;
 import com.example.agentknowledge.dto.chat.WeakPointPracticeAssessmentResponse;
 import com.example.agentknowledge.repository.LearningWeakPointRepository;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -62,6 +63,9 @@ public class LearningWeakPointService {
             weakPoint.setDifficulty(card.difficulty() != null && !card.difficulty().isBlank() ? card.difficulty() : "medium");
             weakPoint.setReviewCount(weakPoint.getId() == null ? 1 : weakPoint.getReviewCount() + 1);
             weakPoint.setLastSeenAt(Instant.now());
+            if (weakPoint.getNextReviewAt() == null) {
+                weakPoint.setNextReviewAt(Instant.now());
+            }
             learningWeakPointRepository.save(weakPoint);
         }
         return listWeakPoints(session.getId());
@@ -90,6 +94,10 @@ public class LearningWeakPointService {
         int hardCount = (int) weakPoints.stream()
                 .filter(weakPoint -> "hard".equalsIgnoreCase(weakPoint.getDifficulty()))
                 .count();
+        Instant now = Instant.now();
+        int dueReviewCount = (int) weakPoints.stream()
+                .filter(weakPoint -> weakPoint.getNextReviewAt() == null || !weakPoint.getNextReviewAt().isAfter(now))
+                .count();
         int totalReviewCount = weakPoints.stream()
                 .map(LearningWeakPoint::getReviewCount)
                 .filter(java.util.Objects::nonNull)
@@ -108,6 +116,7 @@ public class LearningWeakPointService {
                 masteredCount,
                 hardCount,
                 totalReviewCount,
+                dueReviewCount,
                 completionRate,
                 nextWeakPoint
         );
@@ -124,9 +133,13 @@ public class LearningWeakPointService {
                 .orElseThrow(() -> new IllegalArgumentException("Learning weak point not found: " + weakPointId));
         String status = normalizeMasteryStatus(request.masteryStatus());
         weakPoint.setMasteryStatus(status);
-        weakPoint.setLastAssessedAt(Instant.now());
+        Instant now = Instant.now();
+        weakPoint.setLastAssessedAt(now);
         if ("MASTERED".equals(status)) {
             weakPoint.setDifficulty("easy");
+            weakPoint.setNextReviewAt(now.plus(7, ChronoUnit.DAYS));
+        } else {
+            weakPoint.setNextReviewAt(now);
         }
         return toResponse(learningWeakPointRepository.save(weakPoint));
     }
@@ -147,8 +160,12 @@ public class LearningWeakPointService {
         weakPoint.setMasteryStatus(masteryStatus);
         weakPoint.setDifficulty(difficulty);
         weakPoint.setReviewCount((weakPoint.getReviewCount() == null ? 0 : weakPoint.getReviewCount()) + 1);
-        weakPoint.setLastSeenAt(Instant.now());
-        weakPoint.setLastAssessedAt(Instant.now());
+        weakPoint.setPracticeCount((weakPoint.getPracticeCount() == null ? 0 : weakPoint.getPracticeCount()) + 1);
+        weakPoint.setLastPracticeScore(score);
+        Instant now = Instant.now();
+        weakPoint.setLastSeenAt(now);
+        weakPoint.setLastAssessedAt(now);
+        weakPoint.setNextReviewAt(nextReviewAt(now, score, passed));
         LearningWeakPoint saved = learningWeakPointRepository.save(weakPoint);
         WeakPointPracticeAssessmentResponse assessment = new WeakPointPracticeAssessmentResponse(
                 score,
@@ -172,6 +189,8 @@ public class LearningWeakPointService {
         weakPoint.setSession(session);
         weakPoint.setTopic(topic);
         weakPoint.setReviewCount(0);
+        weakPoint.setPracticeCount(0);
+        weakPoint.setNextReviewAt(Instant.now());
         return weakPoint;
     }
 
@@ -231,6 +250,16 @@ public class LearningWeakPointService {
         return "Practice answer matched " + percent + "% of the expected answer; review the missing concepts and try again.";
     }
 
+    private static Instant nextReviewAt(Instant now, double score, boolean passed) {
+        if (passed) {
+            return now.plus(score >= 0.85 ? 14 : 7, ChronoUnit.DAYS);
+        }
+        if (score >= 0.35) {
+            return now.plus(1, ChronoUnit.DAYS);
+        }
+        return now.plus(4, ChronoUnit.HOURS);
+    }
+
     public LearningWeakPointResponse toResponse(LearningWeakPoint weakPoint) {
         return new LearningWeakPointResponse(
                 weakPoint.getId(),
@@ -245,6 +274,9 @@ public class LearningWeakPointService {
                 weakPoint.getReviewCount(),
                 weakPoint.getLastSeenAt(),
                 weakPoint.getLastAssessedAt(),
+                weakPoint.getPracticeCount(),
+                weakPoint.getLastPracticeScore(),
+                weakPoint.getNextReviewAt(),
                 weakPoint.getCreatedAt()
         );
     }

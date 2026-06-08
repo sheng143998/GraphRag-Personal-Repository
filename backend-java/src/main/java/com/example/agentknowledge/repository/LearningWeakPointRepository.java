@@ -25,6 +25,8 @@ public interface LearningWeakPointRepository extends JpaRepository<LearningWeakP
                     when 'medium' then 1
                     else 2
                 end,
+                case when weakPoint.nextReviewAt <= current_timestamp then 0 else 1 end,
+                weakPoint.nextReviewAt asc,
                 weakPoint.reviewCount desc,
                 weakPoint.lastSeenAt desc
             """)

@@ -698,6 +698,7 @@ if CREATED_SESSION_ID:
             if r is not None and r.status_code == 200:
                 check_field("Weak point summary total", body, "data.totalCount")
                 check_field("Weak point summary needs review", body, "data.needsReviewCount")
+                check_field("Weak point summary due review", body, "data.dueReviewCount")
                 check_field("Weak point summary next item", body, "data.nextWeakPoint.id")
             first_weak_point_id = weak_points[0].get("id") if isinstance(weak_points[0], dict) else None
             if first_weak_point_id:
@@ -716,6 +717,9 @@ if CREATED_SESSION_ID:
                     check_field("Practice updated weak point id", body, "data.updatedWeakPoint.id", first_weak_point_id)
                     check_field("Practice assessment status", body, "data.assessment.masteryStatus", "MASTERED")
                     check_field("Practice summary completion", body, "data.summary.completionRate")
+                    check_field("Practice updated practice count", body, "data.updatedWeakPoint.practiceCount")
+                    check_field("Practice updated score", body, "data.updatedWeakPoint.lastPracticeScore")
+                    check_field("Practice next review", body, "data.updatedWeakPoint.nextReviewAt")
                     practice_cards = body.get("data", {}).get("turn", {}).get("reviewCards") if isinstance(body, dict) else None
                     if isinstance(practice_cards, list) and practice_cards:
                         PASS += 1

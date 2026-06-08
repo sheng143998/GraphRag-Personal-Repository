@@ -122,6 +122,9 @@ class LearningWeakPointServiceTest {
         assertThat(result.updatedWeakPoint().difficulty()).isEqualTo("easy");
         assertThat(result.updatedWeakPoint().reviewCount()).isEqualTo(3);
         assertThat(result.updatedWeakPoint().lastAssessedAt()).isNotNull();
+        assertThat(result.updatedWeakPoint().practiceCount()).isEqualTo(1);
+        assertThat(result.updatedWeakPoint().lastPracticeScore()).isEqualTo(1.0);
+        assertThat(result.updatedWeakPoint().nextReviewAt()).isAfter(result.updatedWeakPoint().lastAssessedAt());
     }
 
     @Test
@@ -145,6 +148,9 @@ class LearningWeakPointServiceTest {
         assertThat(result.updatedWeakPoint().masteryStatus()).isEqualTo("NEEDS_REVIEW");
         assertThat(result.updatedWeakPoint().difficulty()).isEqualTo("hard");
         assertThat(result.updatedWeakPoint().reviewCount()).isEqualTo(2);
+        assertThat(result.updatedWeakPoint().practiceCount()).isEqualTo(1);
+        assertThat(result.updatedWeakPoint().lastPracticeScore()).isEqualTo(0.0);
+        assertThat(result.updatedWeakPoint().nextReviewAt()).isAfter(result.updatedWeakPoint().lastAssessedAt());
     }
 
     @Test
@@ -186,6 +192,7 @@ class LearningWeakPointServiceTest {
         assertThat(summary.masteredCount()).isEqualTo(1);
         assertThat(summary.hardCount()).isEqualTo(1);
         assertThat(summary.totalReviewCount()).isEqualTo(11);
+        assertThat(summary.dueReviewCount()).isEqualTo(2);
         assertThat(summary.completionRate()).isEqualTo(0.5);
         assertThat(summary.nextWeakPoint().topic()).isEqualTo("Needs graph traversal practice");
     }
@@ -205,6 +212,8 @@ class LearningWeakPointServiceTest {
         weakPoint.setDifficulty(difficulty);
         weakPoint.setReviewCount(reviewCount);
         weakPoint.setLastSeenAt(java.time.Instant.now());
+        weakPoint.setPracticeCount(0);
+        weakPoint.setNextReviewAt(java.time.Instant.now());
         return weakPoint;
     }
 }

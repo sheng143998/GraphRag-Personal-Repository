@@ -64,6 +64,15 @@ public class LearningWeakPoint {
     @Column(name = "last_assessed_at")
     private Instant lastAssessedAt;
 
+    @Column(name = "practice_count", nullable = false)
+    private Integer practiceCount = 0;
+
+    @Column(name = "last_practice_score")
+    private Double lastPracticeScore;
+
+    @Column(name = "next_review_at", nullable = false)
+    private Instant nextReviewAt;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

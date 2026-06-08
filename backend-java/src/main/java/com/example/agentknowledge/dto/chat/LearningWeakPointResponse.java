@@ -16,6 +16,9 @@ public record LearningWeakPointResponse(
         Integer reviewCount,
         Instant lastSeenAt,
         Instant lastAssessedAt,
+        Integer practiceCount,
+        Double lastPracticeScore,
+        Instant nextReviewAt,
         Instant createdAt
 ) {
 }

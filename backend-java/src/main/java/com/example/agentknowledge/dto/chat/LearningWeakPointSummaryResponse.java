@@ -6,6 +6,7 @@ public record LearningWeakPointSummaryResponse(
         int masteredCount,
         int hardCount,
         int totalReviewCount,
+        int dueReviewCount,
         double completionRate,
         LearningWeakPointResponse nextWeakPoint
 ) {

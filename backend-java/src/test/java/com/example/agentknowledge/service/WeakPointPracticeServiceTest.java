@@ -59,6 +59,9 @@ class WeakPointPracticeServiceTest {
                 3,
                 Instant.parse("2026-06-08T00:00:00Z"),
                 null,
+                0,
+                null,
+                Instant.parse("2026-06-08T00:00:00Z"),
                 null
         );
         LearningWeakPointResponse updatedWeakPoint = new LearningWeakPointResponse(
@@ -74,6 +77,9 @@ class WeakPointPracticeServiceTest {
                 4,
                 Instant.parse("2026-06-08T00:01:00Z"),
                 Instant.parse("2026-06-08T00:01:00Z"),
+                1,
+                0.8,
+                Instant.parse("2026-06-15T00:01:00Z"),
                 null
         );
         WeakPointPracticeAssessmentResponse assessment = new WeakPointPracticeAssessmentResponse(
@@ -89,6 +95,7 @@ class WeakPointPracticeServiceTest {
                 1,
                 0,
                 4,
+                0,
                 1.0,
                 updatedWeakPoint
         );
