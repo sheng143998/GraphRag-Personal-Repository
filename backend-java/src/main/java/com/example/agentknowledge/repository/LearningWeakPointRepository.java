@@ -20,13 +20,13 @@ public interface LearningWeakPointRepository extends JpaRepository<LearningWeakP
             where weakPoint.session.id = :sessionId
             order by
                 case when weakPoint.masteryStatus = 'NEEDS_REVIEW' then 0 else 1 end,
+                case when weakPoint.nextReviewAt <= current_timestamp then 0 else 1 end,
+                weakPoint.nextReviewAt asc,
                 case weakPoint.difficulty
                     when 'hard' then 0
                     when 'medium' then 1
                     else 2
                 end,
-                case when weakPoint.nextReviewAt <= current_timestamp then 0 else 1 end,
-                weakPoint.nextReviewAt asc,
                 weakPoint.reviewCount desc,
                 weakPoint.lastSeenAt desc
             """)

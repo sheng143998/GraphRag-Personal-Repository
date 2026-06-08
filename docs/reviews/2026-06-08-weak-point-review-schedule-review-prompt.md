@@ -25,6 +25,7 @@ Review the weak point review schedule change for correctness and project-boundar
 - Does manual mastery assessment schedule mastered items into the future and needs-review items as due now?
 - Does practice answer assessment update score, practice count, and next review time consistently?
 - Does repository prioritization keep weak points with lower mastery and due review status at the top?
+- Does migration backfill keep historical `MASTERED` weak points from becoming immediately due?
 - Does the frontend display schedule metadata without bypassing Spring Boot APIs?
 - Do backend unit tests and full-chain smoke cover the new response fields?
 
@@ -33,4 +34,10 @@ Review the weak point review schedule change for correctness and project-boundar
 - `mvn test`: passed with 18 tests.
 - `npm.cmd run typecheck`: passed.
 - `npm.cmd run build`: passed.
-- Full-chain local smoke: passed with 130/130 checks.
+- Full-chain local smoke: passed with 131/131 checks.
+
+Reviewer follow-up hardening:
+
+- Due status now sorts before difficulty inside the same mastery bucket.
+- A follow-up migration backfills historical mastered weak point review times.
+- Smoke validation now checks practice `nextReviewAt` parses as a future timestamp.

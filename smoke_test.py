@@ -5,6 +5,7 @@ import requests
 import os
 import sys
 import uuid
+from datetime import datetime, timezone
 
 BASE = os.getenv("SMOKE_BASE_URL", "http://localhost:8080/api").rstrip("/")
 AI_BASE = os.getenv("SMOKE_AI_BASE_URL", "http://localhost:8001/ai").rstrip("/")
@@ -83,6 +84,24 @@ def check_field(label, body, field, expected=None):
             ERRORS.append(f"{label}: {field} is None")
             print(f"  FAIL  {label}: {field} is None")
     return val
+
+
+def check_datetime_after_now(label, value):
+    global PASS, FAIL
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except Exception as exc:
+        FAIL += 1
+        ERRORS.append(f"{label}: could not parse datetime {value!r}: {exc}")
+        print(f"  FAIL  {label}: invalid datetime {value!r}")
+        return
+    if parsed > datetime.now(timezone.utc):
+        PASS += 1
+        print(f"  PASS  {label}: {parsed.isoformat()} is in the future")
+    else:
+        FAIL += 1
+        ERRORS.append(f"{label}: expected future datetime, got {parsed.isoformat()}")
+        print(f"  FAIL  {label}: expected future datetime, got {parsed.isoformat()}")
 
 
 def section(title):
@@ -719,7 +738,8 @@ if CREATED_SESSION_ID:
                     check_field("Practice summary completion", body, "data.summary.completionRate")
                     check_field("Practice updated practice count", body, "data.updatedWeakPoint.practiceCount")
                     check_field("Practice updated score", body, "data.updatedWeakPoint.lastPracticeScore")
-                    check_field("Practice next review", body, "data.updatedWeakPoint.nextReviewAt")
+                    next_review_at = check_field("Practice next review", body, "data.updatedWeakPoint.nextReviewAt")
+                    check_datetime_after_now("Practice next review scheduled in future", next_review_at)
                     practice_cards = body.get("data", {}).get("turn", {}).get("reviewCards") if isinstance(body, dict) else None
                     if isinstance(practice_cards, list) and practice_cards:
                         PASS += 1

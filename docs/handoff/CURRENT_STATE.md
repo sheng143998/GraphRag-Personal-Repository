@@ -661,15 +661,16 @@ Completed in this iteration:
 - Added weak point schedule persistence fields: `practiceCount`, `lastPracticeScore`, and `nextReviewAt`.
 - Added `dueReviewCount` to weak point summaries.
 - Prioritized due weak points in the session weak point list.
+- Added a follow-up migration so historical mastered weak points are scheduled into the future instead of all becoming immediately due.
 - Scheduled next review dates from manual mastery updates and practice answer assessments.
 - Displayed due counts, practice counts, last scores, and next review dates in the chat workbench.
-- Extended full-chain smoke checks for the new weak point schedule fields.
+- Extended full-chain smoke checks for the new weak point schedule fields and future `nextReviewAt` semantics.
 
 Validated:
 
 - `mvn test` passed with 18 tests.
 - `npm.cmd run typecheck` and `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 130/130 smoke checks.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 131/131 smoke checks.
 
 Current remaining large project areas:
 

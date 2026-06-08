@@ -1542,6 +1542,7 @@ README 更新规则：
 
 - Added weak point practice scheduling fields in Spring Boot: practice count, last practice score, and next review time.
 - Weak point summaries now expose due review count, and due items are prioritized for the next practice queue.
+- Historical mastered weak points are backfilled to a future review time during migration.
 - Frontend chat displays due counts and per-item schedule metadata while keeping browser traffic on Spring Boot `/api/*`.
-- Full-chain smoke validates the new schedule fields; latest local smoke passed with 130/130 checks.
+- Full-chain smoke validates the new schedule fields; latest local smoke passed with 131/131 checks.
 - Key documents: `docs/plans/2026-06-08-weak-point-review-schedule.md`, `docs/reviews/2026-06-08-weak-point-review-schedule-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
