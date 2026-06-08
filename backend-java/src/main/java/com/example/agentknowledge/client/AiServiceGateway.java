@@ -4,12 +4,16 @@ import com.example.agentknowledge.client.dto.AiDocumentIngestRequest;
 import com.example.agentknowledge.client.dto.AiDocumentIngestResponse;
 import com.example.agentknowledge.client.dto.AiAgentInvokeRequest;
 import com.example.agentknowledge.client.dto.AiAgentInvokeResponse;
+import com.example.agentknowledge.client.dto.AiRagEvaluateRequest;
+import com.example.agentknowledge.client.dto.AiRagEvaluateResponse;
 import com.example.agentknowledge.client.dto.AiRagQueryRequest;
 import com.example.agentknowledge.client.dto.AiRagQueryResponse;
 
 public interface AiServiceGateway {
 
     AiRagQueryResponse queryRag(AiRagQueryRequest request, String traceId);
+
+    AiRagEvaluateResponse evaluateRag(AiRagEvaluateRequest request, String traceId);
 
     AiAgentInvokeResponse invokeAgent(AiAgentInvokeRequest request, String traceId);
 

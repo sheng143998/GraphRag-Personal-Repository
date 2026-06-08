@@ -1,0 +1,11 @@
+package com.example.agentknowledge.dto.rag;
+
+import java.util.List;
+
+public record RagExperimentEvaluationResponse(
+        RagExperimentResponse experiment,
+        Double groundedScore,
+        Double retrievalScore,
+        List<String> notes
+) {
+}

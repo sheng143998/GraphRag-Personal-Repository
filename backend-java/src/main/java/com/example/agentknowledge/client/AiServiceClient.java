@@ -4,6 +4,8 @@ import com.example.agentknowledge.client.dto.AiDocumentIngestRequest;
 import com.example.agentknowledge.client.dto.AiDocumentIngestResponse;
 import com.example.agentknowledge.client.dto.AiAgentInvokeRequest;
 import com.example.agentknowledge.client.dto.AiAgentInvokeResponse;
+import com.example.agentknowledge.client.dto.AiRagEvaluateRequest;
+import com.example.agentknowledge.client.dto.AiRagEvaluateResponse;
 import com.example.agentknowledge.client.dto.AiRagQueryRequest;
 import com.example.agentknowledge.client.dto.AiRagQueryResponse;
 import com.example.agentknowledge.client.dto.AiSourceMetadata;
@@ -66,6 +68,41 @@ public class AiServiceClient implements AiServiceGateway {
                 .body(request)
                 .retrieve()
                 .body(AiRagQueryResponse.class);
+    }
+
+    @Override
+    public AiRagEvaluateResponse evaluateRag(AiRagEvaluateRequest request, String traceId) {
+        if (properties.mockEnabled()) {
+            double retrievalScore = request.citations() == null || request.citations().isEmpty() ? 0.0 : 0.8;
+            double groundedScore = request.generatedAnswer() == null || request.generatedAnswer().isBlank() ? 0.2 : 0.9;
+            return new AiRagEvaluateResponse(
+                    new AiRagEvaluateResponse.Result(
+                            groundedScore,
+                            retrievalScore,
+                            List.of("Mock evaluator scored persisted RAG run evidence.")
+                    ),
+                    new AiTraceMetadata(
+                            traceId,
+                            null,
+                            "rag_evaluate",
+                            request.strategyName(),
+                            null,
+                            null,
+                            "mock-evaluator",
+                            "completed",
+                            8.0,
+                            Map.of()
+                    )
+            );
+        }
+
+        return restClient.post()
+                .uri("/ai/rag/evaluate")
+                .header(HttpHeaders.CONTENT_TYPE, "application/json")
+                .header(TraceContext.HEADER_NAME, traceId)
+                .body(request)
+                .retrieve()
+                .body(AiRagEvaluateResponse.class);
     }
 
     @Override

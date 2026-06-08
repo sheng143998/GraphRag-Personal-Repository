@@ -1,13 +1,25 @@
 package com.example.agentknowledge.service;
 
+import com.example.agentknowledge.client.AiServiceGateway;
+import com.example.agentknowledge.client.dto.AiRagEvaluateRequest;
+import com.example.agentknowledge.client.dto.AiRagEvaluateResponse;
+import com.example.agentknowledge.client.dto.AiSourceMetadata;
+import com.example.agentknowledge.common.api.TraceContext;
 import com.example.agentknowledge.common.exception.ResourceNotFoundException;
 import com.example.agentknowledge.domain.RagExperiment;
+import com.example.agentknowledge.domain.RagRetrievalResult;
+import com.example.agentknowledge.domain.RagRun;
 import com.example.agentknowledge.dto.rag.CreateRagExperimentRequest;
+import com.example.agentknowledge.dto.rag.EvaluateRagExperimentRequest;
+import com.example.agentknowledge.dto.rag.RagExperimentEvaluationResponse;
 import com.example.agentknowledge.dto.rag.RagExperimentResponse;
 import com.example.agentknowledge.dto.rag.UpdateRagExperimentRequest;
 import com.example.agentknowledge.repository.RagExperimentRepository;
+import com.example.agentknowledge.repository.RagRetrievalResultRepository;
+import com.example.agentknowledge.repository.RagRunRepository;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
@@ -15,14 +27,23 @@ import org.springframework.stereotype.Service;
 public class RagExperimentService {
 
     private final RagExperimentRepository ragExperimentRepository;
+    private final RagRunRepository ragRunRepository;
+    private final RagRetrievalResultRepository ragRetrievalResultRepository;
     private final KnowledgeBaseService knowledgeBaseService;
+    private final AiServiceGateway aiServiceGateway;
 
     public RagExperimentService(
             RagExperimentRepository ragExperimentRepository,
-            KnowledgeBaseService knowledgeBaseService
+            RagRunRepository ragRunRepository,
+            RagRetrievalResultRepository ragRetrievalResultRepository,
+            KnowledgeBaseService knowledgeBaseService,
+            AiServiceGateway aiServiceGateway
     ) {
         this.ragExperimentRepository = ragExperimentRepository;
+        this.ragRunRepository = ragRunRepository;
+        this.ragRetrievalResultRepository = ragRetrievalResultRepository;
         this.knowledgeBaseService = knowledgeBaseService;
+        this.aiServiceGateway = aiServiceGateway;
     }
 
     public RagExperimentResponse create(CreateRagExperimentRequest request) {
@@ -88,6 +109,44 @@ public class RagExperimentService {
         return toResponse(ragExperimentRepository.save(experiment));
     }
 
+    public RagExperimentEvaluationResponse evaluate(UUID id, EvaluateRagExperimentRequest request) {
+        RagExperiment experiment = getEntity(id);
+        RagRun run = ragRunRepository.findById(request.runId())
+                .orElseThrow(() -> new ResourceNotFoundException("RAG run not found: " + request.runId()));
+        List<RagRetrievalResult> retrievalResults = ragRetrievalResultRepository.findByRunIdOrderByRankAsc(run.getId());
+        AiRagEvaluateResponse evaluation = aiServiceGateway.evaluateRag(
+                new AiRagEvaluateRequest(
+                        run.getQuestion(),
+                        request.expectedAnswer(),
+                        run.getAnswer(),
+                        retrievalResults.stream().map(this::toAiSource).toList(),
+                        run.getStrategyName() != null ? run.getStrategyName() : experiment.getStrategyName(),
+                        new AiRagEvaluateRequest.Context(
+                                run.getKnowledgeBase() == null ? null : run.getKnowledgeBase().getId(),
+                                run.getSession() == null ? null : run.getSession().getId(),
+                                run.getMessage() == null ? null : run.getMessage().getId(),
+                                Map.of()
+                        )
+                ),
+                TraceContext.getTraceId()
+        );
+
+        Double groundedScore = evaluation.result() == null ? null : evaluation.result().groundedScore();
+        Double retrievalScore = evaluation.result() == null ? null : evaluation.result().retrievalScore();
+        List<String> notes = evaluation.result() == null || evaluation.result().notes() == null
+                ? List.of()
+                : evaluation.result().notes();
+        experiment.setPrecisionScore(groundedScore);
+        experiment.setRecallScore(retrievalScore);
+        experiment.setSampleCount(experiment.getSampleCount() == null || experiment.getSampleCount() == 0
+                ? 1
+                : experiment.getSampleCount());
+        experiment.setStatus("COMPLETED");
+        experiment.setNotes(formatEvaluationNotes(experiment.getNotes(), run.getId(), notes));
+        RagExperimentResponse updated = toResponse(ragExperimentRepository.save(experiment));
+        return new RagExperimentEvaluationResponse(updated, groundedScore, retrievalScore, notes);
+    }
+
     public void delete(UUID id) {
         ragExperimentRepository.delete(getEntity(id));
     }
@@ -126,6 +185,28 @@ public class RagExperimentService {
     }
 
     private String formatMetric(Double value) {
-        return value == null ? "待评估" : String.format(Locale.ROOT, "%.2f", value);
+        return value == null ? "pending" : String.format(Locale.ROOT, "%.2f", value);
+    }
+
+    private AiSourceMetadata toAiSource(RagRetrievalResult result) {
+        return new AiSourceMetadata(
+                result.getDocument() == null ? null : result.getDocument().getId(),
+                result.getChunk() == null ? null : result.getChunk().getId(),
+                result.getSource(),
+                null,
+                result.getScore(),
+                result.getRerankScore(),
+                null,
+                null,
+                result.getMetadata()
+        );
+    }
+
+    private String formatEvaluationNotes(String existingNotes, UUID runId, List<String> notes) {
+        String evaluationLine = "Evaluation run " + runId + ": " + String.join(" ", notes);
+        if (existingNotes == null || existingNotes.isBlank()) {
+            return evaluationLine;
+        }
+        return existingNotes + "\n" + evaluationLine;
     }
 }

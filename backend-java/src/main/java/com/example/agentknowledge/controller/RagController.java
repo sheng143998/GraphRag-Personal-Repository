@@ -3,6 +3,8 @@ package com.example.agentknowledge.controller;
 import com.example.agentknowledge.common.api.ApiResponse;
 import com.example.agentknowledge.common.api.TraceContext;
 import com.example.agentknowledge.dto.rag.CreateRagExperimentRequest;
+import com.example.agentknowledge.dto.rag.EvaluateRagExperimentRequest;
+import com.example.agentknowledge.dto.rag.RagExperimentEvaluationResponse;
 import com.example.agentknowledge.dto.rag.RagExperimentResponse;
 import com.example.agentknowledge.dto.rag.RagQueryRequest;
 import com.example.agentknowledge.dto.rag.RagQueryResponse;
@@ -65,6 +67,14 @@ public class RagController {
             @Valid @RequestBody UpdateRagExperimentRequest request
     ) {
         return ApiResponse.success(ragExperimentService.update(id, request), TraceContext.getTraceId());
+    }
+
+    @PostMapping("/experiments/{id}/evaluate")
+    public ApiResponse<RagExperimentEvaluationResponse> evaluateExperiment(
+            @PathVariable UUID id,
+            @Valid @RequestBody EvaluateRagExperimentRequest request
+    ) {
+        return ApiResponse.success(ragExperimentService.evaluate(id, request), TraceContext.getTraceId());
     }
 
     @DeleteMapping("/experiments/{id}")
