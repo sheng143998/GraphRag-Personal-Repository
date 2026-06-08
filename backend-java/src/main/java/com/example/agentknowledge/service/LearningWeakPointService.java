@@ -10,6 +10,7 @@ import com.example.agentknowledge.repository.LearningWeakPointRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,7 +60,7 @@ public class LearningWeakPointService {
     @Transactional(readOnly = true)
     public List<LearningWeakPointResponse> listWeakPoints(UUID sessionId) {
         chatService.getSession(sessionId);
-        return learningWeakPointRepository.findTop20BySession_IdOrderByLastSeenAtDesc(sessionId)
+        return learningWeakPointRepository.findPrioritizedBySessionId(sessionId, PageRequest.of(0, 20))
                 .stream()
                 .map(this::toResponse)
                 .toList();

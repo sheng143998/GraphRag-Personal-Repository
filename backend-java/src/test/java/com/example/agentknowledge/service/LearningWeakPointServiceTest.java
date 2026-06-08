@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 
 class LearningWeakPointServiceTest {
 
@@ -46,7 +47,8 @@ class LearningWeakPointServiceTest {
             return weakPoint;
         });
         when(chatService.getSession(sessionId)).thenReturn(session);
-        when(repository.findTop20BySession_IdOrderByLastSeenAtDesc(sessionId)).thenAnswer(invocation -> stored);
+        when(repository.findPrioritizedBySessionId(org.mockito.ArgumentMatchers.eq(sessionId), ArgumentMatchers.any()))
+                .thenAnswer(invocation -> stored);
 
         List<LearningWeakPointResponse> responses = service.recordReviewCards(
                 session,
@@ -92,5 +94,42 @@ class LearningWeakPointServiceTest {
         assertThat(response.masteryStatus()).isEqualTo("MASTERED");
         assertThat(response.difficulty()).isEqualTo("easy");
         assertThat(response.lastAssessedAt()).isNotNull();
+    }
+
+    @Test
+    void listWeakPointsUsesPrioritizedReviewOrder() {
+        UUID sessionId = UUID.randomUUID();
+        ChatSession session = new ChatSession();
+        session.setId(sessionId);
+        LearningWeakPoint needsReview = weakPoint(session, "Needs graph traversal practice", "NEEDS_REVIEW", "hard", 3);
+        LearningWeakPoint mastered = weakPoint(session, "Already mastered rerank", "MASTERED", "easy", 8);
+
+        when(chatService.getSession(sessionId)).thenReturn(session);
+        when(repository.findPrioritizedBySessionId(org.mockito.ArgumentMatchers.eq(sessionId), ArgumentMatchers.any()))
+                .thenReturn(List.of(needsReview, mastered));
+
+        List<LearningWeakPointResponse> responses = service.listWeakPoints(sessionId);
+
+        assertThat(responses).extracting(LearningWeakPointResponse::masteryStatus)
+                .containsExactly("NEEDS_REVIEW", "MASTERED");
+        assertThat(responses.get(0).topic()).isEqualTo("Needs graph traversal practice");
+    }
+
+    private static LearningWeakPoint weakPoint(
+            ChatSession session,
+            String topic,
+            String masteryStatus,
+            String difficulty,
+            int reviewCount
+    ) {
+        LearningWeakPoint weakPoint = new LearningWeakPoint();
+        weakPoint.setId(UUID.randomUUID());
+        weakPoint.setSession(session);
+        weakPoint.setTopic(topic);
+        weakPoint.setMasteryStatus(masteryStatus);
+        weakPoint.setDifficulty(difficulty);
+        weakPoint.setReviewCount(reviewCount);
+        weakPoint.setLastSeenAt(java.time.Instant.now());
+        return weakPoint;
     }
 }
