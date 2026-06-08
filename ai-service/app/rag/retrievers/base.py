@@ -29,6 +29,8 @@ class SimpleRetriever(BaseRetriever):
         lowered_query = query.lower()
         candidates: list[SourceMetadata] = []
         for chunk in chunks:
+            if chunk.metadata.get("chunk_level") == "parent":
+                continue
             if filters and any(chunk.metadata.get(key) != value for key, value in filters.items()):
                 continue
             score = float(chunk.content.lower().count(lowered_query)) if lowered_query else 0.0
@@ -56,6 +58,8 @@ class SimpleRetriever(BaseRetriever):
         query_terms = set(lowered_query.split())
         candidates: list[SourceMetadata] = []
         for chunk in chunks:
+            if chunk.metadata.get("chunk_level") == "parent":
+                continue
             if filters and any(chunk.metadata.get(key) != value for key, value in filters.items()):
                 continue
             content = chunk.content.lower()

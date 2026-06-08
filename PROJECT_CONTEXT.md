@@ -1566,3 +1566,14 @@ README 更新规则：
 - AI pytest validates both real parent-child context and the existing fallback path.
 - Local full-chain smoke remained green with 131/131 checks.
 - Key documents: `docs/plans/2026-06-08-parent-child-real-parent-context.md`, `docs/reviews/2026-06-08-parent-child-real-parent-context-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
+
+---
+
+## 2026-06-08 Parent-Child Chunking Strategy Update
+
+- Added opt-in AI `ParentChildChunker`; ingest metadata `chunk_strategy=parent-child` now emits parent chunks plus child chunks with `parent_chunk_id`.
+- Parent chunks are stored as context carriers but excluded from retrieval, embeddings, and graph fact extraction.
+- Default flat `SimpleChunker` behavior remains unchanged.
+- AI pytest validates chunker output, ingest selection, default flat chunking, and query-level parent-child hydration.
+- Local full-chain smoke remained green with 131/131 checks.
+- Key documents: `docs/plans/2026-06-08-parent-child-chunking-strategy.md`, `docs/reviews/2026-06-08-parent-child-chunking-strategy-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.

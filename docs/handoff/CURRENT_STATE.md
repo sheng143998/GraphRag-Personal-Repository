@@ -85,7 +85,7 @@
 - 如果 `.env` 中模型配置缺失，会 fallback 到 stub embedding / LLM / reranker。
 - 当前真实 adapter 已有轻量重试，但尚未实现限流、熔断、成本统计。
 - query rewrite / multi-query 当前是规则型 fallback，不是真实 LLM 改写。
-- parent-child 本轮是邻近 chunk fallback，尚未基于真实 parent_chunk_id 切分策略构建父块。
+- parent-child 已支持 opt-in 父/子块切分、真实 `parent_chunk_id` hydration；邻近 chunk fallback 保留给历史 flat chunks。
 - DashScope-native 高级 embedding 参数（text_type、instruct、sparse vector）尚未接入。
 
 ## 下一步建议
@@ -435,7 +435,7 @@ Validated so far:
 - `mvn test` passed with 14 tests.
 - `npm.cmd run typecheck` passed.
 - `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 131/131 smoke checks.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 142/142 smoke checks.
 - `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 108/108 smoke checks.
 
 Current remaining large project areas:
@@ -672,11 +672,11 @@ Validated:
 
 - `mvn test` passed with 18 tests.
 - `npm.cmd run typecheck` and `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 131/131 smoke checks.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 142/142 smoke checks.
 
 Current remaining large project areas:
 
-- Continue Advanced RAG quality iteration with stronger parent-child chunk modeling and richer GraphRAG metrics.
+- Continue Advanced RAG quality iteration with configurable hybrid fusion, context compression, and richer GraphRAG metrics.
 - Add learning workflow refinements such as due-only filters and review queue controls.
 
 ---
@@ -696,7 +696,7 @@ Validated:
 
 Current remaining large project areas:
 
-- Continue Advanced RAG quality iteration with stronger parent-child chunk modeling and richer GraphRAG metrics.
+- Continue Advanced RAG quality iteration with configurable hybrid fusion, context compression, and richer GraphRAG metrics.
 - Add more learning workflow ergonomics, such as persisted queue preferences or dedicated review sessions.
 
 ---
@@ -721,3 +721,26 @@ Current remaining large project areas:
 
 - Add a dedicated parent chunking strategy that emits parent chunks and child chunks during ingest.
 - Continue GraphRAG metric refinement and Advanced RAG evaluation depth.
+
+---
+
+## 2026-06-08 Parent-Child Chunking Strategy Update
+
+Completed in this iteration:
+
+- Added an opt-in `ParentChildChunker` for AI ingest.
+- Ingest metadata `chunk_strategy=parent-child` now emits parent chunks and child chunks with `parent_chunk_id`.
+- Default ingest remains flat `SimpleChunker`.
+- Parent chunks are stored for context but excluded from retrieval, embeddings, and graph fact extraction.
+- Added AI tests for chunker output, ingest-time selection, default flat chunking, and query-level `parent_child_mode=parent-child` hydration.
+
+Validated:
+
+- `.\.venv\bin\python.exe -m pytest tests/test_parent_child_chunker.py tests/test_advanced_rag_strategy.py tests/test_strategy_comparison_evaluator.py -q` passed with 15 tests.
+- `.\.venv\bin\python.exe -m pytest tests -q` passed with 22 tests.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 142/142 smoke checks.
+
+Current remaining large project areas:
+
+- Continue GraphRAG metric refinement and Advanced RAG evaluation depth.
+- Add UI/API affordances for selecting parent-child chunking during document upload if product needs it.

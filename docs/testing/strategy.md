@@ -222,4 +222,11 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - AI pytest covers the real parent-child context path using `parent_chunk_id`, asserting parent and sibling child chunks are hydrated before rerank.
 - Existing Advanced RAG pytest still covers the neighbor-window fallback path for flat chunks, plus missing-parent fallback.
 - AI full test suite passed with 18/18 tests.
-- Full-chain local smoke remained green with 131/131 checks.
+- Full-chain local smoke remained green with 142/142 checks.
+
+## 2026-06-08 Parent-Child Chunking Strategy Validation
+
+- AI pytest covers the new opt-in `ParentChildChunker`, default `SimpleChunker` behavior, ingest-time strategy selection, and query-level parent-child hydration.
+- Parent chunks are stored as context carriers but excluded from retrieval, embeddings, and graph fact extraction.
+- AI full test suite passed with 22/22 tests.
+- Full-chain local smoke remained green with 142/142 checks.

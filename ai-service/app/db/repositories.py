@@ -396,6 +396,7 @@ class PostgresDocumentRepository(BaseDocumentRepository):
                         ON e.chunk_id = c.id
                         AND e.embedding_model = %s
                     WHERE c.knowledge_base_id = %s
+                      AND COALESCE(c.metadata ->> 'chunk_level', 'child') <> 'parent'
                     {filter_sql}
                     ORDER BY
                         (COALESCE(1 - (e.embedding <=> %s::vector), 0) * 0.7

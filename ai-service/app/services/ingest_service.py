@@ -5,7 +5,7 @@ from uuid import uuid4
 from app.core.config import settings
 from app.core.tracing import TraceBuilder
 from app.db.repositories import repository
-from app.rag.chunkers.base import SimpleChunker
+from app.rag.chunkers.base import ParentChildChunker, SimpleChunker
 from app.rag.graph import RuleBasedGraphExtractor
 from app.rag.loaders.base import InlineContentLoader
 from app.rag.parsers.registry import ParserRegistry
@@ -25,6 +25,7 @@ class IngestService:
     def __init__(self) -> None:
         self.loader = InlineContentLoader()
         self.chunker = SimpleChunker()
+        self.parent_child_chunker = ParentChildChunker()
         self.parser_registry = ParserRegistry()
         self.graph_extractor = RuleBasedGraphExtractor()
 
@@ -62,18 +63,20 @@ class IngestService:
             payload={"parser_name": parser.name, "parser_version": parser.version},
         )
 
-        chunks = await self.chunker.chunk(parsed_document=parsed_document, request=payload)
+        chunker = self.parent_child_chunker if _chunk_strategy(payload.metadata) == "parent-child" else self.chunker
+        chunks = await chunker.chunk(parsed_document=parsed_document, request=payload)
         repository.save_chunks(payload.document_id, payload.knowledge_base_id, chunks)
         trace_builder.add_step(
             name="chunk_document",
             status="completed",
             detail="Built chunk records for storage.",
-            payload={"chunk_count": len(chunks)},
+            payload={"chunk_count": len(chunks), "chunk_strategy": _chunk_strategy(payload.metadata)},
         )
 
         graph_entity_count = 0
         graph_relationship_count = 0
-        for chunk in chunks:
+        retrievable_chunks = [chunk for chunk in chunks if chunk.metadata.get("chunk_level") != "parent"]
+        for chunk in retrievable_chunks:
             entities = self.graph_extractor.extract_entities(chunk.content)
             relationships = self.graph_extractor.extract_relationships(entities)
             graph_entity_count += len(entities)
@@ -95,9 +98,9 @@ class IngestService:
             },
         )
 
-        if chunks:
+        if retrievable_chunks:
             embeddings = await embedding_adapter.embed(
-                texts=[chunk.content for chunk in chunks],
+                texts=[chunk.content for chunk in retrievable_chunks],
                 context=AdapterCallContext(
                     trace_id=trace_builder.trace.trace_id,
                     run_id=trace_builder.trace.run_id,
@@ -107,7 +110,7 @@ class IngestService:
                 ),
             )
             repository.save_embeddings(
-                chunks=chunks,
+                chunks=retrievable_chunks,
                 embeddings=embeddings,
                 embedding_model=get_embedding_model_name(),
             )
@@ -140,10 +143,11 @@ class IngestService:
         rebuilt_documents: list[str] = []
         for document_id in target_document_ids:
             chunks = repository.get_chunks(document_id)
-            if not chunks:
+            retrievable_chunks = [chunk for chunk in chunks if chunk.metadata.get("chunk_level") != "parent"]
+            if not retrievable_chunks:
                 continue
             embeddings = await embedding_adapter.embed(
-                texts=[chunk.content for chunk in chunks],
+                texts=[chunk.content for chunk in retrievable_chunks],
                 context=AdapterCallContext(
                     trace_id=trace_builder.trace.trace_id,
                     run_id=trace_builder.trace.run_id,
@@ -153,7 +157,7 @@ class IngestService:
                 ),
             )
             repository.save_embeddings(
-                chunks=chunks,
+                chunks=retrievable_chunks,
                 embeddings=embeddings,
                 embedding_model=get_embedding_model_name(),
             )
@@ -171,3 +175,7 @@ class IngestService:
             rebuilt_documents=rebuilt_documents,
             trace=trace,
         )
+
+
+def _chunk_strategy(metadata: dict[str, object]) -> str:
+    return str(metadata.get("chunk_strategy") or metadata.get("chunkStrategy") or "simple-window").strip().lower()

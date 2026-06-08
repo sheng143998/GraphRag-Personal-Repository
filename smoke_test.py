@@ -4,6 +4,7 @@
 import requests
 import os
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 
@@ -16,12 +17,15 @@ ERRORS = []
 
 CREATED_KB_ID = None
 CREATED_DOC_ID = None
+CREATED_PARENT_DOC_ID = None
+PARENT_CHILD_DOC_INDEXED = False
 CREATED_SESSION_ID = None
 CREATED_EXP_ID = None
 CREATED_MSG_ID = None
 CREATED_ASSISTANT_MSG_ID = None
 CREATED_RUN_ID = None
 CREATED_ADVANCED_RUN_ID = None
+CREATED_PARENT_CHILD_RUN_ID = None
 ADVANCED_EVALUATION_CASE = None
 CREATED_AGENT_RUN_ID = None
 CREATED_GRAPH_RUN_ID = None
@@ -104,6 +108,17 @@ def check_datetime_after_now(label, value):
         print(f"  FAIL  {label}: expected future datetime, got {parsed.isoformat()}")
 
 
+def wait_for_document_index(document_id, attempts=60, delay=0.5):
+    for _ in range(attempts):
+        r, body = do("GET", f"{BASE}/documents/{document_id}")
+        if r is not None and r.status_code == 200:
+            status = body.get("data", {}).get("status") if isinstance(body, dict) else None
+            if status in {"INDEXED", "FAILED"}:
+                return r, body
+        time.sleep(delay)
+    return do("GET", f"{BASE}/documents/{document_id}")
+
+
 def section(title):
     print(f"\n{'='*60}")
     print(f"  {title}")
@@ -181,6 +196,44 @@ if CREATED_KB_ID:
 
     if CREATED_DOC_ID:
         check("Get doc detail", "GET", f"{BASE}/documents/{CREATED_DOC_ID}")
+
+    parent_child_content = (
+        "Parent child retrieval improves Advanced RAG context by storing a broad parent passage. "
+        "The child chunk carries precise rerank scoring details and points back to the parent passage. "
+        "Parent context helps citations explain query rewrite, retrieval, and rerank decisions together. "
+        * 8
+    )
+    parent_document_id = str(uuid.uuid4())
+    r, body = check("Ingest parent-child document", "POST", f"{AI_BASE}/ingest/document",
+                    json={
+                        "knowledge_base_id": CREATED_KB_ID,
+                        "document_id": parent_document_id,
+                        "title": f"Parent Child Doc {uuid.uuid4().hex[:4]}",
+                        "document_type": "tech_note",
+                        "file": {
+                            "filename": "parent-child.md",
+                            "file_type": "md",
+                            "content": parent_child_content,
+                            "mime_type": "text/markdown"
+                        },
+                        "metadata": {
+                            "topic": "parent-child",
+                            "chunk_strategy": "parent-child",
+                            "parent_chunk_size": 900,
+                            "child_chunk_size": 300
+                        }
+                    })
+    if r is not None and r.status_code == 200:
+        CREATED_PARENT_DOC_ID = check_field("Parent-child doc id", body, "document_id", parent_document_id)
+        PARENT_CHILD_DOC_INDEXED = True
+        chunk_count = body.get("chunk_count") if isinstance(body, dict) else None
+        if isinstance(chunk_count, int) and chunk_count >= 3:
+            PASS += 1
+            print(f"  PASS  Parent-child chunk count = {chunk_count}")
+        else:
+            FAIL += 1
+            ERRORS.append(f"Parent-child chunk count expected >= 3, got {chunk_count}")
+            print(f"  FAIL  Parent-child chunk count expected >= 3, got {chunk_count}")
 else:
     print("  SKIP  No KB, skipping document tests")
 
@@ -379,6 +432,49 @@ if CREATED_KB_ID:
                             check_field("Experiment summary best experiment", body, "data.bestExperimentName")
 else:
     print("  SKIP  No KB, skipping advanced RAG trace test")
+
+
+# ============================================================
+section("4B2. PARENT-CHILD INGEST TRACE")
+# ============================================================
+
+if CREATED_KB_ID and CREATED_PARENT_DOC_ID and PARENT_CHILD_DOC_INDEXED:
+    r, body = check("Parent-child RAG query", "POST", f"{BASE}/rag/query",
+                    json={"question": "How does parent child retrieval improve Advanced RAG context?",
+                          "knowledgeBaseId": CREATED_KB_ID,
+                          "topK": 2,
+                          "strategyName": "parent-child",
+                          "metadataFilters": {"topic": "parent-child"}})
+    if r is not None and r.status_code == 200:
+        CREATED_PARENT_CHILD_RUN_ID = check_field("Parent-child RAG runId", body, "data.runId")
+        check_field("Parent-child RAG status", body, "data.status", "COMPLETED")
+        check_field("Parent-child RAG strategy", body, "data.strategyName", "parent-child")
+
+    if CREATED_PARENT_CHILD_RUN_ID:
+        r, body = check("Get Parent-child RAG run", "GET", f"{BASE}/rag/runs/{CREATED_PARENT_CHILD_RUN_ID}")
+        if r is not None and r.status_code == 200:
+            retrieval_results = body.get("data", {}).get("retrievalResults") if isinstance(body, dict) else None
+            parent_child_metadata = (
+                retrieval_results[0].get("metadata", {})
+                if isinstance(retrieval_results, list) and retrieval_results and isinstance(retrieval_results[0], dict)
+                else {}
+            )
+            if parent_child_metadata.get("parent_child_mode") == "parent-child":
+                PASS += 1
+                print("  PASS  Parent-child run used real parent context")
+            else:
+                FAIL += 1
+                ERRORS.append(f"Parent-child run expected parent_child_mode=parent-child, got {parent_child_metadata.get('parent_child_mode')}")
+                print(f"  FAIL  Parent-child run expected parent_child_mode=parent-child, got {parent_child_metadata.get('parent_child_mode')}")
+            if parent_child_metadata.get("parent_chunk_id"):
+                PASS += 1
+                print(f"  PASS  Parent-child run parent chunk id present = {parent_child_metadata.get('parent_chunk_id')}")
+            else:
+                FAIL += 1
+                ERRORS.append("Parent-child run expected parent_chunk_id metadata")
+                print("  FAIL  Parent-child run expected parent_chunk_id metadata")
+else:
+    print("  SKIP  No parent-child document, skipping parent-child trace")
 
 
 # ============================================================
@@ -809,6 +905,9 @@ section("7. CLEANUP")
 
 if CREATED_DOC_ID:
     check("Delete document", "DELETE", f"{BASE}/documents/{CREATED_DOC_ID}")
+
+if CREATED_PARENT_DOC_ID:
+    check("Delete parent-child document", "DELETE", f"{BASE}/documents/{CREATED_PARENT_DOC_ID}", expect=[200, 404])
 
 if CREATED_EXP_ID:
     check("Delete experiment", "DELETE", f"{BASE}/rag/experiments/{CREATED_EXP_ID}")
