@@ -12,9 +12,9 @@ Date: 2026-06-08
 ## Completed
 
 - Added a node-style study agent workflow in `ai-service/app/agents/workflow.py`.
-- The workflow executes `classify_question -> select_rag_strategy -> retrieve_and_generate -> cite_sources`.
+- The workflow executes `classify_question -> select_rag_strategy -> retrieve_and_generate -> cite_sources -> generate_follow_up_questions`.
 - The workflow auto-routes implementation, troubleshooting, and interview questions to `advanced-rag` unless an explicit non-basic strategy is provided.
-- `/ai/agent/invoke` now returns `question_type`, `selected_strategy_name`, and `workflow_steps` while preserving `output`, `citations`, and `trace`.
+- `/ai/agent/invoke` now returns `question_type`, `selected_strategy_name`, `workflow_steps`, and `follow_up_questions` while preserving `output`, `citations`, and `trace`.
 - Added Spring Boot `/api/agent/invoke` bridge to FastAPI `/ai/agent/invoke`.
 - Added full-chain smoke coverage for Spring Boot -> FastAPI Agent invocation.
 

@@ -1348,3 +1348,13 @@ README 更新规则：
 - Frontend chat now uses `sendAssistantTurn()` and auto-creates a chat session when needed; browser calls remain under Spring Boot `/api/*`.
 - `smoke_test.py` now validates assistant-turn workflow metadata and feedback submission against the generated assistant message.
 - Key documents: `docs/plans/2026-06-08-assistant-turn-chat-flow.md`, `docs/reviews/2026-06-08-assistant-turn-chat-flow-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
+
+---
+
+## 2026-06-08 Agent Follow-Up Questions Update
+
+- Added AI Agent follow-up question generation as a dedicated workflow step after citation preparation.
+- Spring Boot now propagates FastAPI `follow_up_questions` into assistant-turn `followUpQuestions` responses.
+- Frontend chat displays returned follow-up questions as clickable prompts for the next turn.
+- `smoke_test.py` now asserts direct Agent and assistant-turn responses include follow-up questions, workflow step metadata, and matching trace attributes; local full-chain smoke passed with 74/74 checks.
+- Key documents: `docs/plans/2026-06-08-agent-follow-up-questions.md`, `docs/reviews/2026-06-08-agent-follow-up-questions-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.

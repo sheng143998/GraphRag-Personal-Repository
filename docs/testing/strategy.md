@@ -70,3 +70,11 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Backend Maven tests include `AssistantTurnServiceTest`, covering user/assistant message persistence and Agent request context propagation.
 - Frontend typecheck/build covers the new `sendAssistantTurn()` API wiring and chat store flow.
 - `smoke_test.py` now covers `POST /api/chat/{sessionId}/assistant-turn`, assistant workflow metadata, persisted messages, and feedback submission against the assistant message.
+
+## 2026-06-08 Agent Follow-Up Questions Validation
+
+- AI pytest covers the new `generate_follow_up_questions` workflow step, trace attribute, and three generated follow-up prompts.
+- Backend Maven tests cover `follow_up_questions` to `followUpQuestions` DTO propagation through Agent and assistant-turn services.
+- Frontend typecheck/build covers clickable follow-up prompts in the chat workbench.
+- `smoke_test.py` now verifies assistant-turn returns at least three non-empty `followUpQuestions` through Spring Boot.
+- Local full-chain smoke now passes 74/74 checks, including direct Agent and assistant-turn follow-up trace assertions.

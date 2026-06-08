@@ -219,7 +219,30 @@ Validated so far:
 
 Current remaining large project areas:
 
-- Broaden learning/interview assistant workflows with review cards, follow-up question generation, and session-level study plans.
+- Broaden learning/interview assistant workflows with review cards and session-level study plans.
+
+---
+
+## 2026-06-08 Agent Follow-Up Questions Update
+
+Completed in this iteration:
+
+- Added deterministic follow-up question generation to the AI Agent workflow after citation preparation.
+- Propagated `follow_up_questions` from FastAPI to Spring Boot `followUpQuestions` fields.
+- Assistant-turn responses now include follow-up questions.
+- Frontend chat displays follow-up questions as clickable prompts that refill the question input.
+- Full-chain smoke now asserts assistant-turn returns at least three non-empty follow-up questions.
+
+Validated so far:
+
+- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests.
+- `mvn test` passed with 8 tests.
+- `npm.cmd run typecheck` and `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 74/74 smoke checks.
+
+Current remaining large project areas:
+
+- Add richer learning artifacts such as review cards and session-level study plans.
 
 ---
 

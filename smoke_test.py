@@ -260,6 +260,38 @@ if CREATED_KB_ID:
             FAIL += 1
             ERRORS.append("Agent workflow expected at least four workflow steps")
             print("  FAIL  Agent workflow expected at least four workflow steps")
+        step_names = [step.get("name") for step in steps if isinstance(step, dict)] if steps else []
+        if "generate_follow_up_questions" in step_names:
+            PASS += 1
+            print("  PASS  Agent workflow follow-up step present")
+        else:
+            FAIL += 1
+            ERRORS.append("Agent workflow expected generate_follow_up_questions step")
+            print("  FAIL  Agent workflow expected generate_follow_up_questions step")
+        follow_up_questions = body.get("data", {}).get("followUpQuestions") if isinstance(body, dict) else None
+        if (
+            isinstance(follow_up_questions, list)
+            and len(follow_up_questions) >= 3
+            and all(isinstance(item, str) and item.strip() for item in follow_up_questions)
+        ):
+            PASS += 1
+            print(f"  PASS  Agent follow-up questions present = {len(follow_up_questions)}")
+        else:
+            FAIL += 1
+            ERRORS.append("Agent invoke expected at least three follow-up questions")
+            print("  FAIL  Agent invoke expected at least three follow-up questions")
+        trace_follow_ups = (
+            body.get("data", {}).get("trace", {}).get("attributes", {}).get("follow_up_questions")
+            if isinstance(body, dict)
+            else None
+        )
+        if trace_follow_ups == follow_up_questions:
+            PASS += 1
+            print("  PASS  Agent trace follow-up questions match response")
+        else:
+            FAIL += 1
+            ERRORS.append("Agent trace follow_up_questions expected to match response followUpQuestions")
+            print("  FAIL  Agent trace follow_up_questions expected to match response followUpQuestions")
 else:
     print("  SKIP  No KB, skipping agent workflow test")
 
@@ -379,6 +411,42 @@ if CREATED_SESSION_ID:
             FAIL += 1
             ERRORS.append("Assistant turn expected at least four workflow steps")
             print("  FAIL  Assistant turn expected at least four workflow steps")
+        assistant_step_names = (
+            [step.get("name") for step in workflow_steps if isinstance(step, dict)]
+            if workflow_steps
+            else []
+        )
+        if "generate_follow_up_questions" in assistant_step_names:
+            PASS += 1
+            print("  PASS  Assistant turn follow-up step present")
+        else:
+            FAIL += 1
+            ERRORS.append("Assistant turn expected generate_follow_up_questions step")
+            print("  FAIL  Assistant turn expected generate_follow_up_questions step")
+        follow_up_questions = body.get("data", {}).get("followUpQuestions") if isinstance(body, dict) else None
+        if (
+            isinstance(follow_up_questions, list)
+            and len(follow_up_questions) >= 3
+            and all(isinstance(item, str) and item.strip() for item in follow_up_questions)
+        ):
+            PASS += 1
+            print(f"  PASS  Assistant turn follow-up questions present = {len(follow_up_questions)}")
+        else:
+            FAIL += 1
+            ERRORS.append("Assistant turn expected at least three follow-up questions")
+            print("  FAIL  Assistant turn expected at least three follow-up questions")
+        assistant_trace_follow_ups = (
+            body.get("data", {}).get("trace", {}).get("attributes", {}).get("follow_up_questions")
+            if isinstance(body, dict)
+            else None
+        )
+        if assistant_trace_follow_ups == follow_up_questions:
+            PASS += 1
+            print("  PASS  Assistant turn trace follow-up questions match response")
+        else:
+            FAIL += 1
+            ERRORS.append("Assistant turn trace follow_up_questions expected to match response followUpQuestions")
+            print("  FAIL  Assistant turn trace follow_up_questions expected to match response followUpQuestions")
 
     # Correct URL: /api/chat/{sessionId}/messages (NOT /api/chat/sessions/{id}/messages)
     r, body = check("Add message", "POST", f"{BASE}/chat/{CREATED_SESSION_ID}/messages",

@@ -788,6 +788,22 @@ Base URL：`http://localhost:8001`，Spring Boot 通过 `AI_SERVICE_BASE_URL` / 
   "agent_name": "study-agent",
   "output": "Agent 输出",
   "citations": [],
+  "question_type": "interview",
+  "selected_strategy_name": "advanced-rag",
+  "workflow_steps": [
+    {
+      "name": "generate_follow_up_questions",
+      "detail": "Generated study and interview follow-up questions.",
+      "payload": {
+        "follow_up_count": 3
+      }
+    }
+  ],
+  "follow_up_questions": [
+    "Can you give a 60-second interview answer for this topic?",
+    "What follow-up challenge might an interviewer ask about this topic?",
+    "Which project experience can prove I really used this topic?"
+  ],
   "trace": {}
 }
 ```
