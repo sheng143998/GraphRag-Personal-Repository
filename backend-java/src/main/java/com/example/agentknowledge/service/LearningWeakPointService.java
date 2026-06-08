@@ -5,6 +5,7 @@ import com.example.agentknowledge.domain.ChatSession;
 import com.example.agentknowledge.domain.LearningWeakPoint;
 import com.example.agentknowledge.dto.agent.AgentInvokeResponse;
 import com.example.agentknowledge.dto.chat.LearningWeakPointResponse;
+import com.example.agentknowledge.dto.chat.LearningWeakPointSummaryResponse;
 import com.example.agentknowledge.dto.chat.UpdateLearningWeakPointRequest;
 import com.example.agentknowledge.repository.LearningWeakPointRepository;
 import java.time.Instant;
@@ -64,6 +65,43 @@ public class LearningWeakPointService {
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public LearningWeakPointSummaryResponse summarizeWeakPoints(UUID sessionId) {
+        chatService.getSession(sessionId);
+        List<LearningWeakPoint> weakPoints = learningWeakPointRepository.findBySession_Id(sessionId);
+        int totalCount = weakPoints.size();
+        int needsReviewCount = (int) weakPoints.stream()
+                .filter(weakPoint -> "NEEDS_REVIEW".equals(weakPoint.getMasteryStatus()))
+                .count();
+        int masteredCount = (int) weakPoints.stream()
+                .filter(weakPoint -> "MASTERED".equals(weakPoint.getMasteryStatus()))
+                .count();
+        int hardCount = (int) weakPoints.stream()
+                .filter(weakPoint -> "hard".equalsIgnoreCase(weakPoint.getDifficulty()))
+                .count();
+        int totalReviewCount = weakPoints.stream()
+                .map(LearningWeakPoint::getReviewCount)
+                .filter(java.util.Objects::nonNull)
+                .mapToInt(Integer::intValue)
+                .sum();
+        double completionRate = totalCount == 0 ? 0.0 : (double) masteredCount / totalCount;
+        LearningWeakPointResponse nextWeakPoint = learningWeakPointRepository
+                .findPrioritizedBySessionId(sessionId, PageRequest.of(0, 1))
+                .stream()
+                .findFirst()
+                .map(this::toResponse)
+                .orElse(null);
+        return new LearningWeakPointSummaryResponse(
+                totalCount,
+                needsReviewCount,
+                masteredCount,
+                hardCount,
+                totalReviewCount,
+                completionRate,
+                nextWeakPoint
+        );
     }
 
     @Transactional

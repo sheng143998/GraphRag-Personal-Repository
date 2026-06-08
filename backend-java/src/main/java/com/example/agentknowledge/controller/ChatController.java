@@ -10,6 +10,7 @@ import com.example.agentknowledge.dto.chat.CreateChatMessageRequest;
 import com.example.agentknowledge.dto.chat.CreateChatSessionRequest;
 import com.example.agentknowledge.dto.chat.CreateWeakPointPracticeTurnRequest;
 import com.example.agentknowledge.dto.chat.LearningWeakPointResponse;
+import com.example.agentknowledge.dto.chat.LearningWeakPointSummaryResponse;
 import com.example.agentknowledge.dto.chat.UpdateLearningWeakPointRequest;
 import com.example.agentknowledge.dto.chat.WeakPointPracticeTurnResponse;
 import com.example.agentknowledge.service.AssistantTurnService;
@@ -74,6 +75,11 @@ public class ChatController {
     @GetMapping("/{sessionId}/weak-points")
     public ApiResponse<List<LearningWeakPointResponse>> listWeakPoints(@PathVariable UUID sessionId) {
         return ApiResponse.success(learningWeakPointService.listWeakPoints(sessionId), TraceContext.getTraceId());
+    }
+
+    @GetMapping("/{sessionId}/weak-points/summary")
+    public ApiResponse<LearningWeakPointSummaryResponse> summarizeWeakPoints(@PathVariable UUID sessionId) {
+        return ApiResponse.success(learningWeakPointService.summarizeWeakPoints(sessionId), TraceContext.getTraceId());
     }
 
     @PostMapping("/{sessionId}/weak-points/{weakPointId}/practice-turn")

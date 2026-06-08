@@ -1487,3 +1487,12 @@ README 更新规则：
 - Extended the deterministic offline strategy comparison tests with graph relationship and graph expansion cases.
 - The fixture compares `advanced-rag` and `graph-rag`, expecting GraphRAG to win on recall@k, precision@k, MRR, and citation hit when relationship/traversal evidence is required.
 - Key documents: `docs/plans/2026-06-08-graphrag-offline-evaluation-fixture.md`, `docs/reviews/2026-06-08-graphrag-offline-evaluation-fixture-review-prompt.md`, `docs/experiments/2026-06-08-offline-rag-strategy-comparison.md`, and `docs/testing/strategy.md`.
+
+---
+
+## 2026-06-08 Weak Point Progress Summary Update
+
+- Added Spring Boot `GET /api/chat/{sessionId}/weak-points/summary` for session-level learning progress aggregation.
+- Frontend chat now displays weak point progress metrics and the next suggested practice item while keeping browser calls under Spring Boot `/api/*`.
+- Full-chain smoke now validates weak point summary before and after mastery assessment.
+- Key documents: `docs/plans/2026-06-08-weak-point-progress-summary.md`, `docs/reviews/2026-06-08-weak-point-progress-summary-review-prompt.md`, `docs/architecture/api-design.md`, and `docs/testing/strategy.md`.

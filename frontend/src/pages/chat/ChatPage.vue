@@ -178,6 +178,30 @@
           <p class="panel-subtitle">Session-level topics that need another pass.</p>
         </div>
         <div class="panel-body stack">
+          <div v-if="store.weakPointSummary" class="evaluation-dashboard">
+            <div class="dashboard-metric">
+              <span class="metric-label">Needs review</span>
+              <strong>{{ store.weakPointSummary.needsReviewCount }}</strong>
+            </div>
+            <div class="dashboard-metric">
+              <span class="metric-label">Mastered</span>
+              <strong>{{ store.weakPointSummary.masteredCount }}</strong>
+            </div>
+            <div class="dashboard-metric">
+              <span class="metric-label">Completion</span>
+              <strong>{{ formatPercent(store.weakPointSummary.completionRate) }}</strong>
+            </div>
+            <div class="dashboard-metric">
+              <span class="metric-label">Reviews</span>
+              <strong>{{ store.weakPointSummary.totalReviewCount }}</strong>
+            </div>
+          </div>
+          <article v-if="store.weakPointSummary?.nextWeakPoint" class="item-card item-card-active">
+            <h3 class="item-title">Next practice: {{ store.weakPointSummary.nextWeakPoint.topic }}</h3>
+            <div class="item-meta">
+              {{ store.weakPointSummary.nextWeakPoint.difficulty }} · {{ store.weakPointSummary.nextWeakPoint.masteryStatus }}
+            </div>
+          </article>
           <article v-for="point in store.weakPoints" :key="point.id" class="item-card">
             <h3 class="item-title">{{ point.topic }}</h3>
             <p class="item-description">{{ point.expectedAnswer }}</p>
@@ -247,5 +271,9 @@ async function createNewSession(): Promise<void> {
 
 function selectSession(sessionId: string): void {
   store.loadSessionMessages(sessionId);
+}
+
+function formatPercent(value: number): string {
+  return `${Math.round(value * 100)}%`;
 }
 </script>

@@ -501,6 +501,24 @@ Validated:
 
 ---
 
+## 2026-06-08 Weak Point Progress Summary Update
+
+Completed in this iteration:
+
+- Added Spring Boot `GET /api/chat/{sessionId}/weak-points/summary`.
+- Added weak point progress aggregation for total, needs-review, mastered, hard, total review count, completion rate, and next suggested weak point.
+- Frontend chat displays the progress summary above weak point cards.
+- `smoke_test.py` verifies the summary before and after mastery assessment.
+
+Validated:
+
+- `mvn test` passed with 16 tests.
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 122/122 smoke checks.
+
+---
+
 ## 2026-06-08 Weak Point Practice Flow Update
 
 Completed in this iteration:

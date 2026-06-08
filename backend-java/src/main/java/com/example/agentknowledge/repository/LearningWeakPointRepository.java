@@ -13,6 +13,8 @@ public interface LearningWeakPointRepository extends JpaRepository<LearningWeakP
 
     List<LearningWeakPoint> findTop20BySession_IdOrderByLastSeenAtDesc(UUID sessionId);
 
+    List<LearningWeakPoint> findBySession_Id(UUID sessionId);
+
     @Query("""
             select weakPoint from LearningWeakPoint weakPoint
             where weakPoint.session.id = :sessionId

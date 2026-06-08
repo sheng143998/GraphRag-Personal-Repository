@@ -8,6 +8,7 @@ import type {
   CitationSource,
   AssistantTurnResponse,
   LearningWeakPoint,
+  LearningWeakPointSummary,
   WeakPointPracticeTurn
 } from "../types";
 import { apiRequest } from "./client";
@@ -134,6 +135,10 @@ function mapAssistantTurnResponse(response: AssistantTurnResponse, fallbackStrat
 
 export function fetchWeakPoints(sessionId: string): Promise<LearningWeakPoint[]> {
   return apiRequest<LearningWeakPoint[]>(`/chat/${sessionId}/weak-points`);
+}
+
+export function fetchWeakPointSummary(sessionId: string): Promise<LearningWeakPointSummary> {
+  return apiRequest<LearningWeakPointSummary>(`/chat/${sessionId}/weak-points/summary`);
 }
 
 export async function practiceWeakPointTurn(

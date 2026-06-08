@@ -15,6 +15,7 @@ import type {
   FeedbackRequest,
   CitationSource,
   KnowledgeBaseSummary,
+  LearningWeakPointSummary,
   RagRunSummary,
   UploadPayload
 } from "../types";
@@ -40,6 +41,7 @@ import {
   fetchKnowledgeBases,
   fetchRagRuns,
   fetchSettings,
+  fetchWeakPointSummary,
   fetchWeakPoints,
   practiceWeakPointTurn,
   sendAssistantTurn,
@@ -183,6 +185,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
   const studyPlan = ref<ChatResponse["studyPlan"]>(null);
   const reviewCards = ref<NonNullable<ChatResponse["reviewCards"]>>([]);
   const weakPoints = ref<NonNullable<ChatResponse["weakPoints"]>>([]);
+  const weakPointSummary = ref<LearningWeakPointSummary | null>(null);
   const pending = ref(false);
   const uploadPending = ref(false);
   const lastError = ref("");
@@ -290,6 +293,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
           sessionMessages.value = await fetchChatMessages(currentSessionId.value);
           messages.value = mapHistoryMessages(sessionMessages.value);
           weakPoints.value = await fetchWeakPoints(currentSessionId.value);
+          weakPointSummary.value = await fetchWeakPointSummary(currentSessionId.value);
         } catch {
           // Keep the optimistic thread visible if session history refresh is unavailable.
         }
@@ -301,6 +305,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       studyPlan.value = null;
       reviewCards.value = [];
       weakPoints.value = [];
+      weakPointSummary.value = null;
       messages.value.push({
         id: `msg-assistant-${Date.now()}`,
         role: "assistant",
@@ -381,6 +386,8 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       currentSessionId.value = session.id;
       sessionMessages.value = [];
       messages.value = [];
+      weakPoints.value = [];
+      weakPointSummary.value = null;
     } catch (error) {
       lastError.value = error instanceof Error ? error.message : "创建会话失败。";
     } finally {
@@ -406,6 +413,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       currentSessionId.value = sessionId;
       messages.value = mapHistoryMessages(sessionMessages.value);
       weakPoints.value = await fetchWeakPoints(sessionId);
+      weakPointSummary.value = await fetchWeakPointSummary(sessionId);
     } catch (error) {
       lastError.value = error instanceof Error ? error.message : "加载消息失败。";
     }
@@ -415,6 +423,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     if (!currentSessionId.value) return;
     const updated = await updateWeakPoint(currentSessionId.value, weakPointId, masteryStatus);
     weakPoints.value = weakPoints.value.map((item) => (item.id === updated.id ? updated : item));
+    weakPointSummary.value = await fetchWeakPointSummary(currentSessionId.value);
   }
 
   async function practiceWeakPoint(weakPointId: string): Promise<void> {
@@ -438,6 +447,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       sessionMessages.value = await fetchChatMessages(currentSessionId.value);
       messages.value = mapHistoryMessages(sessionMessages.value);
       weakPoints.value = await fetchWeakPoints(currentSessionId.value);
+      weakPointSummary.value = await fetchWeakPointSummary(currentSessionId.value);
     } catch (error) {
       lastError.value = error instanceof Error ? error.message : "Unable to start weak point practice.";
     } finally {
@@ -655,6 +665,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     studyPlan,
     reviewCards,
     weakPoints,
+    weakPointSummary,
     lastFeedback,
     // actions
     askQuestion,

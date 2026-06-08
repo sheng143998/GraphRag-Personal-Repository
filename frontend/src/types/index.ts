@@ -138,6 +138,16 @@ export interface WeakPointPracticeTurn {
   turn: AssistantTurnResponse;
 }
 
+export interface LearningWeakPointSummary {
+  totalCount: number;
+  needsReviewCount: number;
+  masteredCount: number;
+  hardCount: number;
+  totalReviewCount: number;
+  completionRate: number;
+  nextWeakPoint?: LearningWeakPoint | null;
+}
+
 export interface AgentWorkflowStep {
   name: string;
   detail?: string;

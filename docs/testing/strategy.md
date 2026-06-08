@@ -120,6 +120,12 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - `smoke_test.py` now re-lists weak points after a mastery update and expects a `NEEDS_REVIEW` item first.
 - Local full-chain smoke now passes 89/89 checks.
 
+## 2026-06-08 Weak Point Progress Summary Validation
+
+- Backend Maven tests cover total, needs-review, mastered, hard, review-count, completion-rate, and next-item aggregation.
+- Frontend typecheck/build covers `fetchWeakPointSummary()`, Pinia summary state, and the chat workbench progress cards.
+- `smoke_test.py` verifies `GET /api/chat/{sessionId}/weak-points/summary` before and after marking a weak point mastered.
+
 ## 2026-06-08 RAG Experiment Evaluation Validation
 
 - Backend Maven tests include `RagExperimentServiceTest`, covering persisted run lookup, retrieval evidence mapping, FastAPI evaluator request construction, score persistence, status update, and notes append behavior.

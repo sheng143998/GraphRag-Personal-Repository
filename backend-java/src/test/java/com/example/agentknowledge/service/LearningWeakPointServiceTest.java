@@ -115,6 +115,30 @@ class LearningWeakPointServiceTest {
         assertThat(responses.get(0).topic()).isEqualTo("Needs graph traversal practice");
     }
 
+    @Test
+    void summarizeWeakPointsReturnsProgressAndNextReviewItem() {
+        UUID sessionId = UUID.randomUUID();
+        ChatSession session = new ChatSession();
+        session.setId(sessionId);
+        LearningWeakPoint needsReview = weakPoint(session, "Needs graph traversal practice", "NEEDS_REVIEW", "hard", 3);
+        LearningWeakPoint mastered = weakPoint(session, "Already mastered rerank", "MASTERED", "easy", 8);
+
+        when(chatService.getSession(sessionId)).thenReturn(session);
+        when(repository.findBySession_Id(sessionId)).thenReturn(List.of(needsReview, mastered));
+        when(repository.findPrioritizedBySessionId(org.mockito.ArgumentMatchers.eq(sessionId), ArgumentMatchers.any()))
+                .thenReturn(List.of(needsReview));
+
+        var summary = service.summarizeWeakPoints(sessionId);
+
+        assertThat(summary.totalCount()).isEqualTo(2);
+        assertThat(summary.needsReviewCount()).isEqualTo(1);
+        assertThat(summary.masteredCount()).isEqualTo(1);
+        assertThat(summary.hardCount()).isEqualTo(1);
+        assertThat(summary.totalReviewCount()).isEqualTo(11);
+        assertThat(summary.completionRate()).isEqualTo(0.5);
+        assertThat(summary.nextWeakPoint().topic()).isEqualTo("Needs graph traversal practice");
+    }
+
     private static LearningWeakPoint weakPoint(
             ChatSession session,
             String topic,
