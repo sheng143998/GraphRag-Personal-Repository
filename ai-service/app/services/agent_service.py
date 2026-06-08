@@ -32,6 +32,7 @@ class AgentService:
             selected_strategy_name=state.selected_strategy_name,
             follow_up_questions=state.follow_up_questions,
             study_plan=state.study_plan,
+            review_cards=state.review_cards,
             workflow_steps=state.steps,
             trace=trace,
         )

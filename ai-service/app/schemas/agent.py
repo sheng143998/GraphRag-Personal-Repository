@@ -25,6 +25,13 @@ class StudyPlan(BaseModel):
     steps: list[str] = Field(default_factory=list)
 
 
+class ReviewCard(BaseModel):
+    question: str
+    expected_answer: str
+    source_hint: str = ""
+    difficulty: str = "medium"
+
+
 class AgentInvokeResponse(BaseModel):
     agent_name: str
     output: str
@@ -33,5 +40,6 @@ class AgentInvokeResponse(BaseModel):
     selected_strategy_name: str = "basic-rag"
     follow_up_questions: list[str] = Field(default_factory=list)
     study_plan: StudyPlan | None = None
+    review_cards: list[ReviewCard] = Field(default_factory=list)
     workflow_steps: list[AgentWorkflowStep] = Field(default_factory=list)
     trace: TraceMetadata

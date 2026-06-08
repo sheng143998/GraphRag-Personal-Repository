@@ -28,12 +28,15 @@ def test_agent_workflow_routes_implementation_question_to_advanced_rag() -> None
         "cite_sources",
         "generate_follow_up_questions",
         "generate_study_plan",
+        "generate_review_cards",
     ]
     assert len(response.follow_up_questions) == 3
     assert response.trace.attributes["follow_up_questions"] == response.follow_up_questions
     assert response.study_plan is not None
     assert len(response.study_plan.steps) == 3
     assert response.trace.attributes["study_plan"] == response.study_plan.dict()
+    assert len(response.review_cards) == 2
+    assert response.trace.attributes["review_cards"] == [card.dict() for card in response.review_cards]
     assert response.trace.attributes["question_type"] == "implementation"
     assert response.trace.attributes["selected_strategy_name"] == "advanced-rag"
     assert response.trace.attributes["rag_trace_id"]
@@ -52,6 +55,7 @@ def test_agent_workflow_respects_explicit_strategy() -> None:
     assert response.citations
     assert response.follow_up_questions
     assert response.study_plan is not None
+    assert response.review_cards
 
 
 async def _invoke_agent(
