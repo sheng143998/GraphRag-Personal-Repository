@@ -51,3 +51,10 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Flyway migration `V202606081300__create_graph_facts.sql` is included in the backend package and executed during local Spring Boot startup.
 - AI pytest covers persisted graph fact lookup through the in-memory repository.
 - Full-chain smoke remains 54/54 after adding graph fact tables and ingest-time graph extraction.
+
+## 2026-06-08 Graph Facts Query Validation
+
+- Backend Maven tests now include `GraphFactServiceTest`, covering entity filter normalization, DTO mapping, and the 100-row query limit.
+- Frontend typecheck/build covers the new `/graph` workbench page and `frontend/src/api/graph.ts`.
+- The local full-chain script now runs the AI service in database-backed mode (`AI_RAG_USE_DATABASE=true`) so AI ingest writes graph facts into the same PostgreSQL database that Spring Boot reads.
+- Local full-chain smoke now covers `GET /api/graph/facts` and `GET /api/graph/facts?entity=GraphRAG`, passing 60/60 checks with persisted entity and relationship counts.

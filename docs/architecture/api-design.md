@@ -803,6 +803,7 @@ Base URL：`http://localhost:8001`，Spring Boot 通过 `AI_SERVICE_BASE_URL` / 
 | `frontend/src/api/chat.ts` | `POST /chat/sessions`、`GET /chat/sessions`、`POST /chat/{sessionId}/messages`、`GET /chat/{sessionId}/messages`、`POST /rag/query` |
 | `frontend/src/api/experiments.ts` | `GET /rag/experiments`、`GET /rag/experiments/{id}`、`POST /rag/experiments`、`PUT /rag/experiments/{id}`、`DELETE /rag/experiments/{id}` |
 | `frontend/src/api/feedback.ts` | `POST /feedback` |
+| `frontend/src/api/graph.ts` | `GET /graph/facts?knowledgeBaseId={uuid}&entity={optional}` |
 | `frontend/src/api/rag.ts` | `GET /rag/runs/{id}` |
 | `frontend/src/api/settings.ts` | `GET /settings` |
 

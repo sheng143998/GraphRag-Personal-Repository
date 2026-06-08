@@ -139,7 +139,11 @@ section("3. DOCUMENTS UPLOAD / LIST / DETAIL")
 # ============================================================
 
 if CREATED_KB_ID:
-    test_content = "This is a smoke test document.\nIt contains multiple lines.\nUsed for testing document ingestion."
+    test_content = (
+        "This is a smoke test document.\n"
+        "GraphRAG uses entities and relationships to enhance Advanced RAG retrieval.\n"
+        "Entity extraction links GraphRAG, RAG, Knowledge Graph, and Rerank signals."
+    )
     files = {"file": ("smoke-test.txt", test_content.encode("utf-8"), "text/plain")}
     data = {
         "knowledgeBaseId": CREATED_KB_ID,
@@ -289,6 +293,39 @@ if CREATED_KB_ID:
             check_field("GraphRAG run status", body, "data.status", "COMPLETED")
 else:
     print("  SKIP  No KB, skipping GraphRAG trace test")
+
+
+# ============================================================
+section("4E. GRAPH FACTS QUERY")
+# ============================================================
+
+if CREATED_KB_ID:
+    r, body = check("Get graph facts", "GET", f"{BASE}/graph/facts",
+                    params={"knowledgeBaseId": CREATED_KB_ID})
+    if r is not None and r.status_code == 200:
+        check_field("Graph facts entity count", body, "data.entityCount")
+        check_field("Graph facts relationship count", body, "data.relationshipCount")
+        entities = body.get("data", {}).get("entities") if isinstance(body, dict) else None
+        relationships = body.get("data", {}).get("relationships") if isinstance(body, dict) else None
+        if entities:
+            PASS += 1
+            print(f"  PASS  Graph facts entities present = {len(entities)}")
+        else:
+            FAIL += 1
+            ERRORS.append("Graph facts expected at least one entity")
+            print("  FAIL  Graph facts expected at least one entity")
+        if relationships:
+            PASS += 1
+            print(f"  PASS  Graph facts relationships present = {len(relationships)}")
+        else:
+            FAIL += 1
+            ERRORS.append("Graph facts expected at least one relationship")
+            print("  FAIL  Graph facts expected at least one relationship")
+
+    check("Get graph facts filtered", "GET", f"{BASE}/graph/facts",
+          params={"knowledgeBaseId": CREATED_KB_ID, "entity": "GraphRAG"})
+else:
+    print("  SKIP  No KB, skipping graph facts query test")
 
 
 # ============================================================

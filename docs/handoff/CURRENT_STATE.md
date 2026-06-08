@@ -200,5 +200,28 @@ Validated:
 Current remaining large project areas:
 
 - Add dedicated graph traversal/retrieval over persisted graph facts.
-- Add graph fact inspection APIs and UI.
+- Build learning and interview assistant product workflows.
+
+---
+
+## 2026-06-08 Graph Facts Query UI Update
+
+Completed in this iteration:
+
+- Added Spring Boot graph fact read API: `GET /api/graph/facts?knowledgeBaseId={uuid}&entity={optional}`.
+- Added JPA mappings and repositories for `graph_entities` and `graph_relationships`.
+- Added a Vue workbench page at `/graph` for inspecting persisted GraphRAG entities and relationships.
+- Extended `smoke_test.py` with graph fact query assertions.
+- Updated `scripts/test-fullchain-local.ps1` so full-chain validation runs the AI service in database-backed mode and verifies persisted graph facts through Spring Boot.
+
+Validated:
+
+- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests from `ai-service/`.
+- `mvn test` passed with 7 tests.
+- `npm.cmd run typecheck` and `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 60/60 smoke checks.
+
+Current remaining large project areas:
+
+- Add dedicated graph traversal/retrieval over persisted graph facts.
 - Build learning and interview assistant product workflows.

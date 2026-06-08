@@ -67,7 +67,7 @@ function Stop-StartedJob {
 
 Import-DotEnv
 
-$env:AI_RAG_USE_DATABASE = "false"
+$env:AI_RAG_USE_DATABASE = "true"
 $env:MODEL_PROVIDER = "stub"
 $env:LLM_PROVIDER = "stub"
 $env:EMBEDDING_PROVIDER = "stub"
@@ -96,7 +96,7 @@ try {
         $aiJob = Start-Job -Name "agent-rag-ai-service" -ScriptBlock {
             param($AiDir, $AiPython)
             Set-Location $AiDir
-            $env:AI_RAG_USE_DATABASE = "false"
+            $env:AI_RAG_USE_DATABASE = "true"
             $env:MODEL_PROVIDER = "stub"
             $env:LLM_PROVIDER = "stub"
             $env:EMBEDDING_PROVIDER = "stub"

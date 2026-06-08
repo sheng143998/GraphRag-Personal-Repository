@@ -1319,3 +1319,13 @@ README 更新规则：
 - `graph-rag` now reads persisted graph matches and includes them in trace attributes and citation metadata.
 - Verified AI pytest, backend Maven tests, frontend typecheck/build, and local full-chain smoke; full-chain remains 54/54.
 - Key document: `docs/plans/2026-06-08-graphrag-persistence.md`.
+
+---
+
+## 2026-06-08 Graph Facts Query UI Update
+
+- Added Spring Boot read API `GET /api/graph/facts?knowledgeBaseId={uuid}&entity={optional}` for persisted GraphRAG entities and relationships.
+- Added frontend `/graph` workbench page through `frontend/src/api/graph.ts`; browser calls still go through Spring Boot `/api/*`.
+- Updated the non-Docker local full-chain script so AI service uses the shared local PostgreSQL database during smoke validation, allowing graph facts written by AI ingest to be read by Spring Boot.
+- Extended `smoke_test.py` graph coverage; local full-chain smoke now passes 60/60 checks, including persisted graph entity and relationship assertions.
+- Key documents: `docs/plans/2026-06-08-graph-facts-query-ui.md`, `docs/reviews/2026-06-08-graph-facts-query-ui-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
