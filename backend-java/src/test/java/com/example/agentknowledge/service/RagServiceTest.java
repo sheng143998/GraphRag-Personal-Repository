@@ -18,6 +18,7 @@ import com.example.agentknowledge.domain.RagRetrievalResult;
 import com.example.agentknowledge.domain.RagRun;
 import com.example.agentknowledge.dto.rag.RagQueryRequest;
 import com.example.agentknowledge.dto.rag.RagQueryResponse;
+import com.example.agentknowledge.dto.rag.RagRunSummaryResponse;
 import com.example.agentknowledge.repository.DocumentChunkRepository;
 import com.example.agentknowledge.repository.KnowledgeDocumentRepository;
 import com.example.agentknowledge.repository.RagRetrievalResultRepository;
@@ -27,6 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageRequest;
 import org.mockito.ArgumentCaptor;
 
 class RagServiceTest {
@@ -207,5 +209,33 @@ class RagServiceTest {
         assertThat(response.status()).isEqualTo("COMPLETED");
         assertThat(response.citations()).isEmpty();
         verify(ragRetrievalResultRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void listRecentRunsReturnsClampedRunSummaries() {
+        UUID runId = UUID.randomUUID();
+        UUID knowledgeBaseId = UUID.randomUUID();
+        KnowledgeBase knowledgeBase = new KnowledgeBase();
+        knowledgeBase.setId(knowledgeBaseId);
+        RagRun run = new RagRun();
+        run.setId(runId);
+        run.setTraceId("trace-run");
+        run.setKnowledgeBase(knowledgeBase);
+        run.setQuestion("How does Advanced RAG rerank?");
+        run.setStrategyName("advanced-rag");
+        run.setRetrieverType("hybrid");
+        run.setModelName("stub-llm");
+        run.setLatencyMs(42L);
+        run.setStatus("COMPLETED");
+
+        when(ragRunRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, 50))).thenReturn(List.of(run));
+
+        List<RagRunSummaryResponse> responses = ragService.listRecentRuns(100);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).id()).isEqualTo(runId);
+        assertThat(responses.get(0).knowledgeBaseId()).isEqualTo(knowledgeBaseId);
+        assertThat(responses.get(0).strategyName()).isEqualTo("advanced-rag");
+        assertThat(responses.get(0).status()).isEqualTo("COMPLETED");
     }
 }

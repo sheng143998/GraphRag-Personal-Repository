@@ -16,6 +16,7 @@ import com.example.agentknowledge.domain.RagRun;
 import com.example.agentknowledge.dto.rag.RagQueryRequest;
 import com.example.agentknowledge.dto.rag.RagQueryResponse;
 import com.example.agentknowledge.dto.rag.RagRunResponse;
+import com.example.agentknowledge.dto.rag.RagRunSummaryResponse;
 import com.example.agentknowledge.repository.RagRetrievalResultRepository;
 import com.example.agentknowledge.repository.RagRunRepository;
 import com.example.agentknowledge.repository.DocumentChunkRepository;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -156,6 +158,14 @@ public class RagService {
         );
     }
 
+    public List<RagRunSummaryResponse> listRecentRuns(Integer limit) {
+        int pageSize = limit == null ? 20 : Math.max(1, Math.min(limit, 50));
+        return ragRunRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, pageSize))
+                .stream()
+                .map(this::toRunSummaryResponse)
+                .toList();
+    }
+
     public RagRun getRunEntity(UUID runId) {
         return ragRunRepository.findById(runId)
                 .orElseThrow(() -> new ResourceNotFoundException("RAG run not found: " + runId));
@@ -239,6 +249,23 @@ public class RagService {
 
     private Long toLongLatency(Double latencyMs) {
         return latencyMs == null ? null : Math.round(latencyMs);
+    }
+
+    private RagRunSummaryResponse toRunSummaryResponse(RagRun run) {
+        return new RagRunSummaryResponse(
+                run.getId(),
+                run.getTraceId(),
+                run.getSession() == null ? null : run.getSession().getId(),
+                run.getMessage() == null ? null : run.getMessage().getId(),
+                run.getKnowledgeBase() == null ? null : run.getKnowledgeBase().getId(),
+                run.getQuestion(),
+                run.getStrategyName(),
+                run.getRetrieverType(),
+                run.getModelName(),
+                run.getLatencyMs(),
+                run.getStatus(),
+                run.getCreatedAt()
+        );
     }
 
     private RagRunResponse.RetrievalResultResponse toRetrievalResultResponse(RagRetrievalResult result) {

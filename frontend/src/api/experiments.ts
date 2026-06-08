@@ -1,4 +1,10 @@
-import type { ExperimentRecord, ExperimentRequest, ExperimentUpdateRequest } from "../types";
+import type {
+  ExperimentEvaluationRequest,
+  ExperimentEvaluationResponse,
+  ExperimentRecord,
+  ExperimentRequest,
+  ExperimentUpdateRequest
+} from "../types";
 import { apiRequest } from "./client";
 
 export function fetchExperiments(): Promise<ExperimentRecord[]> {
@@ -19,6 +25,16 @@ export function createExperiment(payload: ExperimentRequest): Promise<Experiment
 export function updateExperiment(id: string, payload: ExperimentUpdateRequest): Promise<ExperimentRecord> {
   return apiRequest<ExperimentRecord>(`/rag/experiments/${id}`, {
     method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function evaluateExperiment(
+  id: string,
+  payload: ExperimentEvaluationRequest
+): Promise<ExperimentEvaluationResponse> {
+  return apiRequest<ExperimentEvaluationResponse>(`/rag/experiments/${id}/evaluate`, {
+    method: "POST",
     body: JSON.stringify(payload),
   });
 }

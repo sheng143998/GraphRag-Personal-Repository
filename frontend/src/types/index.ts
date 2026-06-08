@@ -318,6 +318,21 @@ export interface RagRunDetail {
   retrievalResults: RetrievalResult[];
 }
 
+export interface RagRunSummary {
+  id: string;
+  traceId: string;
+  sessionId?: string | null;
+  messageId?: string | null;
+  knowledgeBaseId?: string | null;
+  question: string;
+  strategyName: string;
+  retrieverType: string;
+  modelName?: string | null;
+  latencyMs?: number | null;
+  status: string;
+  createdAt: string;
+}
+
 // --- Graph Facts Types ---
 
 export interface GraphEntityFact {
@@ -372,6 +387,18 @@ export interface ExperimentRequest {
 }
 
 export type ExperimentUpdateRequest = Partial<ExperimentRequest>;
+
+export interface ExperimentEvaluationRequest {
+  runId: string;
+  expectedAnswer?: string;
+}
+
+export interface ExperimentEvaluationResponse {
+  experiment: ExperimentRecord;
+  groundedScore?: number | null;
+  retrievalScore?: number | null;
+  notes: string[];
+}
 
 // --- Health ---
 

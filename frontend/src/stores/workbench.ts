@@ -14,6 +14,7 @@ import type {
   FeedbackRequest,
   CitationSource,
   KnowledgeBaseSummary,
+  RagRunSummary,
   UploadPayload
 } from "../types";
 import {
@@ -21,6 +22,7 @@ import {
   addChatMessage,
   createChatSession,
   createExperiment,
+  evaluateExperiment,
   createFeedback,
   createKnowledgeBase,
   deleteDocument,
@@ -34,6 +36,7 @@ import {
   fetchExperiments,
   fetchKnowledgeBaseById,
   fetchKnowledgeBases,
+  fetchRagRuns,
   fetchSettings,
   fetchWeakPoints,
   practiceWeakPointTurn,
@@ -167,6 +170,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
   const knowledgeBases = ref<KnowledgeBaseSummary[]>(mockKnowledgeBases);
   const documents = ref<DocumentRecord[]>(sortByUpdatedAt(mockDocuments));
   const experiments = ref<ExperimentRecord[]>(mockExperiments);
+  const ragRuns = ref<RagRunSummary[]>([]);
   const messages = ref<ChatMessage[]>(mockMessages);
   const settings = ref<AppSettings>(loadPersistedSettings());
   const selectedStrategy = ref(ragStrategyOptions[0].value);
@@ -207,6 +211,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       fetchKnowledgeBases().then((data) => { knowledgeBases.value = data; }),
       fetchDocuments().then((data) => { documents.value = sortByUpdatedAt(data); }),
       fetchExperiments().then((data) => { experiments.value = data; }),
+      fetchRagRuns().then((data) => { ragRuns.value = data; }),
       fetchSettings().then((data) => { settings.value = data; }),
     ]);
 
@@ -216,6 +221,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       knowledgeBases.value = mockKnowledgeBases;
       documents.value = sortByUpdatedAt(mockDocuments);
       experiments.value = mockExperiments;
+      ragRuns.value = [];
       settings.value = mockSettings;
       lastError.value = "后端服务未就绪，当前使用本地示例数据展示。";
     } else if (failedCount > 0) {
@@ -557,6 +563,34 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     }
   }
 
+  async function loadRagRuns(limit = 20): Promise<void> {
+    lastError.value = "";
+    try {
+      ragRuns.value = await fetchRagRuns(limit);
+    } catch (error) {
+      lastError.value = error instanceof Error ? error.message : "Unable to load RAG runs.";
+    }
+  }
+
+  async function evaluateExp(id: string, runId: string, expectedAnswer?: string): Promise<void> {
+    experimentFormPending.value = true;
+    lastError.value = "";
+    try {
+      const result = await evaluateExperiment(id, {
+        runId,
+        expectedAnswer: expectedAnswer?.trim() || undefined
+      });
+      const idx = experiments.value.findIndex((item) => item.id === id);
+      if (idx >= 0) {
+        experiments.value[idx] = result.experiment;
+      }
+    } catch (error) {
+      lastError.value = error instanceof Error ? error.message : "Unable to evaluate experiment.";
+    } finally {
+      experimentFormPending.value = false;
+    }
+  }
+
   // --- Feedback ---
   async function submitFeedback(payload: FeedbackRequest): Promise<FeedbackRecord | null> {
     feedbackPending.value = true;
@@ -577,6 +611,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     // state
     documents,
     experiments,
+    ragRuns,
     indexedDocuments,
     knowledgeBases,
     lastError,
@@ -628,6 +663,8 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     updateExp,
     deleteExp,
     loadExpDetail,
+    loadRagRuns,
+    evaluateExp,
     // feedback
     submitFeedback,
   };

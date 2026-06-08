@@ -9,6 +9,7 @@ import com.example.agentknowledge.dto.rag.RagExperimentResponse;
 import com.example.agentknowledge.dto.rag.RagQueryRequest;
 import com.example.agentknowledge.dto.rag.RagQueryResponse;
 import com.example.agentknowledge.dto.rag.RagRunResponse;
+import com.example.agentknowledge.dto.rag.RagRunSummaryResponse;
 import com.example.agentknowledge.dto.rag.UpdateRagExperimentRequest;
 import com.example.agentknowledge.service.RagExperimentService;
 import com.example.agentknowledge.service.RagService;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -39,6 +41,13 @@ public class RagController {
     @PostMapping("/query")
     public ApiResponse<RagQueryResponse> query(@Valid @RequestBody RagQueryRequest request) {
         return ApiResponse.success(ragService.query(request), TraceContext.getTraceId());
+    }
+
+    @GetMapping("/runs")
+    public ApiResponse<List<RagRunSummaryResponse>> listRuns(
+            @RequestParam(name = "limit", required = false) Integer limit
+    ) {
+        return ApiResponse.success(ragService.listRecentRuns(limit), TraceContext.getTraceId());
     }
 
     @GetMapping("/runs/{id}")
