@@ -7,16 +7,25 @@ import com.example.agentknowledge.dto.agent.AgentInvokeResponse;
 import com.example.agentknowledge.dto.chat.LearningWeakPointResponse;
 import com.example.agentknowledge.dto.chat.LearningWeakPointSummaryResponse;
 import com.example.agentknowledge.dto.chat.UpdateLearningWeakPointRequest;
+import com.example.agentknowledge.dto.chat.WeakPointPracticeAssessmentResponse;
 import com.example.agentknowledge.repository.LearningWeakPointRepository;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class LearningWeakPointService {
+
+    private static final Pattern TOKEN_PATTERN = Pattern.compile("[\\p{IsAlphabetic}\\p{IsDigit}][\\p{IsAlphabetic}\\p{IsDigit}_-]*");
+    private static final double PASS_THRESHOLD = 0.65;
 
     private final LearningWeakPointRepository learningWeakPointRepository;
     private final ChatService chatService;
@@ -122,6 +131,35 @@ public class LearningWeakPointService {
         return toResponse(learningWeakPointRepository.save(weakPoint));
     }
 
+    @Transactional
+    public PracticeAssessmentResult assessPracticeAnswer(
+            UUID sessionId,
+            UUID weakPointId,
+            String userAnswer
+    ) {
+        chatService.getSession(sessionId);
+        LearningWeakPoint weakPoint = learningWeakPointRepository.findByIdAndSession_Id(weakPointId, sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Learning weak point not found: " + weakPointId));
+        double score = answerScore(weakPoint.getExpectedAnswer(), userAnswer);
+        boolean passed = score >= PASS_THRESHOLD;
+        String masteryStatus = passed ? "MASTERED" : "NEEDS_REVIEW";
+        String difficulty = passed ? "easy" : score < 0.35 ? "hard" : "medium";
+        weakPoint.setMasteryStatus(masteryStatus);
+        weakPoint.setDifficulty(difficulty);
+        weakPoint.setReviewCount((weakPoint.getReviewCount() == null ? 0 : weakPoint.getReviewCount()) + 1);
+        weakPoint.setLastSeenAt(Instant.now());
+        weakPoint.setLastAssessedAt(Instant.now());
+        LearningWeakPoint saved = learningWeakPointRepository.save(weakPoint);
+        WeakPointPracticeAssessmentResponse assessment = new WeakPointPracticeAssessmentResponse(
+                score,
+                passed,
+                masteryStatus,
+                difficulty,
+                assessmentFeedback(score, passed)
+        );
+        return new PracticeAssessmentResult(toResponse(saved), assessment);
+    }
+
     @Transactional(readOnly = true)
     public LearningWeakPoint getWeakPoint(UUID sessionId, UUID weakPointId) {
         chatService.getSession(sessionId);
@@ -149,6 +187,50 @@ public class LearningWeakPointService {
         return status;
     }
 
+    private static double answerScore(String expectedAnswer, String userAnswer) {
+        if (userAnswer == null || userAnswer.isBlank()) {
+            return 0.0;
+        }
+        Set<String> expectedTokens = contentTokens(expectedAnswer);
+        Set<String> answerTokens = contentTokens(userAnswer);
+        if (expectedTokens.isEmpty()) {
+            return answerTokens.isEmpty() ? 0.0 : 0.5;
+        }
+        if (answerTokens.isEmpty()) {
+            return 0.0;
+        }
+        long hits = expectedTokens.stream()
+                .filter(answerTokens::contains)
+                .count();
+        return (double) hits / expectedTokens.size();
+    }
+
+    private static Set<String> contentTokens(String value) {
+        if (value == null || value.isBlank()) {
+            return Set.of();
+        }
+        Set<String> tokens = new LinkedHashSet<>();
+        var matcher = TOKEN_PATTERN.matcher(value.toLowerCase(Locale.ROOT));
+        while (matcher.find()) {
+            String token = matcher.group();
+            if (token.length() > 2) {
+                tokens.add(token);
+            }
+        }
+        if (!tokens.isEmpty()) {
+            return tokens;
+        }
+        return new LinkedHashSet<>(Arrays.asList(value.trim().toLowerCase(Locale.ROOT).split("\\s+")));
+    }
+
+    private static String assessmentFeedback(double score, boolean passed) {
+        int percent = (int) Math.round(score * 100);
+        if (passed) {
+            return "Practice answer matched the expected weak-point answer at " + percent + "% overlap.";
+        }
+        return "Practice answer matched " + percent + "% of the expected answer; review the missing concepts and try again.";
+    }
+
     public LearningWeakPointResponse toResponse(LearningWeakPoint weakPoint) {
         return new LearningWeakPointResponse(
                 weakPoint.getId(),
@@ -165,6 +247,12 @@ public class LearningWeakPointService {
                 weakPoint.getLastAssessedAt(),
                 weakPoint.getCreatedAt()
         );
+    }
+
+    public record PracticeAssessmentResult(
+            LearningWeakPointResponse updatedWeakPoint,
+            WeakPointPracticeAssessmentResponse assessment
+    ) {
     }
 
 }

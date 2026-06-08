@@ -208,9 +208,30 @@
             <div class="item-meta">
               {{ point.difficulty }} · {{ point.masteryStatus }} · seen {{ point.reviewCount }} time{{ point.reviewCount === 1 ? "" : "s" }}
             </div>
+            <label class="form-row" style="margin-top: 0.75rem;">
+              <span class="form-label">Practice answer</span>
+              <textarea
+                v-model="practiceAnswers[point.id]"
+                class="textarea"
+                placeholder="Write your recall answer before asking the assistant to assess it"
+              />
+            </label>
+            <div v-if="store.lastWeakPointAssessment && assessedWeakPointId === point.id" class="item-meta">
+              Score {{ formatPercent(store.lastWeakPointAssessment.score) }}
+              · {{ store.lastWeakPointAssessment.masteryStatus }}
+              · {{ store.lastWeakPointAssessment.feedback }}
+            </div>
             <div class="button-row" style="margin-top: 0.75rem;">
               <button class="button button-secondary" type="button" :disabled="store.pending" @click="store.practiceWeakPoint(point.id)">
                 Practice
+              </button>
+              <button
+                class="button button-secondary"
+                type="button"
+                :disabled="store.pending || !practiceAnswers[point.id]?.trim()"
+                @click="submitPracticeAnswer(point.id)"
+              >
+                Submit answer
               </button>
               <button class="button button-secondary" type="button" @click="store.assessWeakPoint(point.id, 'NEEDS_REVIEW')">
                 Review again
@@ -229,7 +250,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from "vue";
+import { computed, reactive, ref, onMounted } from "vue";
 import SourceList from "../../components/SourceList.vue";
 import StrategySelector from "../../components/StrategySelector.vue";
 import UploadEntry from "../../components/UploadEntry.vue";
@@ -238,6 +259,8 @@ import { useWorkbenchStore } from "../../stores/workbench";
 const store = useWorkbenchStore();
 const question = ref("");
 const newSessionTitle = ref("");
+const practiceAnswers = reactive<Record<string, string>>({});
+const assessedWeakPointId = ref("");
 
 const strategyLabel = computed(() => {
   const item = store.ragStrategyOptions.find((option) => option.value === store.selectedStrategy);
@@ -271,6 +294,14 @@ async function createNewSession(): Promise<void> {
 
 function selectSession(sessionId: string): void {
   store.loadSessionMessages(sessionId);
+}
+
+async function submitPracticeAnswer(weakPointId: string): Promise<void> {
+  await store.practiceWeakPoint(weakPointId, practiceAnswers[weakPointId]);
+  if (!store.lastError) {
+    assessedWeakPointId.value = weakPointId;
+    practiceAnswers[weakPointId] = "";
+  }
 }
 
 function formatPercent(value: number): string {

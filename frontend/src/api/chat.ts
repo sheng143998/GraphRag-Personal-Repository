@@ -145,12 +145,11 @@ export async function practiceWeakPointTurn(
   sessionId: string,
   weakPointId: string,
   payload: { strategyName?: string; topK?: number; userAnswer?: string | null }
-): Promise<ChatResponse> {
-  const response = await apiRequest<WeakPointPracticeTurn>(`/chat/${sessionId}/weak-points/${weakPointId}/practice-turn`, {
+): Promise<WeakPointPracticeTurn> {
+  return apiRequest<WeakPointPracticeTurn>(`/chat/${sessionId}/weak-points/${weakPointId}/practice-turn`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
-  return mapAssistantTurnResponse(response.turn, payload.strategyName ?? "advanced-rag");
 }
 
 export function updateWeakPoint(

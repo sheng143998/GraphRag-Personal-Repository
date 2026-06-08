@@ -701,12 +701,21 @@ if CREATED_SESSION_ID:
                 check_field("Weak point summary next item", body, "data.nextWeakPoint.id")
             first_weak_point_id = weak_points[0].get("id") if isinstance(weak_points[0], dict) else None
             if first_weak_point_id:
+                first_expected_answer = weak_points[0].get("expectedAnswer") if isinstance(weak_points[0], dict) else None
                 r, body = check("Practice weak point turn", "POST",
                                 f"{BASE}/chat/{CREATED_SESSION_ID}/weak-points/{first_weak_point_id}/practice-turn",
-                                json={"strategyName": "advanced-rag", "topK": 4})
+                                json={
+                                    "strategyName": "advanced-rag",
+                                    "topK": 4,
+                                    "userAnswer": first_expected_answer or "GraphRAG traversal relationships and citations",
+                                    "autoAssess": True,
+                                })
                 if r is not None and r.status_code == 200:
                     check_field("Practice weak point id", body, "data.weakPoint.id", first_weak_point_id)
                     check_field("Practice assistant message", body, "data.turn.assistantMessage.id")
+                    check_field("Practice updated weak point id", body, "data.updatedWeakPoint.id", first_weak_point_id)
+                    check_field("Practice assessment status", body, "data.assessment.masteryStatus", "MASTERED")
+                    check_field("Practice summary completion", body, "data.summary.completionRate")
                     practice_cards = body.get("data", {}).get("turn", {}).get("reviewCards") if isinstance(body, dict) else None
                     if isinstance(practice_cards, list) and practice_cards:
                         PASS += 1

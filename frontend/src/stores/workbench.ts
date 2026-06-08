@@ -17,6 +17,7 @@ import type {
   CitationSource,
   KnowledgeBaseSummary,
   LearningWeakPointSummary,
+  WeakPointPracticeAssessment,
   RagRunDetail,
   RagRunSummary,
   UploadPayload
@@ -190,6 +191,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
   const reviewCards = ref<NonNullable<ChatResponse["reviewCards"]>>([]);
   const weakPoints = ref<NonNullable<ChatResponse["weakPoints"]>>([]);
   const weakPointSummary = ref<LearningWeakPointSummary | null>(null);
+  const lastWeakPointAssessment = ref<WeakPointPracticeAssessment | null>(null);
   const pending = ref(false);
   const uploadPending = ref(false);
   const lastError = ref("");
@@ -430,23 +432,29 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     weakPointSummary.value = await fetchWeakPointSummary(currentSessionId.value);
   }
 
-  async function practiceWeakPoint(weakPointId: string): Promise<void> {
+  async function practiceWeakPoint(weakPointId: string, userAnswer?: string): Promise<void> {
     if (!currentSessionId.value) return;
     pending.value = true;
     lastError.value = "";
     try {
       const result = await practiceWeakPointTurn(currentSessionId.value, weakPointId, {
         strategyName: selectedStrategy.value,
-        topK: 5
+        topK: 5,
+        userAnswer: userAnswer?.trim() || undefined
       });
-      traceId.value = result.traceId;
-      selectedStrategy.value = result.selectedStrategyName || selectedStrategy.value;
-      followUpQuestions.value = result.followUpQuestions ?? [];
-      studyPlan.value = result.studyPlan ?? null;
-      reviewCards.value = result.reviewCards ?? [];
-      weakPoints.value = result.weakPoints ?? [];
-      if (result.userMessage && result.assistantMessage) {
-        messages.value.push(...mapHistoryMessages([result.userMessage, result.assistantMessage]));
+      const turn = result.turn;
+      traceId.value = turn.trace?.traceId ?? turn.assistantMessage.traceId ?? turn.userMessage.traceId ?? traceId.value;
+      selectedStrategy.value = turn.selectedStrategyName || selectedStrategy.value;
+      followUpQuestions.value = turn.followUpQuestions ?? [];
+      studyPlan.value = turn.studyPlan ?? null;
+      reviewCards.value = turn.reviewCards ?? [];
+      weakPoints.value = result.updatedWeakPoint
+        ? weakPoints.value.map((item) => (item.id === result.updatedWeakPoint?.id ? result.updatedWeakPoint : item))
+        : turn.weakPoints ?? [];
+      weakPointSummary.value = result.summary ?? weakPointSummary.value;
+      lastWeakPointAssessment.value = result.assessment ?? null;
+      if (turn.userMessage && turn.assistantMessage) {
+        messages.value.push(...mapHistoryMessages([turn.userMessage, turn.assistantMessage]));
       }
       sessionMessages.value = await fetchChatMessages(currentSessionId.value);
       messages.value = mapHistoryMessages(sessionMessages.value);
@@ -698,6 +706,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     reviewCards,
     weakPoints,
     weakPointSummary,
+    lastWeakPointAssessment,
     lastFeedback,
     // actions
     askQuestion,

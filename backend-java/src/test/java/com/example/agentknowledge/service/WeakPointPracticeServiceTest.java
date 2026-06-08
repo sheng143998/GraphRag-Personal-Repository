@@ -11,6 +11,9 @@ import com.example.agentknowledge.dto.chat.AssistantTurnResponse;
 import com.example.agentknowledge.dto.chat.ChatMessageResponse;
 import com.example.agentknowledge.dto.chat.CreateAssistantTurnRequest;
 import com.example.agentknowledge.dto.chat.CreateWeakPointPracticeTurnRequest;
+import com.example.agentknowledge.dto.chat.LearningWeakPointResponse;
+import com.example.agentknowledge.dto.chat.LearningWeakPointSummaryResponse;
+import com.example.agentknowledge.dto.chat.WeakPointPracticeAssessmentResponse;
 import com.example.agentknowledge.dto.chat.WeakPointPracticeTurnResponse;
 import java.time.Instant;
 import java.util.List;
@@ -43,8 +46,57 @@ class WeakPointPracticeServiceTest {
         weakPoint.setMasteryStatus("NEEDS_REVIEW");
         weakPoint.setReviewCount(3);
         weakPoint.setLastSeenAt(Instant.parse("2026-06-08T00:00:00Z"));
+        LearningWeakPointResponse weakPointResponse = new LearningWeakPointResponse(
+                weakPointId,
+                sessionId,
+                null,
+                null,
+                "Graph traversal recall",
+                "Explain one-hop expansion evidence.",
+                "graph notes",
+                "hard",
+                "NEEDS_REVIEW",
+                3,
+                Instant.parse("2026-06-08T00:00:00Z"),
+                null,
+                null
+        );
+        LearningWeakPointResponse updatedWeakPoint = new LearningWeakPointResponse(
+                weakPointId,
+                sessionId,
+                null,
+                null,
+                "Graph traversal recall",
+                "Explain one-hop expansion evidence.",
+                "graph notes",
+                "easy",
+                "MASTERED",
+                4,
+                Instant.parse("2026-06-08T00:01:00Z"),
+                Instant.parse("2026-06-08T00:01:00Z"),
+                null
+        );
+        WeakPointPracticeAssessmentResponse assessment = new WeakPointPracticeAssessmentResponse(
+                0.8,
+                true,
+                "MASTERED",
+                "easy",
+                "Practice answer matched the expected weak-point answer at 80% overlap."
+        );
+        LearningWeakPointSummaryResponse summary = new LearningWeakPointSummaryResponse(
+                1,
+                0,
+                1,
+                0,
+                4,
+                1.0,
+                updatedWeakPoint
+        );
         when(learningWeakPointService.getWeakPoint(sessionId, weakPointId)).thenReturn(weakPoint);
-        when(learningWeakPointService.toResponse(weakPoint)).thenCallRealMethod();
+        when(learningWeakPointService.toResponse(weakPoint)).thenReturn(weakPointResponse);
+        when(learningWeakPointService.assessPracticeAnswer(sessionId, weakPointId, "My rough answer"))
+                .thenReturn(new LearningWeakPointService.PracticeAssessmentResult(updatedWeakPoint, assessment));
+        when(learningWeakPointService.summarizeWeakPoints(sessionId)).thenReturn(summary);
         AssistantTurnResponse assistantTurn = new AssistantTurnResponse(
                 new ChatMessageResponse(UUID.randomUUID(), sessionId, "user", "practice", "[]", "trace", null),
                 new ChatMessageResponse(UUID.randomUUID(), sessionId, "assistant", "answer", "[]", "trace", null),
@@ -64,7 +116,7 @@ class WeakPointPracticeServiceTest {
         WeakPointPracticeTurnResponse response = service.runPracticeTurn(
                 sessionId,
                 weakPointId,
-                new CreateWeakPointPracticeTurnRequest("advanced-rag", 4, "My rough answer")
+                new CreateWeakPointPracticeTurnRequest("advanced-rag", 4, "My rough answer", true)
         );
 
         ArgumentCaptor<CreateAssistantTurnRequest> request = ArgumentCaptor.forClass(CreateAssistantTurnRequest.class);
@@ -75,6 +127,9 @@ class WeakPointPracticeServiceTest {
         assertThat(request.getValue().variables()).containsEntry("mode", "weak-point-practice");
         assertThat(request.getValue().variables()).containsEntry("weakPointId", weakPointId.toString());
         assertThat(response.weakPoint().id()).isEqualTo(weakPointId);
+        assertThat(response.updatedWeakPoint().masteryStatus()).isEqualTo("MASTERED");
+        assertThat(response.assessment().passed()).isTrue();
+        assertThat(response.summary().completionRate()).isEqualTo(1.0);
         assertThat(response.turn()).isSameAs(assistantTurn);
     }
 }

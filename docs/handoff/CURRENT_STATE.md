@@ -519,6 +519,24 @@ Validated:
 
 ---
 
+## 2026-06-08 Weak Point Practice Assessment Update
+
+Completed in this iteration:
+
+- Added deterministic practice-answer scoring for learning weak points in Spring Boot.
+- Practice turns with `userAnswer` now return assessment, updated weak point, refreshed summary, and the existing assistant turn.
+- Frontend weak point cards now support answer submission and display the latest assessment feedback.
+- Full-chain smoke now validates automatic mastery assessment through the practice endpoint.
+
+Validated:
+
+- `mvn test` passed with 18 tests after rerunning with elevated permissions for the local Maven repository.
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 126/126 smoke checks.
+
+---
+
 ## 2026-06-08 Structured RAG Evaluation UI Update
 
 Completed in this iteration:

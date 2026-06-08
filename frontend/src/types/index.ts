@@ -135,7 +135,18 @@ export interface LearningWeakPoint {
 
 export interface WeakPointPracticeTurn {
   weakPoint: LearningWeakPoint;
+  updatedWeakPoint?: LearningWeakPoint | null;
+  assessment?: WeakPointPracticeAssessment | null;
+  summary?: LearningWeakPointSummary | null;
   turn: AssistantTurnResponse;
+}
+
+export interface WeakPointPracticeAssessment {
+  score: number;
+  passed: boolean;
+  masteryStatus: string;
+  difficulty: string;
+  feedback: string;
 }
 
 export interface LearningWeakPointSummary {

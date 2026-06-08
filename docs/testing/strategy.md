@@ -192,3 +192,11 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Frontend typecheck/build covers loading selected RAG run details through Spring Boot, deriving a structured case from the top retrieval result, clearing the case, and submitting optional structured fields during experiment evaluation.
 - The UI still calls only Spring Boot `/api/*` endpoints; it does not call FastAPI directly.
 - Local full-chain smoke remained green with 123/123 checks after the UI wiring.
+
+## 2026-06-08 Weak Point Practice Assessment Validation
+
+- Backend Maven tests cover deterministic weak point answer scoring for mastered and needs-review outcomes.
+- Backend Maven tests cover practice-turn responses that include assessment, updated weak point, and summary.
+- Frontend typecheck/build covers weak point answer inputs, practice assessment display, and store refresh behavior.
+- `smoke_test.py` now submits `userAnswer` to the weak point practice endpoint and verifies assessment status, updated weak point, and summary.
+- Local full-chain smoke passed with 126/126 checks.

@@ -1525,3 +1525,13 @@ README 更新规则：
 - No browser-to-FastAPI calls were added.
 - Local validation passed: `npm.cmd run typecheck`, `npm.cmd run build`, and non-Docker full-chain smoke 123/123.
 - Key documents: `docs/plans/2026-06-08-structured-rag-evaluation-ui.md`, `docs/reviews/2026-06-08-structured-rag-evaluation-ui-review-prompt.md`, and `docs/testing/strategy.md`.
+
+---
+
+## 2026-06-08 Weak Point Practice Assessment Update
+
+- Added automatic weak point practice assessment from submitted user answers using deterministic expected-answer overlap scoring in Spring Boot.
+- Practice responses now include assessment, updated weak point, refreshed summary, and the existing assistant turn.
+- Frontend weak point cards now provide an answer box and show the latest assessment feedback.
+- Full-chain smoke validates the answer submission path; latest local smoke passed with 126/126 checks.
+- Key documents: `docs/plans/2026-06-08-weak-point-practice-assessment.md`, `docs/reviews/2026-06-08-weak-point-practice-assessment-review-prompt.md`, and `docs/testing/strategy.md`.

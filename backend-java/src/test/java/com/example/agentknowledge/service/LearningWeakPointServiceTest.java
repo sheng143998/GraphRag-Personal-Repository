@@ -97,6 +97,57 @@ class LearningWeakPointServiceTest {
     }
 
     @Test
+    void assessPracticeAnswerMastersHighOverlapAnswer() {
+        UUID sessionId = UUID.randomUUID();
+        UUID weakPointId = UUID.randomUUID();
+        ChatSession session = new ChatSession();
+        session.setId(sessionId);
+        LearningWeakPoint weakPoint = weakPoint(session, "Rerank evidence", "NEEDS_REVIEW", "hard", 2);
+        weakPoint.setId(weakPointId);
+        weakPoint.setExpectedAnswer("Use rerank score and trace evidence to prove retrieval quality.");
+
+        when(chatService.getSession(sessionId)).thenReturn(session);
+        when(repository.findByIdAndSession_Id(weakPointId, sessionId)).thenReturn(Optional.of(weakPoint));
+        when(repository.save(weakPoint)).thenReturn(weakPoint);
+
+        var result = service.assessPracticeAnswer(
+                sessionId,
+                weakPointId,
+                "Use rerank score and trace evidence to prove retrieval quality."
+        );
+
+        assertThat(result.assessment().passed()).isTrue();
+        assertThat(result.assessment().masteryStatus()).isEqualTo("MASTERED");
+        assertThat(result.updatedWeakPoint().masteryStatus()).isEqualTo("MASTERED");
+        assertThat(result.updatedWeakPoint().difficulty()).isEqualTo("easy");
+        assertThat(result.updatedWeakPoint().reviewCount()).isEqualTo(3);
+        assertThat(result.updatedWeakPoint().lastAssessedAt()).isNotNull();
+    }
+
+    @Test
+    void assessPracticeAnswerKeepsLowOverlapAnswerNeedsReview() {
+        UUID sessionId = UUID.randomUUID();
+        UUID weakPointId = UUID.randomUUID();
+        ChatSession session = new ChatSession();
+        session.setId(sessionId);
+        LearningWeakPoint weakPoint = weakPoint(session, "Graph traversal", "NEEDS_REVIEW", "medium", 1);
+        weakPoint.setId(weakPointId);
+        weakPoint.setExpectedAnswer("Graph traversal expands entity relationships for citations.");
+
+        when(chatService.getSession(sessionId)).thenReturn(session);
+        when(repository.findByIdAndSession_Id(weakPointId, sessionId)).thenReturn(Optional.of(weakPoint));
+        when(repository.save(weakPoint)).thenReturn(weakPoint);
+
+        var result = service.assessPracticeAnswer(sessionId, weakPointId, "CRUD screens manage forms.");
+
+        assertThat(result.assessment().passed()).isFalse();
+        assertThat(result.assessment().masteryStatus()).isEqualTo("NEEDS_REVIEW");
+        assertThat(result.updatedWeakPoint().masteryStatus()).isEqualTo("NEEDS_REVIEW");
+        assertThat(result.updatedWeakPoint().difficulty()).isEqualTo("hard");
+        assertThat(result.updatedWeakPoint().reviewCount()).isEqualTo(2);
+    }
+
+    @Test
     void listWeakPointsUsesPrioritizedReviewOrder() {
         UUID sessionId = UUID.randomUUID();
         ChatSession session = new ChatSession();

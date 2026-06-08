@@ -5,6 +5,8 @@ import com.example.agentknowledge.dto.chat.AssistantTurnResponse;
 import com.example.agentknowledge.dto.chat.CreateAssistantTurnRequest;
 import com.example.agentknowledge.dto.chat.CreateWeakPointPracticeTurnRequest;
 import com.example.agentknowledge.dto.chat.LearningWeakPointResponse;
+import com.example.agentknowledge.dto.chat.LearningWeakPointSummaryResponse;
+import com.example.agentknowledge.dto.chat.WeakPointPracticeAssessmentResponse;
 import com.example.agentknowledge.dto.chat.WeakPointPracticeTurnResponse;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -46,7 +48,22 @@ public class WeakPointPracticeService {
                 Map.of(),
                 variables
         ));
-        return new WeakPointPracticeTurnResponse(weakPointResponse, turn);
+        LearningWeakPointResponse updatedWeakPoint = weakPointResponse;
+        WeakPointPracticeAssessmentResponse assessment = null;
+        if (shouldAutoAssess(request)) {
+            LearningWeakPointService.PracticeAssessmentResult result =
+                    learningWeakPointService.assessPracticeAnswer(sessionId, weakPointId, request.userAnswer());
+            updatedWeakPoint = result.updatedWeakPoint();
+            assessment = result.assessment();
+        }
+        LearningWeakPointSummaryResponse summary = learningWeakPointService.summarizeWeakPoints(sessionId);
+        return new WeakPointPracticeTurnResponse(weakPointResponse, updatedWeakPoint, assessment, summary, turn);
+    }
+
+    private static boolean shouldAutoAssess(CreateWeakPointPracticeTurnRequest request) {
+        return request.userAnswer() != null
+                && !request.userAnswer().isBlank()
+                && !Boolean.FALSE.equals(request.autoAssess());
     }
 
     private static String buildPracticePrompt(LearningWeakPointResponse weakPoint, String userAnswer) {
