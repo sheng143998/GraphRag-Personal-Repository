@@ -5,6 +5,7 @@ import com.example.agentknowledge.common.api.TraceContext;
 import com.example.agentknowledge.dto.rag.CreateRagExperimentRequest;
 import com.example.agentknowledge.dto.rag.EvaluateRagExperimentRequest;
 import com.example.agentknowledge.dto.rag.RagExperimentEvaluationResponse;
+import com.example.agentknowledge.dto.rag.RagExperimentEvaluationSummaryResponse;
 import com.example.agentknowledge.dto.rag.RagExperimentResponse;
 import com.example.agentknowledge.dto.rag.RagQueryRequest;
 import com.example.agentknowledge.dto.rag.RagQueryResponse;
@@ -58,6 +59,13 @@ public class RagController {
     @GetMapping("/experiments")
     public ApiResponse<List<RagExperimentResponse>> listExperiments() {
         return ApiResponse.success(ragExperimentService.list(), TraceContext.getTraceId());
+    }
+
+    @GetMapping("/experiment-evaluations/summary")
+    public ApiResponse<RagExperimentEvaluationSummaryResponse> summarizeExperimentEvaluations(
+            @RequestParam(name = "limit", required = false) Integer limit
+    ) {
+        return ApiResponse.success(ragExperimentService.summarizeEvaluations(limit), TraceContext.getTraceId());
     }
 
     @GetMapping("/experiments/{id}")

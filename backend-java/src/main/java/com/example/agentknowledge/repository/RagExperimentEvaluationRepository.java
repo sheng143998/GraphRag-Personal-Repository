@@ -9,4 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface RagExperimentEvaluationRepository extends JpaRepository<RagExperimentEvaluation, UUID> {
 
     List<RagExperimentEvaluation> findByExperiment_IdOrderByCreatedAtDesc(UUID experimentId, Pageable pageable);
+
+    List<RagExperimentEvaluation> findAllByOrderByCreatedAtDesc(Pageable pageable);
 }

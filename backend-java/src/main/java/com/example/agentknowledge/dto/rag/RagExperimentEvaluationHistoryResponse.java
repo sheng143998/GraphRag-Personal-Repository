@@ -6,6 +6,7 @@ import java.util.UUID;
 public record RagExperimentEvaluationHistoryResponse(
         UUID id,
         UUID experimentId,
+        String experimentName,
         UUID runId,
         String runQuestion,
         String runStrategyName,

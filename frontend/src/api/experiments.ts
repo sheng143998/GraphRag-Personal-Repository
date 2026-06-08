@@ -1,6 +1,7 @@
 import type {
   ExperimentEvaluationRequest,
   ExperimentEvaluationResponse,
+  ExperimentEvaluationSummary,
   ExperimentRecord,
   ExperimentRequest,
   ExperimentUpdateRequest
@@ -13,6 +14,10 @@ export function fetchExperiments(): Promise<ExperimentRecord[]> {
 
 export function fetchExperimentById(id: string): Promise<ExperimentRecord> {
   return apiRequest<ExperimentRecord>(`/rag/experiments/${id}`);
+}
+
+export function fetchExperimentEvaluationSummary(limit = 20): Promise<ExperimentEvaluationSummary> {
+  return apiRequest<ExperimentEvaluationSummary>(`/rag/experiment-evaluations/summary?limit=${limit}`);
 }
 
 export function createExperiment(payload: ExperimentRequest): Promise<ExperimentRecord> {

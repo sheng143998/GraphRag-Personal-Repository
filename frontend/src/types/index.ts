@@ -421,6 +421,15 @@ export interface ExperimentEvaluationResponse {
   history?: ExperimentEvaluationHistory[];
 }
 
+export interface ExperimentEvaluationSummary {
+  evaluationCount: number;
+  averageGrounded?: number | null;
+  averageRetrieval?: number | null;
+  bestExperimentId?: string | null;
+  bestExperimentName?: string | null;
+  recentEvaluations: ExperimentEvaluationHistory[];
+}
+
 // --- Health ---
 
 export interface HealthResponse {

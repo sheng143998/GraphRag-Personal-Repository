@@ -8,6 +8,7 @@ import type {
   ChatSession,
   DocumentRecord,
   ExperimentRecord,
+  ExperimentEvaluationSummary,
   ExperimentRequest,
   ExperimentUpdateRequest,
   FeedbackRecord,
@@ -32,6 +33,7 @@ import {
   fetchChatSessions,
   fetchDocumentById,
   fetchDocuments,
+  fetchExperimentEvaluationSummary,
   fetchExperimentById,
   fetchExperiments,
   fetchKnowledgeBaseById,
@@ -49,6 +51,7 @@ import {
 import {
   mockDocuments,
   mockExperiments,
+  mockExperimentEvaluationSummary,
   mockKnowledgeBases,
   mockMessages,
   mockSettings,
@@ -170,6 +173,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
   const knowledgeBases = ref<KnowledgeBaseSummary[]>(mockKnowledgeBases);
   const documents = ref<DocumentRecord[]>(sortByUpdatedAt(mockDocuments));
   const experiments = ref<ExperimentRecord[]>(mockExperiments);
+  const experimentEvaluationSummary = ref<ExperimentEvaluationSummary>(mockExperimentEvaluationSummary);
   const ragRuns = ref<RagRunSummary[]>([]);
   const messages = ref<ChatMessage[]>(mockMessages);
   const settings = ref<AppSettings>(loadPersistedSettings());
@@ -211,6 +215,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       fetchKnowledgeBases().then((data) => { knowledgeBases.value = data; }),
       fetchDocuments().then((data) => { documents.value = sortByUpdatedAt(data); }),
       fetchExperiments().then((data) => { experiments.value = data; }),
+      fetchExperimentEvaluationSummary().then((data) => { experimentEvaluationSummary.value = data; }),
       fetchRagRuns().then((data) => { ragRuns.value = data; }),
       fetchSettings().then((data) => { settings.value = data; }),
     ]);
@@ -221,6 +226,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       knowledgeBases.value = mockKnowledgeBases;
       documents.value = sortByUpdatedAt(mockDocuments);
       experiments.value = mockExperiments;
+      experimentEvaluationSummary.value = mockExperimentEvaluationSummary;
       ragRuns.value = [];
       settings.value = mockSettings;
       lastError.value = "后端服务未就绪，当前使用本地示例数据展示。";
@@ -563,6 +569,15 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     }
   }
 
+  async function loadExperimentEvaluationSummary(limit = 20): Promise<void> {
+    lastError.value = "";
+    try {
+      experimentEvaluationSummary.value = await fetchExperimentEvaluationSummary(limit);
+    } catch (error) {
+      lastError.value = error instanceof Error ? error.message : "Unable to load experiment evaluation summary.";
+    }
+  }
+
   async function loadRagRuns(limit = 20): Promise<void> {
     lastError.value = "";
     try {
@@ -584,6 +599,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       if (idx >= 0) {
         experiments.value[idx] = result.experiment;
       }
+      await loadExperimentEvaluationSummary();
     } catch (error) {
       lastError.value = error instanceof Error ? error.message : "Unable to evaluate experiment.";
     } finally {
@@ -611,6 +627,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     // state
     documents,
     experiments,
+    experimentEvaluationSummary,
     ragRuns,
     indexedDocuments,
     knowledgeBases,
@@ -664,6 +681,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     deleteExp,
     loadExpDetail,
     loadRagRuns,
+    loadExperimentEvaluationSummary,
     evaluateExp,
     // feedback
     submitFeedback,

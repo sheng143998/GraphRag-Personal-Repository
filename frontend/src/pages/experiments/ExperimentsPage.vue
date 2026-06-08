@@ -236,6 +236,16 @@ interface EvaluationDashboard {
 }
 
 const evaluationDashboard = computed<EvaluationDashboard>(() => {
+  const summary = store.experimentEvaluationSummary;
+  if (summary.evaluationCount > 0) {
+    return {
+      evaluationCount: summary.evaluationCount,
+      averageGrounded: summary.averageGrounded ?? undefined,
+      averageRetrieval: summary.averageRetrieval ?? undefined,
+      bestExperimentName: summary.bestExperimentName ?? "pending"
+    };
+  }
+
   const evaluations = store.experiments.flatMap((experiment) =>
     (experiment.evaluations ?? []).map((evaluation) => ({ experiment, evaluation }))
   );
@@ -410,5 +420,6 @@ async function handleDelete(id: string): Promise<void> {
 
 onMounted(() => {
   store.loadRagRuns();
+  store.loadExperimentEvaluationSummary();
 });
 </script>

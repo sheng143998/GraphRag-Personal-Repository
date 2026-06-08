@@ -3,6 +3,7 @@ import type {
   ChatMessage,
   CitationSource,
   DocumentRecord,
+  ExperimentEvaluationSummary,
   ExperimentRecord,
   KnowledgeBaseSummary,
   RagStrategyOption
@@ -217,6 +218,21 @@ export const mockExperiments: ExperimentRecord[] = [
     ]
   }
 ];
+
+const mockEvaluationHistory = mockExperiments.flatMap((experiment) => experiment.evaluations ?? []);
+
+export const mockExperimentEvaluationSummary: ExperimentEvaluationSummary = {
+  evaluationCount: mockEvaluationHistory.length,
+  averageGrounded:
+    mockEvaluationHistory.reduce((total, evaluation) => total + (evaluation.groundedScore ?? 0), 0)
+    / mockEvaluationHistory.length,
+  averageRetrieval:
+    mockEvaluationHistory.reduce((total, evaluation) => total + (evaluation.retrievalScore ?? 0), 0)
+    / mockEvaluationHistory.length,
+  bestExperimentId: "exp-1",
+  bestExperimentName: mockExperiments[0].name,
+  recentEvaluations: mockEvaluationHistory
+};
 
 export const mockSettings: AppSettings = {
   apiBaseUrl: "/api",

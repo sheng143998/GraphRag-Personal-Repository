@@ -14,6 +14,7 @@ import com.example.agentknowledge.dto.rag.CreateRagExperimentRequest;
 import com.example.agentknowledge.dto.rag.EvaluateRagExperimentRequest;
 import com.example.agentknowledge.dto.rag.RagExperimentEvaluationResponse;
 import com.example.agentknowledge.dto.rag.RagExperimentEvaluationHistoryResponse;
+import com.example.agentknowledge.dto.rag.RagExperimentEvaluationSummaryResponse;
 import com.example.agentknowledge.dto.rag.RagExperimentResponse;
 import com.example.agentknowledge.dto.rag.UpdateRagExperimentRequest;
 import com.example.agentknowledge.repository.RagExperimentRepository;
@@ -80,6 +81,27 @@ public class RagExperimentService {
 
     public RagExperimentResponse get(UUID id) {
         return toResponse(getEntity(id));
+    }
+
+    public RagExperimentEvaluationSummaryResponse summarizeEvaluations(Integer limit) {
+        List<RagExperimentEvaluation> evaluations = ragExperimentEvaluationRepository
+                .findAllByOrderByCreatedAtDesc(PageRequest.of(0, normalizeLimit(limit)));
+        List<RagExperimentEvaluationHistoryResponse> recent = evaluations.stream()
+                .map(this::toEvaluationHistoryResponse)
+                .toList();
+        RagExperimentEvaluation best = evaluations.stream()
+                .filter(item -> item.getGroundedScore() != null || item.getRetrievalScore() != null)
+                .max((left, right) -> Double.compare(evaluationQuality(left), evaluationQuality(right)))
+                .orElse(null);
+
+        return new RagExperimentEvaluationSummaryResponse(
+                evaluations.size(),
+                average(evaluations.stream().map(RagExperimentEvaluation::getGroundedScore).toList()),
+                average(evaluations.stream().map(RagExperimentEvaluation::getRetrievalScore).toList()),
+                best == null || best.getExperiment() == null ? null : best.getExperiment().getId(),
+                best == null || best.getExperiment() == null ? null : best.getExperiment().getName(),
+                recent
+        );
     }
 
     public RagExperimentResponse update(UUID id, UpdateRagExperimentRequest request) {
@@ -214,6 +236,35 @@ public class RagExperimentService {
         return value == null ? "pending" : String.format(Locale.ROOT, "%.2f", value);
     }
 
+    private int normalizeLimit(Integer limit) {
+        if (limit == null) {
+            return 20;
+        }
+        return Math.max(1, Math.min(limit, 50));
+    }
+
+    private Double average(List<Double> values) {
+        List<Double> valid = values.stream()
+                .filter(value -> value != null)
+                .toList();
+        if (valid.isEmpty()) {
+            return null;
+        }
+        return valid.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+    }
+
+    private double evaluationQuality(RagExperimentEvaluation evaluation) {
+        Double grounded = evaluation.getGroundedScore();
+        Double retrieval = evaluation.getRetrievalScore();
+        if (grounded != null && retrieval != null) {
+            return (grounded + retrieval) / 2.0;
+        }
+        if (grounded != null) {
+            return grounded;
+        }
+        return retrieval == null ? 0.0 : retrieval;
+    }
+
     private AiSourceMetadata toAiSource(RagRetrievalResult result) {
         return new AiSourceMetadata(
                 result.getDocument() == null ? null : result.getDocument().getId(),
@@ -263,6 +314,7 @@ public class RagExperimentService {
         return new RagExperimentEvaluationHistoryResponse(
                 evaluation.getId(),
                 evaluation.getExperiment().getId(),
+                evaluation.getExperiment().getName(),
                 run.getId(),
                 run.getQuestion(),
                 run.getStrategyName(),
