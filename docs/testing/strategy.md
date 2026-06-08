@@ -65,6 +65,11 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - `smoke_test.py` now checks Spring Boot RAG run retrieval metadata for `graph_expansion_terms` and `graph_traversal_relationships`.
 - Local full-chain smoke should pass 62/62 checks after this change.
 
+## 2026-06-08 GraphRAG Offline Evaluation Fixture Validation
+
+- AI pytest now compares `advanced-rag` and `graph-rag` on fixed graph relationship and expansion cases.
+- The fixture expects GraphRAG to improve recall@k, precision@k, MRR, and citation hit for entity/relationship questions without using Docker or real model calls.
+
 ## 2026-06-08 Assistant Turn Chat Flow Validation
 
 - Backend Maven tests include `AssistantTurnServiceTest`, covering user/assistant message persistence and Agent request context propagation.

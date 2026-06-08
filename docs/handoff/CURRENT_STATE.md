@@ -486,6 +486,21 @@ Validated:
 
 ---
 
+## 2026-06-08 GraphRAG Offline Evaluation Fixture Update
+
+Completed in this iteration:
+
+- Added AI pytest coverage comparing `advanced-rag` and `graph-rag` on graph relationship and graph expansion cases.
+- The offline fixture expects GraphRAG to win on recall@k, precision@k, MRR, and citation hit when relationship/traversal evidence is required.
+- Updated experiment and testing docs.
+
+Validated:
+
+- `ai-service/.venv/bin/python.exe -m pytest tests -q` passed with 15 tests.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 115/115 smoke checks.
+
+---
+
 ## 2026-06-08 Weak Point Practice Flow Update
 
 Completed in this iteration:

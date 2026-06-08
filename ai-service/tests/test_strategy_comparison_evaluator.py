@@ -104,6 +104,75 @@ def test_strategy_comparison_prefers_advanced_rag_fixture() -> None:
     assert advanced.citation_hit > basic.citation_hit
 
 
+def test_strategy_comparison_prefers_graph_rag_for_relationship_questions() -> None:
+    cases = [
+        OfflineEvaluationCase(
+            case_id="graph-relationship",
+            question="How does GraphRAG connect entities with retrieval relationships?",
+            relevant_chunk_ids={"graph-entity-extraction", "graph-relationship-traversal"},
+            expected_citation_chunk_ids={"graph-relationship-traversal"},
+        ),
+        OfflineEvaluationCase(
+            case_id="graph-expansion",
+            question="Which graph expansion terms support relationship-aware citations?",
+            relevant_chunk_ids={"graph-expansion-terms", "graph-citation-context"},
+            expected_citation_chunk_ids={"graph-citation-context"},
+        ),
+    ]
+    runs = [
+        OfflineStrategyRun(
+            case_id="graph-relationship",
+            strategy_name="advanced-rag",
+            retrieved=[
+                _source("advanced-doc", "query-rewrite-note"),
+                _source("graph-doc", "graph-entity-extraction"),
+            ],
+            citations=[_source("advanced-doc", "query-rewrite-note")],
+        ),
+        OfflineStrategyRun(
+            case_id="graph-expansion",
+            strategy_name="advanced-rag",
+            retrieved=[
+                _source("advanced-doc", "rerank-note"),
+                _source("graph-doc", "graph-expansion-terms"),
+            ],
+            citations=[],
+        ),
+        OfflineStrategyRun(
+            case_id="graph-relationship",
+            strategy_name="graph-rag",
+            retrieved=[
+                _source("graph-doc", "graph-relationship-traversal"),
+                _source("graph-doc", "graph-entity-extraction"),
+            ],
+            citations=[_source("graph-doc", "graph-relationship-traversal")],
+        ),
+        OfflineStrategyRun(
+            case_id="graph-expansion",
+            strategy_name="graph-rag",
+            retrieved=[
+                _source("graph-doc", "graph-citation-context"),
+                _source("graph-doc", "graph-expansion-terms"),
+            ],
+            citations=[_source("graph-doc", "graph-citation-context")],
+        ),
+    ]
+
+    comparison = evaluate_strategy_comparison(cases, runs, k=2)
+
+    advanced = comparison.metrics_by_strategy["advanced-rag"]
+    graph = comparison.metrics_by_strategy["graph-rag"]
+
+    assert graph.recall_at_k == 1.0
+    assert graph.precision_at_k == 1.0
+    assert graph.mrr == 1.0
+    assert graph.citation_hit == 1.0
+    assert graph.recall_at_k > advanced.recall_at_k
+    assert graph.precision_at_k > advanced.precision_at_k
+    assert graph.mrr > advanced.mrr
+    assert graph.citation_hit > advanced.citation_hit
+
+
 def test_strategy_comparison_rejects_unknown_case() -> None:
     with pytest.raises(ValueError, match="unknown evaluation case"):
         evaluate_strategy_comparison(

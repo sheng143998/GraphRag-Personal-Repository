@@ -16,9 +16,11 @@ Added a deterministic offline evaluator for comparing retrieval outputs without 
 - Single-case metric calculation covers recall, precision, MRR, and citation hit.
 - Strategy comparison fixture compares `basic-rag` and `advanced-rag` over fixed retrieval/citation lists.
 - The fixture expects `advanced-rag` to outperform `basic-rag` on all four metrics.
+- Graph-specific fixture compares `advanced-rag` and `graph-rag` over fixed entity/relationship retrieval lists.
+- The GraphRAG fixture expects `graph-rag` to outperform generic Advanced RAG on graph relationship recall, precision, MRR, and citation hit.
 - Unknown case references fail fast with `ValueError`.
 
 ## Verification
 
 - Command: `.venv\bin\python.exe -m pytest`
-- Result: 10 passed.
+- Result after GraphRAG fixture expansion: 15 passed.

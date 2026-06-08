@@ -1479,3 +1479,11 @@ README 更新规则：
 - The page reuses the Spring Boot summary endpoint through the existing Pinia store and aggregates recent rows by strategy and experiment.
 - Added comparison ranking and recent evaluation context so Advanced RAG, Basic RAG, and GraphRAG results can be inspected outside the CRUD-heavy experiment page.
 - Key documents: `docs/plans/2026-06-08-rag-evaluation-comparison-page.md`, `docs/reviews/2026-06-08-rag-evaluation-comparison-page-review-prompt.md`, and `docs/testing/strategy.md`.
+
+---
+
+## 2026-06-08 GraphRAG Offline Evaluation Fixture Update
+
+- Extended the deterministic offline strategy comparison tests with graph relationship and graph expansion cases.
+- The fixture compares `advanced-rag` and `graph-rag`, expecting GraphRAG to win on recall@k, precision@k, MRR, and citation hit when relationship/traversal evidence is required.
+- Key documents: `docs/plans/2026-06-08-graphrag-offline-evaluation-fixture.md`, `docs/reviews/2026-06-08-graphrag-offline-evaluation-fixture-review-prompt.md`, `docs/experiments/2026-06-08-offline-rag-strategy-comparison.md`, and `docs/testing/strategy.md`.
