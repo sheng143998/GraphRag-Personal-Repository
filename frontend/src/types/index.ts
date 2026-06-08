@@ -133,6 +133,11 @@ export interface LearningWeakPoint {
   createdAt: string;
 }
 
+export interface WeakPointPracticeTurn {
+  weakPoint: LearningWeakPoint;
+  turn: AssistantTurnResponse;
+}
+
 export interface AgentWorkflowStep {
   name: string;
   detail?: string;

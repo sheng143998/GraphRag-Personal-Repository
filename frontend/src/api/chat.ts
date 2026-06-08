@@ -7,7 +7,8 @@ import type {
   ChatSessionRequest,
   CitationSource,
   AssistantTurnResponse,
-  LearningWeakPoint
+  LearningWeakPoint,
+  WeakPointPracticeTurn
 } from "../types";
 import { apiRequest } from "./client";
 
@@ -110,8 +111,11 @@ export async function sendAssistantTurn(sessionId: string, payload: ChatRequest)
       metadataFilters: payload.metadataFilters,
     })
   });
-  const strategy = response.selectedStrategyName ?? payload.strategy;
+  return mapAssistantTurnResponse(response, payload.strategy);
+}
 
+function mapAssistantTurnResponse(response: AssistantTurnResponse, fallbackStrategy: string): ChatResponse {
+  const strategy = response.selectedStrategyName ?? fallbackStrategy;
   return {
     traceId: response.trace?.traceId ?? response.assistantMessage.traceId ?? response.userMessage.traceId ?? "",
     answer: response.assistantMessage.content,
@@ -130,6 +134,18 @@ export async function sendAssistantTurn(sessionId: string, payload: ChatRequest)
 
 export function fetchWeakPoints(sessionId: string): Promise<LearningWeakPoint[]> {
   return apiRequest<LearningWeakPoint[]>(`/chat/${sessionId}/weak-points`);
+}
+
+export async function practiceWeakPointTurn(
+  sessionId: string,
+  weakPointId: string,
+  payload: { strategyName?: string; topK?: number; userAnswer?: string | null }
+): Promise<ChatResponse> {
+  const response = await apiRequest<WeakPointPracticeTurn>(`/chat/${sessionId}/weak-points/${weakPointId}/practice-turn`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return mapAssistantTurnResponse(response.turn, payload.strategyName ?? "advanced-rag");
 }
 
 export function updateWeakPoint(

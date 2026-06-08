@@ -185,6 +185,9 @@
               {{ point.difficulty }} · {{ point.masteryStatus }} · seen {{ point.reviewCount }} time{{ point.reviewCount === 1 ? "" : "s" }}
             </div>
             <div class="button-row" style="margin-top: 0.75rem;">
+              <button class="button button-secondary" type="button" :disabled="store.pending" @click="store.practiceWeakPoint(point.id)">
+                Practice
+              </button>
               <button class="button button-secondary" type="button" @click="store.assessWeakPoint(point.id, 'NEEDS_REVIEW')">
                 Review again
               </button>

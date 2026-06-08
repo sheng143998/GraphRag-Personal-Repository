@@ -84,6 +84,13 @@ public class LearningWeakPointService {
         return toResponse(learningWeakPointRepository.save(weakPoint));
     }
 
+    @Transactional(readOnly = true)
+    public LearningWeakPoint getWeakPoint(UUID sessionId, UUID weakPointId) {
+        chatService.getSession(sessionId);
+        return learningWeakPointRepository.findByIdAndSession_Id(weakPointId, sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Learning weak point not found: " + weakPointId));
+    }
+
     private LearningWeakPoint createWeakPoint(ChatSession session, String topic) {
         LearningWeakPoint weakPoint = new LearningWeakPoint();
         weakPoint.setSession(session);
@@ -104,7 +111,7 @@ public class LearningWeakPointService {
         return status;
     }
 
-    private LearningWeakPointResponse toResponse(LearningWeakPoint weakPoint) {
+    public LearningWeakPointResponse toResponse(LearningWeakPoint weakPoint) {
         return new LearningWeakPointResponse(
                 weakPoint.getId(),
                 weakPoint.getSession().getId(),
@@ -121,4 +128,5 @@ public class LearningWeakPointService {
                 weakPoint.getCreatedAt()
         );
     }
+
 }

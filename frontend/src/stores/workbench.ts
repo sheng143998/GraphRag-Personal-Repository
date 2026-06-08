@@ -36,6 +36,7 @@ import {
   fetchKnowledgeBases,
   fetchSettings,
   fetchWeakPoints,
+  practiceWeakPointTurn,
   sendAssistantTurn,
   updateWeakPoint,
   updateExperiment,
@@ -404,6 +405,34 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     weakPoints.value = weakPoints.value.map((item) => (item.id === updated.id ? updated : item));
   }
 
+  async function practiceWeakPoint(weakPointId: string): Promise<void> {
+    if (!currentSessionId.value) return;
+    pending.value = true;
+    lastError.value = "";
+    try {
+      const result = await practiceWeakPointTurn(currentSessionId.value, weakPointId, {
+        strategyName: selectedStrategy.value,
+        topK: 5
+      });
+      traceId.value = result.traceId;
+      selectedStrategy.value = result.selectedStrategyName || selectedStrategy.value;
+      followUpQuestions.value = result.followUpQuestions ?? [];
+      studyPlan.value = result.studyPlan ?? null;
+      reviewCards.value = result.reviewCards ?? [];
+      weakPoints.value = result.weakPoints ?? [];
+      if (result.userMessage && result.assistantMessage) {
+        messages.value.push(...mapHistoryMessages([result.userMessage, result.assistantMessage]));
+      }
+      sessionMessages.value = await fetchChatMessages(currentSessionId.value);
+      messages.value = mapHistoryMessages(sessionMessages.value);
+      weakPoints.value = await fetchWeakPoints(currentSessionId.value);
+    } catch (error) {
+      lastError.value = error instanceof Error ? error.message : "Unable to start weak point practice.";
+    } finally {
+      pending.value = false;
+    }
+  }
+
   // --- Knowledge bases ---
   async function createKb(payload: {
     name: string;
@@ -578,6 +607,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     // actions
     askQuestion,
     assessWeakPoint,
+    practiceWeakPoint,
     hydrate,
     submitUpload,
     // sessions

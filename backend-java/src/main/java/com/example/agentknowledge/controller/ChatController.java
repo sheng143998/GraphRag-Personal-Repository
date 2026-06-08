@@ -8,11 +8,14 @@ import com.example.agentknowledge.dto.chat.AssistantTurnResponse;
 import com.example.agentknowledge.dto.chat.CreateAssistantTurnRequest;
 import com.example.agentknowledge.dto.chat.CreateChatMessageRequest;
 import com.example.agentknowledge.dto.chat.CreateChatSessionRequest;
+import com.example.agentknowledge.dto.chat.CreateWeakPointPracticeTurnRequest;
 import com.example.agentknowledge.dto.chat.LearningWeakPointResponse;
 import com.example.agentknowledge.dto.chat.UpdateLearningWeakPointRequest;
+import com.example.agentknowledge.dto.chat.WeakPointPracticeTurnResponse;
 import com.example.agentknowledge.service.AssistantTurnService;
 import com.example.agentknowledge.service.ChatService;
 import com.example.agentknowledge.service.LearningWeakPointService;
+import com.example.agentknowledge.service.WeakPointPracticeService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -31,15 +34,18 @@ public class ChatController {
     private final ChatService chatService;
     private final AssistantTurnService assistantTurnService;
     private final LearningWeakPointService learningWeakPointService;
+    private final WeakPointPracticeService weakPointPracticeService;
 
     public ChatController(
             ChatService chatService,
             AssistantTurnService assistantTurnService,
-            LearningWeakPointService learningWeakPointService
+            LearningWeakPointService learningWeakPointService,
+            WeakPointPracticeService weakPointPracticeService
     ) {
         this.chatService = chatService;
         this.assistantTurnService = assistantTurnService;
         this.learningWeakPointService = learningWeakPointService;
+        this.weakPointPracticeService = weakPointPracticeService;
     }
 
     @PostMapping("/sessions")
@@ -68,6 +74,18 @@ public class ChatController {
     @GetMapping("/{sessionId}/weak-points")
     public ApiResponse<List<LearningWeakPointResponse>> listWeakPoints(@PathVariable UUID sessionId) {
         return ApiResponse.success(learningWeakPointService.listWeakPoints(sessionId), TraceContext.getTraceId());
+    }
+
+    @PostMapping("/{sessionId}/weak-points/{weakPointId}/practice-turn")
+    public ApiResponse<WeakPointPracticeTurnResponse> practiceWeakPoint(
+            @PathVariable UUID sessionId,
+            @PathVariable UUID weakPointId,
+            @Valid @RequestBody CreateWeakPointPracticeTurnRequest request
+    ) {
+        return ApiResponse.success(
+                weakPointPracticeService.runPracticeTurn(sessionId, weakPointId, request),
+                TraceContext.getTraceId()
+        );
     }
 
     @PatchMapping("/{sessionId}/weak-points/{weakPointId}")
