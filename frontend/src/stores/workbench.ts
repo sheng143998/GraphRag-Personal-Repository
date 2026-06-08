@@ -8,6 +8,7 @@ import type {
   ChatSession,
   DocumentRecord,
   ExperimentRecord,
+  ExperimentEvaluationRequest,
   ExperimentEvaluationSummary,
   ExperimentRequest,
   ExperimentUpdateRequest,
@@ -16,6 +17,7 @@ import type {
   CitationSource,
   KnowledgeBaseSummary,
   LearningWeakPointSummary,
+  RagRunDetail,
   RagRunSummary,
   UploadPayload
 } from "../types";
@@ -40,6 +42,7 @@ import {
   fetchKnowledgeBaseById,
   fetchKnowledgeBases,
   fetchRagRuns,
+  fetchRagRun,
   fetchSettings,
   fetchWeakPointSummary,
   fetchWeakPoints,
@@ -177,6 +180,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
   const experiments = ref<ExperimentRecord[]>(mockExperiments);
   const experimentEvaluationSummary = ref<ExperimentEvaluationSummary>(mockExperimentEvaluationSummary);
   const ragRuns = ref<RagRunSummary[]>([]);
+  const ragRunDetails = ref<Record<string, RagRunDetail>>({});
   const messages = ref<ChatMessage[]>(mockMessages);
   const settings = ref<AppSettings>(loadPersistedSettings());
   const selectedStrategy = ref(ragStrategyOptions[0].value);
@@ -597,14 +601,41 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     }
   }
 
-  async function evaluateExp(id: string, runId: string, expectedAnswer?: string): Promise<void> {
+  async function loadRagRunDetail(id: string): Promise<RagRunDetail | null> {
+    lastError.value = "";
+    try {
+      const detail = await fetchRagRun(id);
+      ragRunDetails.value = {
+        ...ragRunDetails.value,
+        [id]: detail
+      };
+      return detail;
+    } catch (error) {
+      lastError.value = error instanceof Error ? error.message : "Unable to load RAG run detail.";
+      return null;
+    }
+  }
+
+  async function evaluateExp(id: string, payload: ExperimentEvaluationRequest): Promise<void>;
+  async function evaluateExp(id: string, runId: string, expectedAnswer?: string): Promise<void>;
+  async function evaluateExp(
+    id: string,
+    runOrPayload: string | ExperimentEvaluationRequest,
+    expectedAnswer?: string
+  ): Promise<void> {
     experimentFormPending.value = true;
     lastError.value = "";
     try {
-      const result = await evaluateExperiment(id, {
-        runId,
-        expectedAnswer: expectedAnswer?.trim() || undefined
-      });
+      const payload = typeof runOrPayload === "string"
+        ? {
+            runId: runOrPayload,
+            expectedAnswer: expectedAnswer?.trim() || undefined
+          }
+        : {
+            ...runOrPayload,
+            expectedAnswer: runOrPayload.expectedAnswer?.trim() || undefined
+          };
+      const result = await evaluateExperiment(id, payload);
       const idx = experiments.value.findIndex((item) => item.id === id);
       if (idx >= 0) {
         experiments.value[idx] = result.experiment;
@@ -638,6 +669,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     documents,
     experiments,
     experimentEvaluationSummary,
+    ragRunDetails,
     ragRuns,
     indexedDocuments,
     knowledgeBases,
@@ -692,6 +724,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     deleteExp,
     loadExpDetail,
     loadRagRuns,
+    loadRagRunDetail,
     loadExperimentEvaluationSummary,
     evaluateExp,
     // feedback

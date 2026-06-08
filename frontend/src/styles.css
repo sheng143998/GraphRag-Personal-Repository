@@ -737,6 +737,20 @@ a {
   gap: 12px;
 }
 
+.structured-eval-box {
+  display: grid;
+  gap: 10px;
+  align-items: end;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.64);
+}
+
+.compact-row {
+  margin-top: 0;
+}
+
 .section-title {
   margin: 0;
   font-size: 14px;

@@ -519,6 +519,22 @@ Validated:
 
 ---
 
+## 2026-06-08 Structured RAG Evaluation UI Update
+
+Completed in this iteration:
+
+- Added an experiments-page control that loads a selected RAG run detail and derives a structured evaluation case from the top retrieval result.
+- The evaluate action now submits optional structured relevance fields when a case is selected, while preserving the simple expected-answer path.
+- Added a clear action so users can return to the simple evaluator flow.
+
+Validated:
+
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 123/123 smoke checks.
+
+---
+
 ## 2026-06-08 Structured RAG Evaluation Case Update
 
 Completed in this iteration:

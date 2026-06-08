@@ -186,3 +186,9 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Frontend typecheck/build covers the expanded experiment evaluation request type.
 - `smoke_test.py` now sends a structured case for the Advanced RAG experiment evaluation and verifies the response notes include structured retrieval metrics.
 - Local full-chain smoke passed with 123/123 checks.
+
+## 2026-06-08 Structured RAG Evaluation UI Validation
+
+- Frontend typecheck/build covers loading selected RAG run details through Spring Boot, deriving a structured case from the top retrieval result, clearing the case, and submitting optional structured fields during experiment evaluation.
+- The UI still calls only Spring Boot `/api/*` endpoints; it does not call FastAPI directly.
+- Local full-chain smoke remained green with 123/123 checks after the UI wiring.

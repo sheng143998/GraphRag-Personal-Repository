@@ -178,6 +178,32 @@
                   placeholder="Optional reference answer for evaluator"
                 />
               </label>
+              <div class="structured-eval-box">
+                <div>
+                  <span class="form-label">Structured retrieval case</span>
+                  <p class="item-meta">
+                    {{ structuredCaseLabel(experiment.id) }}
+                  </p>
+                </div>
+                <div class="button-row compact-row">
+                  <button
+                    class="button button-secondary"
+                    type="button"
+                    :disabled="store.experimentFormPending || !selectedRunIds[experiment.id]"
+                    @click="handleUseStructuredCase(experiment.id)"
+                  >
+                    Use top retrieval
+                  </button>
+                  <button
+                    class="button button-ghost"
+                    type="button"
+                    :disabled="!structuredCaseFor(experiment.id)"
+                    @click="clearStructuredCase(experiment.id)"
+                  >
+                    Clear case
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div class="button-row" style="margin-top: 0.75rem;">
@@ -201,7 +227,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
-import type { ExperimentEvaluationHistory, ExperimentRecord, RagRunSummary } from "../../types";
+import type { ExperimentEvaluationHistory, ExperimentRecord, ExperimentEvaluationRequest, RagRunSummary } from "../../types";
 import { useWorkbenchStore } from "../../stores/workbench";
 
 const store = useWorkbenchStore();
@@ -220,6 +246,16 @@ const formStatus = ref("PLANNED");
 const formNotes = ref("");
 const selectedRunIds = reactive<Record<string, string>>({});
 const expectedAnswers = reactive<Record<string, string>>({});
+const structuredCases = reactive<Record<string, StructuredEvaluationCase>>({});
+const structuredCaseRunIds = reactive<Record<string, string>>({});
+
+interface StructuredEvaluationCase {
+  evaluationCaseId: string;
+  relevantChunkIds: string[];
+  relevantDocumentIds: string[];
+  expectedCitationChunkIds: string[];
+  evaluationTopK: number;
+}
 
 interface ExperimentHistorySummary {
   count: number;
@@ -342,6 +378,23 @@ function formatDate(value: string): string {
   return value.replace("T", " ").slice(0, 16);
 }
 
+function structuredCaseFor(experimentId: string): StructuredEvaluationCase | undefined {
+  const selectedRunId = selectedRunIds[experimentId];
+  if (!selectedRunId || structuredCaseRunIds[experimentId] !== selectedRunId) {
+    return undefined;
+  }
+  return structuredCases[experimentId];
+}
+
+function structuredCaseLabel(experimentId: string): string {
+  const evaluationCase = structuredCaseFor(experimentId);
+  if (!evaluationCase) {
+    return "Simple evaluator path. Add a case to score retrieval with recall, precision, MRR, and citation hit.";
+  }
+  const chunkId = evaluationCase.relevantChunkIds[0] ?? "pending";
+  return `${evaluationCase.evaluationCaseId} | topK=${evaluationCase.evaluationTopK} | chunk ${shortId(chunkId)}`;
+}
+
 function resetForm(): void {
   formName.value = "";
   formDescription.value = "";
@@ -410,7 +463,37 @@ async function submitForm(): Promise<void> {
 async function handleEvaluate(id: string): Promise<void> {
   const runId = selectedRunIds[id];
   if (!runId) return;
-  await store.evaluateExp(id, runId, expectedAnswers[id]);
+  const evaluationCase = structuredCaseFor(id);
+  const payload: ExperimentEvaluationRequest = {
+    runId,
+    expectedAnswer: expectedAnswers[id],
+    ...(evaluationCase ?? {})
+  };
+  await store.evaluateExp(id, payload);
+}
+
+async function handleUseStructuredCase(id: string): Promise<void> {
+  const runId = selectedRunIds[id];
+  if (!runId) return;
+  const detail = await store.loadRagRunDetail(runId);
+  const topResult = detail?.retrievalResults?.[0];
+  if (!topResult?.chunkId) {
+    store.lastError = "Selected RAG run has no retrieval result chunk for a structured evaluation case.";
+    return;
+  }
+  structuredCases[id] = {
+    evaluationCaseId: `ui-${shortId(runId)}-top-retrieval`,
+    relevantChunkIds: [topResult.chunkId],
+    relevantDocumentIds: topResult.documentId ? [topResult.documentId] : [],
+    expectedCitationChunkIds: [topResult.chunkId],
+    evaluationTopK: 1
+  };
+  structuredCaseRunIds[id] = runId;
+}
+
+function clearStructuredCase(id: string): void {
+  delete structuredCases[id];
+  delete structuredCaseRunIds[id];
 }
 
 async function handleDelete(id: string): Promise<void> {

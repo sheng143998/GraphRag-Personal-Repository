@@ -1515,3 +1515,13 @@ README 更新规则：
 - Spring Boot only forwards evaluation case data to FastAPI and continues to persist returned scores/history.
 - Full-chain smoke now validates Advanced RAG structured retrieval metrics; latest local smoke passed with 123/123 checks.
 - Key documents: `docs/plans/2026-06-08-structured-rag-evaluation-case.md`, `docs/reviews/2026-06-08-structured-rag-evaluation-case-review-prompt.md`, `docs/experiments/eval-questions.md`, and `docs/testing/strategy.md`.
+
+---
+
+## 2026-06-08 Structured RAG Evaluation UI Update
+
+- Added a frontend experiments-page path for creating a structured evaluation case from the selected RAG run's top retrieval result.
+- The UI submits structured relevance fields through the existing Spring Boot experiment evaluation API and can clear the case to use the simple evaluator path.
+- No browser-to-FastAPI calls were added.
+- Local validation passed: `npm.cmd run typecheck`, `npm.cmd run build`, and non-Docker full-chain smoke 123/123.
+- Key documents: `docs/plans/2026-06-08-structured-rag-evaluation-ui.md`, `docs/reviews/2026-06-08-structured-rag-evaluation-ui-review-prompt.md`, and `docs/testing/strategy.md`.
