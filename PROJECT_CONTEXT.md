@@ -1368,3 +1368,13 @@ README 更新规则：
 - Frontend chat displays the latest structured study plan with summary, focus areas, and steps.
 - `smoke_test.py` now asserts direct Agent and assistant-turn responses include study plan steps and matching trace attributes; local full-chain smoke passed with 78/78 checks.
 - Key documents: `docs/plans/2026-06-08-agent-study-plan.md`, `docs/reviews/2026-06-08-agent-study-plan-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
+
+---
+
+## 2026-06-08 Agent Review Cards Update
+
+- Added AI Agent active-recall `review_cards` generation as a dedicated workflow step after study plan generation.
+- Spring Boot now propagates FastAPI `review_cards` into Agent and assistant-turn `reviewCards` responses.
+- Frontend chat displays review cards with question, expected answer, source hint, and difficulty.
+- `smoke_test.py` now asserts direct Agent and assistant-turn responses include review cards and matching trace questions; local full-chain smoke passed with 82/82 checks.
+- Key documents: `docs/plans/2026-06-08-agent-review-cards.md`, `docs/reviews/2026-06-08-agent-review-cards-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.

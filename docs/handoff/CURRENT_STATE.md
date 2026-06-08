@@ -269,6 +269,29 @@ Current remaining large project areas:
 
 ---
 
+## 2026-06-08 Agent Review Cards Update
+
+Completed in this iteration:
+
+- Added deterministic active-recall review card generation to the AI Agent workflow.
+- Propagated FastAPI `review_cards` through Spring Boot as `reviewCards`.
+- Assistant-turn responses now include review cards with question, expected answer, source hint, and difficulty.
+- Frontend chat displays the latest review cards in the workbench side stack.
+- Full-chain smoke now asserts direct Agent and assistant-turn review card responses and trace questions.
+
+Validated so far:
+
+- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests.
+- `mvn test` passed with 8 tests.
+- `npm.cmd run typecheck` and `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 82/82 smoke checks.
+
+Current remaining large project areas:
+
+- Add persisted weak-point tracking from review card feedback and answer history.
+
+---
+
 ## 2026-06-08 GraphRAG Traversal Retrieval Update
 
 Completed in this iteration:

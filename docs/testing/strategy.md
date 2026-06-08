@@ -86,3 +86,11 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Frontend typecheck/build covers the chat workbench study plan panel.
 - `smoke_test.py` now verifies direct Agent and assistant-turn responses include `studyPlan` with at least three steps and matching trace attributes.
 - Local full-chain smoke now passes 78/78 checks.
+
+## 2026-06-08 Agent Review Cards Validation
+
+- AI pytest covers the `generate_review_cards` workflow step, trace attribute, and active-recall review card generation.
+- Backend Maven tests cover `review_cards` to `reviewCards` DTO propagation through Agent and assistant-turn services.
+- Frontend typecheck/build covers the chat workbench review card panel.
+- `smoke_test.py` now verifies direct Agent and assistant-turn responses include at least two `reviewCards` with matching trace questions.
+- Local full-chain smoke now passes 82/82 checks.

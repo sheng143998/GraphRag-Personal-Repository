@@ -813,6 +813,14 @@ Base URL：`http://localhost:8001`，Spring Boot 通过 `AI_SERVICE_BASE_URL` / 
       "Answer one follow-up question aloud."
     ]
   },
+  "review_cards": [
+    {
+      "question": "Give a 60-second interview explanation of this topic.",
+      "expected_answer": "State the concept, explain the trade-off, and anchor it in one project example.",
+      "source_hint": "source title or preview",
+      "difficulty": "medium"
+    }
+  ],
   "trace": {}
 }
 ```

@@ -318,6 +318,28 @@ if CREATED_KB_ID:
             FAIL += 1
             ERRORS.append("Agent trace study_plan expected matching summary and steps")
             print("  FAIL  Agent trace study_plan expected matching summary and steps")
+        review_cards = body.get("data", {}).get("reviewCards") if isinstance(body, dict) else None
+        if isinstance(review_cards, list) and len(review_cards) >= 2:
+            PASS += 1
+            print(f"  PASS  Agent review cards present = {len(review_cards)}")
+        else:
+            FAIL += 1
+            ERRORS.append("Agent invoke expected at least two review cards")
+            print("  FAIL  Agent invoke expected at least two review cards")
+        trace_review_cards = (
+            body.get("data", {}).get("trace", {}).get("attributes", {}).get("review_cards")
+            if isinstance(body, dict)
+            else None
+        )
+        response_card_questions = [card.get("question") for card in review_cards if isinstance(card, dict)] if review_cards else []
+        trace_card_questions = [card.get("question") for card in trace_review_cards if isinstance(card, dict)] if trace_review_cards else []
+        if trace_card_questions == response_card_questions:
+            PASS += 1
+            print("  PASS  Agent trace review cards match response questions")
+        else:
+            FAIL += 1
+            ERRORS.append("Agent trace review_cards expected matching response questions")
+            print("  FAIL  Agent trace review_cards expected matching response questions")
 else:
     print("  SKIP  No KB, skipping agent workflow test")
 
@@ -499,6 +521,32 @@ if CREATED_SESSION_ID:
             FAIL += 1
             ERRORS.append("Assistant turn trace study_plan expected matching summary and steps")
             print("  FAIL  Assistant turn trace study_plan expected matching summary and steps")
+        review_cards = body.get("data", {}).get("reviewCards") if isinstance(body, dict) else None
+        if isinstance(review_cards, list) and len(review_cards) >= 2:
+            PASS += 1
+            print(f"  PASS  Assistant turn review cards present = {len(review_cards)}")
+        else:
+            FAIL += 1
+            ERRORS.append("Assistant turn expected at least two review cards")
+            print("  FAIL  Assistant turn expected at least two review cards")
+        assistant_trace_review_cards = (
+            body.get("data", {}).get("trace", {}).get("attributes", {}).get("review_cards")
+            if isinstance(body, dict)
+            else None
+        )
+        response_card_questions = [card.get("question") for card in review_cards if isinstance(card, dict)] if review_cards else []
+        trace_card_questions = (
+            [card.get("question") for card in assistant_trace_review_cards if isinstance(card, dict)]
+            if assistant_trace_review_cards
+            else []
+        )
+        if trace_card_questions == response_card_questions:
+            PASS += 1
+            print("  PASS  Assistant turn trace review cards match response questions")
+        else:
+            FAIL += 1
+            ERRORS.append("Assistant turn trace review_cards expected matching response questions")
+            print("  FAIL  Assistant turn trace review_cards expected matching response questions")
 
     # Correct URL: /api/chat/{sessionId}/messages (NOT /api/chat/sessions/{id}/messages)
     r, body = check("Add message", "POST", f"{BASE}/chat/{CREATED_SESSION_ID}/messages",
