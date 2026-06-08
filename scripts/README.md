@@ -101,3 +101,24 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 - 如果脚本无法执行，先检查 PowerShell 执行策略。
 - 如果 Docker 命令不可用，先确认 Docker 已启动并在系统路径中。
 - 如果数据库重置失败，检查是否仍有服务占用数据库连接。
+## 2026-06-08 Local Full-Chain Automation
+
+Docker is optional for the current local full-chain smoke path. When a local PostgreSQL instance is already available and `.env` contains `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD`, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1
+```
+
+For a faster run after the backend jar has already been built:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1 -SkipBuild
+```
+
+The script starts FastAPI on `127.0.0.1:8001` in stub/in-memory mode, starts Spring Boot on `127.0.0.1:8080`, waits for both health endpoints, runs `smoke_test.py`, and stops the services it started unless `-KeepServices` is passed.
+
+`smoke_test.py` also supports:
+
+- `SMOKE_BASE_URL`, default `http://localhost:8080/api`
+- `SMOKE_AI_BASE_URL`, default `http://localhost:8001/ai`
+- `SMOKE_TIMEOUT`, default `15`

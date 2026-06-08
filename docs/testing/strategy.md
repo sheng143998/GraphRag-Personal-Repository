@@ -24,3 +24,12 @@
 - 修复方案
 - 补充的回归测试
 - 下次排查建议
+## 2026-06-08 Current Automated Verification
+
+- Frontend: `npm.cmd run typecheck`, `npm.cmd run build`.
+- Backend: `mvn test`; current service-level coverage includes RAG bridge persistence/failure cases and async document ingest success/failure cases.
+- AI service: `.venv\bin\python.exe -m pytest`; current coverage includes Basic RAG, Advanced RAG, OpenAI-compatible adapter parsing, and offline strategy comparison metrics.
+- Full-chain local smoke: `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1 -SkipBuild`.
+- Direct smoke script: `python smoke_test.py`; accepts `SMOKE_BASE_URL`, `SMOKE_AI_BASE_URL`, and `SMOKE_TIMEOUT`.
+
+The full-chain smoke now treats RAG query failure as a hard failure and includes an `advanced-rag` trace assertion for completed status, citation presence, and stored `rewrittenQuery`.

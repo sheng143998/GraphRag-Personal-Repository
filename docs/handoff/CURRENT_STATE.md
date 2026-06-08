@@ -94,3 +94,36 @@
 2. 若继续增强，优先做全链路 HTTP smoke：PostgreSQL + FastAPI + Spring Boot + 浏览器端策略切换。
 3. 若继续增强模型侧，补限流、熔断、成本统计，并在 `docs/experiments/eval-questions.md` 固定问题集上做对比评估。
 4. 在依赖环境就绪后运行 Python pytest。
+---
+
+## 2026-06-08 Local Full-Chain Validation Update
+
+This update keeps the historical handoff content intact and records the latest non-Docker validation pass.
+
+Completed in this iteration:
+
+- Added local full-chain automation at `scripts/test-fullchain-local.ps1`.
+- Made `smoke_test.py` configurable with `SMOKE_BASE_URL`, `SMOKE_AI_BASE_URL`, and `SMOKE_TIMEOUT`.
+- Added offline Advanced RAG strategy comparison helpers under `ai-service/app/rag/evaluators/`.
+- Added AI tests for strategy comparison and backend unit tests for async ingest plus RAG bridge behavior.
+- Updated testing documentation in `docs/testing/strategy.md` and automation notes in `scripts/README.md`.
+
+Validated:
+
+- `ai-service/.venv/bin/python.exe -m pytest` passed.
+- `mvn test` passed for backend Java tests.
+- `npm.cmd run typecheck` and `npm.cmd run build` passed for frontend.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1 -SkipBuild` passed with 42/42 smoke checks.
+
+Advanced RAG coverage now includes:
+
+- Offline strategy comparison metrics: recall@k, precision@k, MRR, and citation hit.
+- Full-chain HTTP query using `strategyName=advanced-rag`.
+- Citation presence check.
+- Run detail retrieval and `rewrittenQuery` persistence check.
+
+Frontend follow-up areas addressed by the multi-agent iteration:
+
+- Runtime Settings changes now drive the API client at request time.
+- Loaded chat history is mapped back into the visible thread.
+- Knowledge base create/detail/edit/delete, document detail/delete, and upload validation are wired in the UI.

@@ -1278,3 +1278,14 @@ README 更新规则：
   - Git 初始化与阶段更新：`docs/plans/2026-05-27-git-init-and-stage-update.md`、`docs/reviews/2026-05-27-git-init-and-stage-update-review-prompt.md`、`docs/testing/failures/2026-05-27-git-init-and-stage-update-notes.md`
   - GitHub 建仓与远程推送：`docs/plans/2026-05-27-github-repo-create-and-push.md`、`docs/reviews/2026-05-27-github-repo-create-and-push-review-prompt.md`、`docs/testing/failures/2026-05-27-github-repo-create-and-push-notes.md`
   - 数据库设计：`docs/architecture/database-design.md`、`docs/plans/2026-05-27-database-design-v1.md`、`docs/reviews/2026-05-27-database-design-v1-review-prompt.md`、`docs/testing/failures/2026-05-27-database-design-v1-notes.md`
+---
+
+## 2026-06-08 Local Full-Chain Validation And RAG Evaluation Update
+
+- Completed a non-Docker local full-chain automation path with `scripts/test-fullchain-local.ps1`.
+- Extended `smoke_test.py` so full-chain smoke targets are configurable through `SMOKE_BASE_URL`, `SMOKE_AI_BASE_URL`, and `SMOKE_TIMEOUT`.
+- Added offline Advanced RAG strategy comparison support under `ai-service/app/rag/evaluators/`, with tests covering recall@k, precision@k, MRR, and citation hit.
+- Added backend unit tests for async document ingest status handling and RAG bridge failure/citation persistence behavior.
+- Completed frontend workbench wiring for runtime API settings, visible chat history, knowledge base CRUD/detail, document detail/delete, and upload validation.
+- Verified AI pytest, backend Maven tests, frontend typecheck/build, and local Spring Boot -> FastAPI -> RAG smoke. The local smoke passed 42/42 checks and includes Advanced RAG query, citations, run detail, and rewritten query persistence.
+- Key documents: `docs/plans/2026-06-08-local-fullchain-rag-validation.md`, `docs/plans/2026-06-08-frontend-workbench-wiring.md`, `docs/experiments/2026-06-08-offline-rag-strategy-comparison.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.

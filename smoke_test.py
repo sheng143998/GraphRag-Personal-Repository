@@ -2,11 +2,13 @@
 """Full-chain HTTP smoke test for the Knowledge Base Workbench."""
 
 import requests
+import os
 import sys
 import uuid
 
-BASE = "http://localhost:8080/api"
-AI_BASE = "http://localhost:8001/ai"
+BASE = os.getenv("SMOKE_BASE_URL", "http://localhost:8080/api").rstrip("/")
+AI_BASE = os.getenv("SMOKE_AI_BASE_URL", "http://localhost:8001/ai").rstrip("/")
+TIMEOUT = int(os.getenv("SMOKE_TIMEOUT", "15"))
 PASS = 0
 FAIL = 0
 ERRORS = []
@@ -22,7 +24,7 @@ TEST_UUID = str(uuid.uuid4())  # for use as placeholder UUIDs
 
 
 def do(method, url, **kw):
-    kw.setdefault("timeout", 15)
+    kw.setdefault("timeout", TIMEOUT)
     try:
         r = requests.request(method, url, **kw)
     except Exception as e:
