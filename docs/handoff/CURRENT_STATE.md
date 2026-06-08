@@ -203,6 +203,26 @@ Current remaining large project areas:
 
 ---
 
+## 2026-06-08 Assistant Turn Chat Flow Update
+
+Completed in this iteration:
+
+- Added Spring Boot `POST /api/chat/{sessionId}/assistant-turn`.
+- Added `AssistantTurnService` to persist a user message, invoke the existing Agent bridge, persist the assistant message with citations, and return workflow metadata.
+- Frontend chat now uses the assistant-turn API and auto-creates a session when needed.
+- Full-chain smoke now exercises assistant-turn before message history and feedback checks.
+
+Validated so far:
+
+- `mvn test` passed with 8 tests.
+- `npm.cmd run typecheck` and `npm.cmd run build` passed.
+
+Current remaining large project areas:
+
+- Broaden learning/interview assistant workflows with review cards, follow-up question generation, and session-level study plans.
+
+---
+
 ## 2026-06-08 GraphRAG Traversal Retrieval Update
 
 Completed in this iteration:

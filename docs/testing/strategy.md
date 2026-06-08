@@ -64,3 +64,9 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - AI pytest covers one-hop graph expansion terms and traversal relationships in GraphRAG trace/citation metadata.
 - `smoke_test.py` now checks Spring Boot RAG run retrieval metadata for `graph_expansion_terms` and `graph_traversal_relationships`.
 - Local full-chain smoke should pass 62/62 checks after this change.
+
+## 2026-06-08 Assistant Turn Chat Flow Validation
+
+- Backend Maven tests include `AssistantTurnServiceTest`, covering user/assistant message persistence and Agent request context propagation.
+- Frontend typecheck/build covers the new `sendAssistantTurn()` API wiring and chat store flow.
+- `smoke_test.py` now covers `POST /api/chat/{sessionId}/assistant-turn`, assistant workflow metadata, persisted messages, and feedback submission against the assistant message.

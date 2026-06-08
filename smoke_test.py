@@ -18,6 +18,7 @@ CREATED_DOC_ID = None
 CREATED_SESSION_ID = None
 CREATED_EXP_ID = None
 CREATED_MSG_ID = None
+CREATED_ASSISTANT_MSG_ID = None
 CREATED_RUN_ID = None
 CREATED_ADVANCED_RUN_ID = None
 CREATED_AGENT_RUN_ID = None
@@ -361,6 +362,24 @@ if r is not None and r.status_code == 200:
 check("List sessions", "GET", f"{BASE}/chat/sessions")
 
 if CREATED_SESSION_ID:
+    r, body = check("Assistant turn", "POST", f"{BASE}/chat/{CREATED_SESSION_ID}/assistant-turn",
+                    json={"userInput": "Give me an interview-ready answer about GraphRAG traversal.",
+                          "topK": 3,
+                          "metadataFilters": {}})
+    if r is not None and r.status_code == 200:
+        check_field("Assistant turn user message", body, "data.userMessage.id")
+        CREATED_ASSISTANT_MSG_ID = check_field("Assistant turn assistant message", body, "data.assistantMessage.id")
+        check_field("Assistant turn question type", body, "data.questionType")
+        check_field("Assistant turn strategy", body, "data.selectedStrategyName")
+        workflow_steps = body.get("data", {}).get("workflowSteps") if isinstance(body, dict) else None
+        if workflow_steps and len(workflow_steps) >= 4:
+            PASS += 1
+            print(f"  PASS  Assistant turn workflow steps present = {len(workflow_steps)}")
+        else:
+            FAIL += 1
+            ERRORS.append("Assistant turn expected at least four workflow steps")
+            print("  FAIL  Assistant turn expected at least four workflow steps")
+
     # Correct URL: /api/chat/{sessionId}/messages (NOT /api/chat/sessions/{id}/messages)
     r, body = check("Add message", "POST", f"{BASE}/chat/{CREATED_SESSION_ID}/messages",
           json={"role": "user", "content": "Hello smoke test!",
@@ -376,7 +395,7 @@ section("6. FEEDBACK")
 
 # Feedback — needs real session+message IDs; runId optional if no run was created
 fb_session_id = CREATED_SESSION_ID or TEST_UUID
-fb_msg_id = CREATED_MSG_ID or TEST_UUID
+fb_msg_id = CREATED_ASSISTANT_MSG_ID or CREATED_MSG_ID or TEST_UUID
 fb_run_id = CREATED_RUN_ID or TEST_UUID
 print(f"  INFO  Feedback: runId={fb_run_id} sessionId={fb_session_id} messageId={fb_msg_id}")
 r, body = check("Create feedback", "POST", f"{BASE}/feedback",

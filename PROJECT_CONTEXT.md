@@ -1338,3 +1338,13 @@ README 更新规则：
 - `graph-rag` now appends relationship-derived expansion terms to the retrieval query and records traversal evidence in trace and citation metadata.
 - `smoke_test.py` now checks Spring Boot RAG run metadata for graph expansion terms and traversal relationships.
 - Key documents: `docs/plans/2026-06-08-graphrag-traversal-retrieval.md`, `docs/reviews/2026-06-08-graphrag-traversal-retrieval-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
+
+---
+
+## 2026-06-08 Assistant Turn Chat Flow Update
+
+- Added Spring Boot `POST /api/chat/{sessionId}/assistant-turn` for the first product-oriented learning/interview assistant chat turn.
+- The assistant turn persists the user message, invokes the existing FastAPI Agent workflow through Spring's bridge, persists the assistant answer with citations, and returns question type, selected strategy, workflow steps, and trace.
+- Frontend chat now uses `sendAssistantTurn()` and auto-creates a chat session when needed; browser calls remain under Spring Boot `/api/*`.
+- `smoke_test.py` now validates assistant-turn workflow metadata and feedback submission against the generated assistant message.
+- Key documents: `docs/plans/2026-06-08-assistant-turn-chat-flow.md`, `docs/reviews/2026-06-08-assistant-turn-chat-flow-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
