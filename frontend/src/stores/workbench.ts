@@ -2,6 +2,7 @@ import { computed, ref } from "vue";
 import { defineStore } from "pinia";
 import type {
   AppSettings,
+  ChatResponse,
   ChatMessage,
   ChatMessageRecord,
   ChatSession,
@@ -168,6 +169,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
   const selectedStrategy = ref(ragStrategyOptions[0].value);
   const traceId = ref("trace-demo-20260525-181600");
   const followUpQuestions = ref<string[]>([]);
+  const studyPlan = ref<ChatResponse["studyPlan"]>(null);
   const pending = ref(false);
   const uploadPending = ref(false);
   const lastError = ref("");
@@ -251,6 +253,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       traceId.value = result.traceId;
       selectedStrategy.value = result.selectedStrategyName || selectedStrategy.value;
       followUpQuestions.value = result.followUpQuestions ?? [];
+      studyPlan.value = result.studyPlan ?? null;
       if (result.userMessage && result.assistantMessage) {
         messages.value.push(...mapHistoryMessages([result.userMessage, result.assistantMessage]));
       } else {
@@ -275,6 +278,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       const message = error instanceof Error ? error.message : "提问失败，请稍后重试。";
       lastError.value = message;
       followUpQuestions.value = [];
+      studyPlan.value = null;
       messages.value.push({
         id: `msg-assistant-${Date.now()}`,
         role: "assistant",
@@ -551,6 +555,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     // feedback
     feedbackPending,
     followUpQuestions,
+    studyPlan,
     lastFeedback,
     // actions
     askQuestion,

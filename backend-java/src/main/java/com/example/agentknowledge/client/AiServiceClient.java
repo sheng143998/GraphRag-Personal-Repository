@@ -88,6 +88,11 @@ public class AiServiceClient implements AiServiceGateway {
                     "general",
                     request.strategyName(),
                     List.of("What should I review next about this topic?"),
+                    new AiAgentInvokeResponse.StudyPlan(
+                            "Review this topic with one cited source.",
+                            List.of("general", request.strategyName()),
+                            List.of("Read the answer.", "Check one source.", "Ask one follow-up.")
+                    ),
                     List.of(
                             new AiAgentInvokeResponse.WorkflowStep(
                                     "mock_agent_invoke",

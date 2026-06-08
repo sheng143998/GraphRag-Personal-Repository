@@ -9,6 +9,7 @@ public record AssistantTurnResponse(
         String questionType,
         String selectedStrategyName,
         java.util.List<String> followUpQuestions,
+        AgentInvokeResponse.StudyPlan studyPlan,
         java.util.List<AgentInvokeResponse.WorkflowStep> workflowSteps,
         Object trace
 ) {

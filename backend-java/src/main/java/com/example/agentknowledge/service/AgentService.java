@@ -44,8 +44,20 @@ public class AgentService {
                 aiResponse.questionType(),
                 aiResponse.selectedStrategyName(),
                 aiResponse.followUpQuestions() != null ? aiResponse.followUpQuestions() : List.of(),
+                mapStudyPlan(aiResponse.studyPlan()),
                 mapWorkflowSteps(aiResponse.workflowSteps()),
                 aiResponse.trace()
+        );
+    }
+
+    private static AgentInvokeResponse.StudyPlan mapStudyPlan(AiAgentInvokeResponse.StudyPlan studyPlan) {
+        if (studyPlan == null) {
+            return null;
+        }
+        return new AgentInvokeResponse.StudyPlan(
+                studyPlan.summary(),
+                studyPlan.focusAreas() != null ? studyPlan.focusAreas() : List.of(),
+                studyPlan.steps() != null ? studyPlan.steps() : List.of()
         );
     }
 

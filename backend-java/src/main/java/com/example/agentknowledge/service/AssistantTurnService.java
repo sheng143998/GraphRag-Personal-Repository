@@ -69,6 +69,7 @@ public class AssistantTurnService {
                 agentResponse.questionType(),
                 agentResponse.selectedStrategyName(),
                 agentResponse.followUpQuestions(),
+                agentResponse.studyPlan(),
                 agentResponse.workflowSteps(),
                 agentResponse.trace()
         );

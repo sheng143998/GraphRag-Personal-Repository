@@ -67,6 +67,11 @@ class AssistantTurnServiceTest {
                 "interview",
                 "advanced-rag",
                 List.of("Can you give a 60-second interview answer?"),
+                new AgentInvokeResponse.StudyPlan(
+                        "Prepare an interview-ready explanation.",
+                        List.of("interview", "advanced-rag"),
+                        List.of("Review core terms.", "Practice a project story.", "Answer one follow-up.")
+                ),
                 List.of(new AgentInvokeResponse.WorkflowStep("select_rag_strategy", "Selected strategy.", Map.of())),
                 new AiTraceMetadata("trace-turn", "agent-run", "agent_invoke", "advanced-rag", "agent", "v1", "stub", "completed", 8.0, Map.of())
         ));
@@ -102,6 +107,8 @@ class AssistantTurnServiceTest {
         assertThat(response.questionType()).isEqualTo("interview");
         assertThat(response.selectedStrategyName()).isEqualTo("advanced-rag");
         assertThat(response.followUpQuestions()).contains("Can you give a 60-second interview answer?");
+        assertThat(response.studyPlan()).isNotNull();
+        assertThat(response.studyPlan().steps()).contains("Practice a project story.");
         assertThat(response.workflowSteps()).hasSize(1);
     }
 }

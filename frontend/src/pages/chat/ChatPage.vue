@@ -139,6 +139,24 @@
     </div>
 
     <div class="stack">
+      <section v-if="store.studyPlan" class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Study Plan</h2>
+          <p class="panel-subtitle">{{ store.studyPlan.summary }}</p>
+        </div>
+        <div class="panel-body stack">
+          <div v-if="store.studyPlan.focusAreas.length" class="item-list">
+            <span v-for="area in store.studyPlan.focusAreas" :key="area" class="button button-ghost">
+              {{ area }}
+            </span>
+          </div>
+          <div class="item-list">
+            <article v-for="step in store.studyPlan.steps" :key="step" class="item-card">
+              {{ step }}
+            </article>
+          </div>
+        </div>
+      </section>
       <StrategySelector />
       <SourceList :sources="store.latestSources" />
     </div>

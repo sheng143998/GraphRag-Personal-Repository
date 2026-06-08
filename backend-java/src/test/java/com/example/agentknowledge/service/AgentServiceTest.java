@@ -54,6 +54,11 @@ class AgentServiceTest {
                         "implementation",
                         "advanced-rag",
                         List.of("How can I test rerank?"),
+                        new AiAgentInvokeResponse.StudyPlan(
+                                "Turn rerank into a checklist.",
+                                List.of("implementation", "advanced-rag"),
+                                List.of("Map components.", "Write an end-to-end test.", "Record one risk.")
+                        ),
                         List.of(new AiAgentInvokeResponse.WorkflowStep(
                                 "select_rag_strategy",
                                 "Selected a strategy.",
@@ -85,6 +90,9 @@ class AgentServiceTest {
         assertThat(request.context().metadataFilters()).isEmpty();
         assertThat(response.selectedStrategyName()).isEqualTo("advanced-rag");
         assertThat(response.followUpQuestions()).contains("How can I test rerank?");
+        assertThat(response.studyPlan()).isNotNull();
+        assertThat(response.studyPlan().steps()).hasSize(3);
+        assertThat(response.studyPlan().focusAreas()).contains("implementation", "advanced-rag");
         assertThat(response.workflowSteps()).hasSize(1);
         assertThat(response.workflowSteps().get(0).payload()).containsEntry("selected_strategy_name", "advanced-rag");
     }

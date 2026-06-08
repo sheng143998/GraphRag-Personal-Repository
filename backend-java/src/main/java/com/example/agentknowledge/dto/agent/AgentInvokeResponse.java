@@ -12,9 +12,17 @@ public record AgentInvokeResponse(
         String questionType,
         String selectedStrategyName,
         List<String> followUpQuestions,
+        StudyPlan studyPlan,
         List<WorkflowStep> workflowSteps,
         AiTraceMetadata trace
 ) {
+    public record StudyPlan(
+            String summary,
+            List<String> focusAreas,
+            List<String> steps
+    ) {
+    }
+
     public record WorkflowStep(
             String name,
             String detail,

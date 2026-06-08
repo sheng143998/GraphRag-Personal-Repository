@@ -26,9 +26,9 @@
             <p class="item-description">
               {{ document.fileName }} · {{ document.chunkCount ?? 0 }} chunks · {{ parserLabel(document) }}
             </p>
-            <span class="status-pill" :class="statusClassMap[document.status]">
+            <span class="status-pill" :class="statusClass(document.status)">
               <span v-if="document.status === 'PROCESSING'" class="processing-spinner"></span>
-              {{ statusLabelMap[document.status] ?? document.status }}
+              {{ statusLabel(document.status) }}
             </span>
 
             <div class="button-row" style="margin-top: 0.75rem;">
@@ -115,6 +115,20 @@ const statusLabelMap = {
   PROCESSING: "Processing",
   FAILED: "Failed"
 } as const;
+
+type StatusKey = keyof typeof statusClassMap;
+
+function isStatusKey(value: string): value is StatusKey {
+  return value in statusClassMap;
+}
+
+function statusClass(status: string): string {
+  return isStatusKey(status) ? statusClassMap[status] : "status-muted";
+}
+
+function statusLabel(status: string): string {
+  return isStatusKey(status) ? statusLabelMap[status] : status;
+}
 
 async function loadDetail(id: string): Promise<void> {
   selectedDocument.value = await store.loadDocumentDetail(id);

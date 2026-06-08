@@ -11,9 +11,17 @@ public record AiAgentInvokeResponse(
         @JsonProperty("question_type") String questionType,
         @JsonProperty("selected_strategy_name") String selectedStrategyName,
         @JsonProperty("follow_up_questions") List<String> followUpQuestions,
+        @JsonProperty("study_plan") StudyPlan studyPlan,
         @JsonProperty("workflow_steps") List<WorkflowStep> workflowSteps,
         AiTraceMetadata trace
 ) {
+    public record StudyPlan(
+            String summary,
+            @JsonProperty("focus_areas") List<String> focusAreas,
+            List<String> steps
+    ) {
+    }
+
     public record WorkflowStep(
             String name,
             String detail,

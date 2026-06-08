@@ -98,7 +98,14 @@ export interface ChatResponse {
   questionType?: string;
   selectedStrategyName?: string;
   followUpQuestions?: string[];
+  studyPlan?: StudyPlan | null;
   workflowSteps?: AgentWorkflowStep[];
+}
+
+export interface StudyPlan {
+  summary: string;
+  focusAreas: string[];
+  steps: string[];
 }
 
 export interface AgentWorkflowStep {
@@ -215,6 +222,7 @@ export interface AssistantTurnResponse {
   questionType: string;
   selectedStrategyName: string;
   followUpQuestions: string[];
+  studyPlan?: StudyPlan | null;
   workflowSteps: AgentWorkflowStep[];
   trace?: { traceId?: string; attributes?: Record<string, unknown> } | null;
 }

@@ -120,6 +120,7 @@ export async function sendAssistantTurn(sessionId: string, payload: ChatRequest)
     questionType: response.questionType,
     selectedStrategyName: response.selectedStrategyName,
     followUpQuestions: response.followUpQuestions,
+    studyPlan: response.studyPlan,
     workflowSteps: response.workflowSteps
   };
 }
