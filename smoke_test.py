@@ -292,6 +292,32 @@ if CREATED_KB_ID:
             FAIL += 1
             ERRORS.append("Agent trace follow_up_questions expected to match response followUpQuestions")
             print("  FAIL  Agent trace follow_up_questions expected to match response followUpQuestions")
+        study_plan = body.get("data", {}).get("studyPlan") if isinstance(body, dict) else None
+        study_steps = study_plan.get("steps") if isinstance(study_plan, dict) else None
+        if isinstance(study_steps, list) and len(study_steps) >= 3:
+            PASS += 1
+            print(f"  PASS  Agent study plan steps present = {len(study_steps)}")
+        else:
+            FAIL += 1
+            ERRORS.append("Agent invoke expected at least three study plan steps")
+            print("  FAIL  Agent invoke expected at least three study plan steps")
+        trace_study_plan = (
+            body.get("data", {}).get("trace", {}).get("attributes", {}).get("study_plan")
+            if isinstance(body, dict)
+            else None
+        )
+        if (
+            isinstance(trace_study_plan, dict)
+            and isinstance(study_plan, dict)
+            and trace_study_plan.get("summary") == study_plan.get("summary")
+            and trace_study_plan.get("steps") == study_plan.get("steps")
+        ):
+            PASS += 1
+            print("  PASS  Agent trace study plan matches response")
+        else:
+            FAIL += 1
+            ERRORS.append("Agent trace study_plan expected matching summary and steps")
+            print("  FAIL  Agent trace study_plan expected matching summary and steps")
 else:
     print("  SKIP  No KB, skipping agent workflow test")
 
@@ -447,6 +473,32 @@ if CREATED_SESSION_ID:
             FAIL += 1
             ERRORS.append("Assistant turn trace follow_up_questions expected to match response followUpQuestions")
             print("  FAIL  Assistant turn trace follow_up_questions expected to match response followUpQuestions")
+        study_plan = body.get("data", {}).get("studyPlan") if isinstance(body, dict) else None
+        study_steps = study_plan.get("steps") if isinstance(study_plan, dict) else None
+        if isinstance(study_steps, list) and len(study_steps) >= 3:
+            PASS += 1
+            print(f"  PASS  Assistant turn study plan steps present = {len(study_steps)}")
+        else:
+            FAIL += 1
+            ERRORS.append("Assistant turn expected at least three study plan steps")
+            print("  FAIL  Assistant turn expected at least three study plan steps")
+        assistant_trace_study_plan = (
+            body.get("data", {}).get("trace", {}).get("attributes", {}).get("study_plan")
+            if isinstance(body, dict)
+            else None
+        )
+        if (
+            isinstance(assistant_trace_study_plan, dict)
+            and isinstance(study_plan, dict)
+            and assistant_trace_study_plan.get("summary") == study_plan.get("summary")
+            and assistant_trace_study_plan.get("steps") == study_plan.get("steps")
+        ):
+            PASS += 1
+            print("  PASS  Assistant turn trace study plan matches response")
+        else:
+            FAIL += 1
+            ERRORS.append("Assistant turn trace study_plan expected matching summary and steps")
+            print("  FAIL  Assistant turn trace study_plan expected matching summary and steps")
 
     # Correct URL: /api/chat/{sessionId}/messages (NOT /api/chat/sessions/{id}/messages)
     r, body = check("Add message", "POST", f"{BASE}/chat/{CREATED_SESSION_ID}/messages",

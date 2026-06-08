@@ -78,3 +78,11 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Frontend typecheck/build covers clickable follow-up prompts in the chat workbench.
 - `smoke_test.py` now verifies assistant-turn returns at least three non-empty `followUpQuestions` through Spring Boot.
 - Local full-chain smoke now passes 74/74 checks, including direct Agent and assistant-turn follow-up trace assertions.
+
+## 2026-06-08 Agent Study Plan Validation
+
+- AI pytest covers the `generate_study_plan` workflow step, trace attribute, and three structured study plan steps.
+- Backend Maven tests cover `study_plan` to `studyPlan` DTO propagation through Agent and assistant-turn services.
+- Frontend typecheck/build covers the chat workbench study plan panel.
+- `smoke_test.py` now verifies direct Agent and assistant-turn responses include `studyPlan` with at least three steps and matching trace attributes.
+- Local full-chain smoke now passes 78/78 checks.

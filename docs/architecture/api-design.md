@@ -804,6 +804,15 @@ Base URL：`http://localhost:8001`，Spring Boot 通过 `AI_SERVICE_BASE_URL` / 
     "What follow-up challenge might an interviewer ask about this topic?",
     "Which project experience can prove I really used this topic?"
   ],
+  "study_plan": {
+    "summary": "Prepare an interview-ready explanation for this topic.",
+    "focus_areas": ["interview", "advanced-rag"],
+    "steps": [
+      "Review the core definition and trade-offs.",
+      "Practice a concise project story.",
+      "Answer one follow-up question aloud."
+    ]
+  },
   "trace": {}
 }
 ```

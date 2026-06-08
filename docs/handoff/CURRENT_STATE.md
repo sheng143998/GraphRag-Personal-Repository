@@ -246,6 +246,29 @@ Current remaining large project areas:
 
 ---
 
+## 2026-06-08 Agent Study Plan Update
+
+Completed in this iteration:
+
+- Added deterministic session-level study plan generation to the AI Agent workflow.
+- Propagated FastAPI `study_plan` through Spring Boot as `studyPlan`.
+- Assistant-turn responses now include a structured study plan with summary, focus areas, and steps.
+- Frontend chat displays the latest study plan in the workbench side stack.
+- Full-chain smoke now asserts direct Agent and assistant-turn study plan responses and trace attributes.
+
+Validated so far:
+
+- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests.
+- `mvn test` passed with 8 tests.
+- `npm.cmd run typecheck` and `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 78/78 smoke checks.
+
+Current remaining large project areas:
+
+- Add richer learning artifacts such as review cards and persisted weak-point tracking.
+
+---
+
 ## 2026-06-08 GraphRAG Traversal Retrieval Update
 
 Completed in this iteration:

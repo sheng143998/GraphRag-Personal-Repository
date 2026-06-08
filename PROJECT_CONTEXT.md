@@ -1358,3 +1358,13 @@ README 更新规则：
 - Frontend chat displays returned follow-up questions as clickable prompts for the next turn.
 - `smoke_test.py` now asserts direct Agent and assistant-turn responses include follow-up questions, workflow step metadata, and matching trace attributes; local full-chain smoke passed with 74/74 checks.
 - Key documents: `docs/plans/2026-06-08-agent-follow-up-questions.md`, `docs/reviews/2026-06-08-agent-follow-up-questions-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
+
+---
+
+## 2026-06-08 Agent Study Plan Update
+
+- Added AI Agent session-level `study_plan` generation as a dedicated workflow step after follow-up question generation.
+- Spring Boot now propagates FastAPI `study_plan` into Agent and assistant-turn `studyPlan` responses.
+- Frontend chat displays the latest structured study plan with summary, focus areas, and steps.
+- `smoke_test.py` now asserts direct Agent and assistant-turn responses include study plan steps and matching trace attributes; local full-chain smoke passed with 78/78 checks.
+- Key documents: `docs/plans/2026-06-08-agent-study-plan.md`, `docs/reviews/2026-06-08-agent-study-plan-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
