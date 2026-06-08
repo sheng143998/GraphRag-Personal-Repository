@@ -1,8 +1,6 @@
 package com.example.agentknowledge.service;
 
-import com.example.agentknowledge.client.AiServiceGateway;
 import com.example.agentknowledge.client.dto.AiDocumentIngestRequest;
-import com.example.agentknowledge.client.dto.AiDocumentIngestResponse;
 import com.example.agentknowledge.common.api.TraceContext;
 import com.example.agentknowledge.common.exception.ResourceNotFoundException;
 import com.example.agentknowledge.domain.DocumentChunk;
@@ -25,18 +23,18 @@ public class DocumentService {
     private final KnowledgeDocumentRepository knowledgeDocumentRepository;
     private final DocumentChunkRepository documentChunkRepository;
     private final KnowledgeBaseService knowledgeBaseService;
-    private final AiServiceGateway aiServiceGateway;
+    private final DocumentIngestProcessor ingestProcessor;
 
     public DocumentService(
             KnowledgeDocumentRepository knowledgeDocumentRepository,
             DocumentChunkRepository documentChunkRepository,
             KnowledgeBaseService knowledgeBaseService,
-            AiServiceGateway aiServiceGateway
+            DocumentIngestProcessor ingestProcessor
     ) {
         this.knowledgeDocumentRepository = knowledgeDocumentRepository;
         this.documentChunkRepository = documentChunkRepository;
         this.knowledgeBaseService = knowledgeBaseService;
-        this.aiServiceGateway = aiServiceGateway;
+        this.ingestProcessor = ingestProcessor;
     }
 
     public DocumentResponse create(CreateDocumentRequest request) {
@@ -45,45 +43,42 @@ public class DocumentService {
         String fileType = normalizeFileType(request.fileType(), request.fileName());
         Map<String, Object> metadata = request.metadata() == null ? Map.of() : request.metadata();
 
-        // Content from Controller is already Base64-encoded raw bytes
         String contentBase64 = request.content();
 
-        AiDocumentIngestResponse ingestResponse = aiServiceGateway.ingestDocument(
-                new AiDocumentIngestRequest(
-                        knowledgeBase.getId(),
-                        documentId,
-                        request.title(),
-                        request.documentType().toLowerCase(),
-                        new AiDocumentIngestRequest.FilePayload(
-                                request.fileName(),
-                                fileType,
-                                null,
-                                contentBase64,
-                                request.sourcePath(),
-                                request.mimeType()
-                        ),
-                        List.of(),
-                        List.of(),
-                        metadata
-                ),
-                TraceContext.getTraceId()
+        KnowledgeDocument document = createInitialDocument(request, knowledgeBase, documentId, fileType);
+        document = knowledgeDocumentRepository.save(document);
+
+        AiDocumentIngestRequest.FilePayload filePayload = new AiDocumentIngestRequest.FilePayload(
+                request.fileName(),
+                fileType,
+                null,
+                contentBase64,
+                request.sourcePath(),
+                request.mimeType()
         );
 
-        KnowledgeDocument document = knowledgeDocumentRepository.findById(documentId)
-                .orElseGet(() -> createMockIndexedDocument(request, knowledgeBase, documentId, fileType, ingestResponse));
-        document.setParserName(ingestResponse.parserName());
-        document.setParserVersion(document.getParserVersion() == null ? "v1" : document.getParserVersion());
-        document.setStatus("INDEXED");
-        document = knowledgeDocumentRepository.save(document);
-        return toResponse(document, ingestResponse.chunkCount(), List.of());
+        String traceId = TraceContext.getTraceId();
+
+        ingestProcessor.processAsync(
+                documentId,
+                knowledgeBase.getId(),
+                request.title(),
+                request.documentType().toLowerCase(),
+                filePayload,
+                List.of(),
+                List.of(),
+                metadata,
+                traceId
+        );
+
+        return toResponse(document, 0, List.of());
     }
 
-    private KnowledgeDocument createMockIndexedDocument(
+    private KnowledgeDocument createInitialDocument(
             CreateDocumentRequest request,
             KnowledgeBase knowledgeBase,
             UUID documentId,
-            String fileType,
-            AiDocumentIngestResponse ingestResponse
+            String fileType
     ) {
         KnowledgeDocument document = new KnowledgeDocument();
         document.setId(documentId);
@@ -95,11 +90,9 @@ public class DocumentService {
         document.setMimeType(request.mimeType());
         document.setSourceType(request.sourceType() == null || request.sourceType().isBlank() ? "LOCAL_UPLOAD" : request.sourceType());
         document.setSourcePath(request.sourcePath());
-        document.setParserName(ingestResponse.parserName());
-        document.setParserVersion("v1");
         document.setSummary(request.summary());
         document.setMetadata("{}");
-        document.setStatus("INDEXED");
+        document.setStatus("PROCESSING");
         return document;
     }
 

@@ -35,7 +35,22 @@ public class DocumentController {
 
     @PostMapping(value = "/upload", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ApiResponse<DocumentResponse> upload(@Valid @RequestBody CreateDocumentRequest request) {
-        return ApiResponse.success(documentService.create(request), TraceContext.getTraceId());
+        String content = request.content();
+        String contentBase64 = Base64.getEncoder().encodeToString(content.getBytes(StandardCharsets.UTF_8));
+        CreateDocumentRequest encodedRequest = new CreateDocumentRequest(
+                request.knowledgeBaseId(),
+                request.title(),
+                request.documentType(),
+                request.fileName(),
+                request.fileType(),
+                request.mimeType(),
+                request.sourceType(),
+                request.sourcePath(),
+                contentBase64,
+                request.summary(),
+                request.metadata()
+        );
+        return ApiResponse.success(documentService.create(encodedRequest), TraceContext.getTraceId());
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

@@ -129,6 +129,7 @@ mvn spring-boot:run
 - 会话消息完整保存。
 - RAG 反馈接口。
 - RAG 实验自动评估接口。
+- 更丰富的 metadata filter UI 与结构化 citation 响应。
 - 更完整的异常码和前端可读错误信息。
 
 ## 常见问题

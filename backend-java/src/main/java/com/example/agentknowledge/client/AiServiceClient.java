@@ -8,8 +8,8 @@ import com.example.agentknowledge.client.dto.AiSourceMetadata;
 import com.example.agentknowledge.client.dto.AiTraceMetadata;
 import com.example.agentknowledge.common.api.TraceContext;
 import com.example.agentknowledge.config.AiServiceProperties;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -51,7 +51,8 @@ public class AiServiceClient implements AiServiceGateway {
                             "v1",
                             "mock-llm",
                             "completed",
-                            15.0
+                            15.0,
+                            Map.of()
                     )
             );
         }
@@ -82,7 +83,8 @@ public class AiServiceClient implements AiServiceGateway {
                             null,
                             "mock-embedding",
                             "completed",
-                            10.0
+                            10.0,
+                            Map.of()
                     )
             );
         }

@@ -94,7 +94,7 @@ public class RagService {
                             request.knowledgeBaseId(),
                             request.sessionId(),
                             request.messageId(),
-                            Collections.emptyMap()
+                            request.metadataFilters() == null ? Collections.emptyMap() : request.metadataFilters()
                     )
             ), TraceContext.getTraceId());
 
@@ -104,6 +104,7 @@ public class RagService {
             run.setPromptName(aiResponse.trace() == null ? null : aiResponse.trace().promptName());
             run.setPromptVersion(aiResponse.trace() == null ? null : aiResponse.trace().promptVersion());
             run.setLatencyMs(toLongLatency(aiResponse.trace() == null ? null : aiResponse.trace().latencyMs()));
+            run.setRewrittenQuery(extractRewrittenQuery(aiResponse));
             run.setFinalContext(buildFinalContext(aiResponse.citations()));
             run = ragRunRepository.save(run);
             saveRetrievalResults(run, aiResponse.citations(), retrieverType);
@@ -164,10 +165,15 @@ public class RagService {
         if (citations == null || citations.isEmpty()) {
             return;
         }
-        List<RagRetrievalResult> results = citations.stream()
-                .filter(Objects::nonNull)
-                .map(citation -> toRetrievalResult(run, citation, retrieverType, citations.indexOf(citation) + 1))
-                .toList();
+        List<RagRetrievalResult> results = new java.util.ArrayList<>();
+        int rank = 1;
+        for (AiSourceMetadata citation : citations) {
+            if (citation == null) {
+                continue;
+            }
+            results.add(toRetrievalResult(run, citation, retrieverType, rank));
+            rank++;
+        }
         ragRetrievalResultRepository.saveAll(results);
     }
 
@@ -187,12 +193,10 @@ public class RagService {
         result.setSelectedForContext(Boolean.TRUE);
         result.setMetadata(citation.metadata() == null ? Collections.emptyMap() : citation.metadata());
         if (citation.chunkId() != null) {
-            DocumentChunk chunk = documentChunkRepository.getReferenceById(citation.chunkId());
-            result.setChunk(chunk);
+            documentChunkRepository.findById(citation.chunkId()).ifPresent(result::setChunk);
         }
         if (citation.documentId() != null) {
-            KnowledgeDocument document = knowledgeDocumentRepository.getReferenceById(citation.documentId());
-            result.setDocument(document);
+            knowledgeDocumentRepository.findById(citation.documentId()).ifPresent(result::setDocument);
         }
         return result;
     }
@@ -223,6 +227,14 @@ public class RagService {
                 .stream()
                 .reduce((left, right) -> left + "\n\n" + right)
                 .orElse("");
+    }
+
+    private String extractRewrittenQuery(AiRagQueryResponse aiResponse) {
+        if (aiResponse.trace() == null || aiResponse.trace().attributes() == null) {
+            return null;
+        }
+        Object rewrittenQuery = aiResponse.trace().attributes().get("rewritten_query");
+        return rewrittenQuery == null ? null : Objects.toString(rewrittenQuery, null);
     }
 
     private Long toLongLatency(Double latencyMs) {

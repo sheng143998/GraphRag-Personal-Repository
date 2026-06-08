@@ -1,6 +1,7 @@
 package com.example.agentknowledge.client.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Map;
 
 public record AiTraceMetadata(
         @JsonProperty("trace_id") String traceId,
@@ -11,6 +12,7 @@ public record AiTraceMetadata(
         @JsonProperty("prompt_version") String promptVersion,
         @JsonProperty("model_name") String modelName,
         String status,
-        @JsonProperty("latency_ms") Double latencyMs
+        @JsonProperty("latency_ms") Double latencyMs,
+        Map<String, Object> attributes
 ) {
 }
