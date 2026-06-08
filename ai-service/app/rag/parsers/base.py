@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from app.schemas.ingest import DocumentIngestRequest
 import base64
 import io
-import docx
 
 
 @dataclass(slots=True)
@@ -56,6 +55,7 @@ class DocxParser(BaseParser):
 
         if content_b64:
             try:
+                import docx
                 decoded = base64.b64decode(content_b64)
                 doc = docx.Document(io.BytesIO(decoded))
 

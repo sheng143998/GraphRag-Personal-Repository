@@ -1,4 +1,11 @@
 import asyncio
+import os
+
+os.environ["AI_RAG_USE_DATABASE"] = "false"
+os.environ["MODEL_PROVIDER"] = "stub"
+os.environ["LLM_PROVIDER"] = "stub"
+os.environ["EMBEDDING_PROVIDER"] = "stub"
+os.environ["RERANK_PROVIDER"] = "stub"
 
 from app.core.constants import DocumentType, FileType
 from app.schemas.ingest import DocumentIngestRequest, DocumentPayload
@@ -19,23 +26,26 @@ async def _ingest_then_query():
 
     await ingest_service.ingest_document(
         DocumentIngestRequest(
-            knowledge_base_id="kb-test",
+            knowledge_base_id="kb-test-basic",
             document_id="11111111-1111-1111-1111-111111111111",
             title="Spring Transaction Notes",
             document_type=DocumentType.TECH_NOTE,
             file=DocumentPayload(
                 filename="spring-transaction-notes.md",
                 file_type=FileType.MARKDOWN,
-                content="Spring 事务传播行为中，REQUIRES_NEW 会挂起当前事务并开启一个新事务。",
+                content=(
+                    "In Spring transaction propagation, REQUIRES_NEW suspends the current "
+                    "transaction and starts a new independent transaction."
+                ),
             ),
         )
     )
 
     return await rag_service.query(
         RagQueryRequest(
-            question="REQUIRES_NEW 会怎么处理当前事务？",
+            question="How does REQUIRES_NEW handle the current transaction?",
             top_k=3,
             strategy_name="basic-rag",
-            context=RagRequestContext(knowledge_base_id="kb-test"),
+            context=RagRequestContext(knowledge_base_id="kb-test-basic"),
         )
     )

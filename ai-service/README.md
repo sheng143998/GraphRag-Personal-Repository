@@ -122,7 +122,8 @@ Java 后端
 
 - 回答生成器仍返回占位答案。
 - 向量生成仍是确定性散列逻辑，不代表真实语义效果。
-- 重排器仍是占位实现。
+- 重排器仍是占位实现，Advanced RAG 已接入该链路但排序质量取决于 adapter。
+- query rewrite 与 multi-query 当前为规则型 fallback，不依赖真实 LLM。
 - MinerU PDF 解析器仍是预留位置。
 - 多格式文件解析还未完成。
 - 智能体编排还未完成。
@@ -134,7 +135,8 @@ Java 后端
 - 真实重排器接入。
 - Markdown、TXT、Word、PDF、Excel 解析。
 - MinerU PDF 解析流程。
-- 查询改写、多查询检索、父子片段检索、上下文压缩。
+- 真实 LLM 驱动的查询改写、多查询检索和上下文压缩。
+- 基于真实 parent_chunk_id 的父子片段构建与检索。
 - RAG 评估与实验对比。
 
 ## 常见问题
@@ -142,4 +144,6 @@ Java 后端
 - 如果依赖安装失败，先确认 Python 版本和包源是否可用。
 - 如果数据库连接失败，检查 `AI_DATABASE_URL` 或 `DATABASE_URL`。
 - 如果单测需要绕过数据库，设置 `AI_RAG_USE_DATABASE=false`。
-- 如果 pgvector 写入失败，检查向量维度是否为 1536。
+- 如果 pgvector 写入失败，检查 EMBEDDING_DIMENSIONS 是否为 1536，并确认模型实际返回维度也是 1536。
+- 阿里百炼文本 rerank 的 OpenAI-compatible 地址应使用 https://dashscope.aliyuncs.com/compatible-api/v1，endpoint 为 /reranks。
+- qwen3-vl-rerank 不支持 OpenAI-compatible 文本 rerank；本项目文本 RAG 推荐 qwen3-rerank。

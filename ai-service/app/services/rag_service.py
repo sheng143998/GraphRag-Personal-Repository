@@ -2,18 +2,16 @@ from __future__ import annotations
 
 from app.core.config import settings
 from app.core.tracing import TraceBuilder
-from app.db.repositories import repository
 from app.prompts.registry import prompt_registry
 from app.rag.evaluators.base import SimpleRagEvaluator
 from app.rag.generators.base import SimpleGenerator
 from app.rag.retrievers.base import DatabaseRetriever
 from app.rag.rerankers.base import AdapterReranker
+from app.rag.strategies.advanced import AdvancedRagStrategy
 from app.rag.strategies.base import BasicRagStrategy
-from app.schemas.common import SourceMetadata
 from app.schemas.rag import (
     RagEvaluateRequest,
     RagEvaluateResponse,
-    RagEvaluationResult,
     RagQueryRequest,
     RagQueryResponse,
     RagRetrieveRequest,
@@ -23,7 +21,6 @@ from app.services.adapters.base import AdapterCallContext
 from app.services.adapters.registry import (
     get_llm_model_name,
     get_embedding_model_name,
-    get_rerank_model_name,
     embedding_adapter,
     llm_adapter,
     rerank_adapter,
@@ -36,10 +33,15 @@ class RagService:
         self.reranker = AdapterReranker(rerank_adapter=rerank_adapter)
         self.generator = SimpleGenerator(llm_adapter=llm_adapter)
         self.evaluator = SimpleRagEvaluator()
-        self.strategy = BasicRagStrategy(
+        self.basic_strategy = BasicRagStrategy(
             retriever=self.retriever,
             reranker=self.reranker,
             generator=self.generator,
+        )
+        self.advanced_strategy = AdvancedRagStrategy(
+            retriever=self.retriever,
+            reranker=self.reranker,
+            embedding_adapter=embedding_adapter,
         )
 
     async def retrieve(self, payload: RagRetrieveRequest) -> RagRetrieveResponse:
@@ -58,38 +60,15 @@ class RagService:
                 strategy_name=payload.strategy_name,
             ),
         )
-        sources = await self.retriever.retrieve(
+        strategy = self._select_strategy(payload.strategy_name)
+        reranked = await strategy.run(
             query=payload.query,
-            chunks=repository.list_chunks(payload.context.knowledge_base_id),
             top_k=payload.top_k,
+            trace_builder=trace_builder,
             filters=payload.context.metadata_filters,
             knowledge_base_id=payload.context.knowledge_base_id,
             query_embedding=query_embeddings[0],
             embedding_model=get_embedding_model_name(),
-        )
-        trace_builder.add_step(
-            name="retrieve",
-            status="completed",
-            detail="Retrieved candidate chunks.",
-            payload={"result_count": len(sources)},
-        )
-        reranked = await self.reranker.rerank(
-            query=payload.query,
-            sources=sources,
-            context=AdapterCallContext(
-                trace_id=trace_builder.trace.trace_id,
-                run_id=trace_builder.trace.run_id,
-                operation="rerank",
-                model_name=get_rerank_model_name(),
-                strategy_name=payload.strategy_name,
-            ),
-        )
-        trace_builder.add_step(
-            name="rerank",
-            status="completed",
-            detail="Reranked candidate chunks.",
-            model_name=get_rerank_model_name(),
-            payload={"result_count": len(reranked)},
         )
         trace = trace_builder.finalize(status="completed")
         return RagRetrieveResponse(
@@ -123,7 +102,8 @@ class RagService:
             detail="Embedded query for vector retrieval.",
             model_name=get_embedding_model_name(),
         )
-        citations = await self.strategy.run(
+        strategy = self._select_strategy(payload.strategy_name)
+        citations = await strategy.run(
             query=payload.question,
             top_k=payload.top_k,
             trace_builder=trace_builder,
@@ -166,6 +146,13 @@ class RagService:
             citations=citations,
             trace=trace,
         )
+
+    def _select_strategy(self, strategy_name: str) -> BasicRagStrategy | AdvancedRagStrategy:
+        if strategy_name == "basic-rag":
+            return self.basic_strategy
+        if strategy_name in AdvancedRagStrategy.supported_strategy_names:
+            return self.advanced_strategy
+        raise ValueError(f"Unsupported RAG strategy: {strategy_name}")
 
     async def evaluate(self, payload: RagEvaluateRequest) -> RagEvaluateResponse:
         trace_builder = TraceBuilder(

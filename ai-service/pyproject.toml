@@ -30,3 +30,4 @@ include = ["app*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+cache_dir = "../.tmp/pytest-cache/ai-service"

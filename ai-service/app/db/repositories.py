@@ -50,6 +50,9 @@ class BaseDocumentRepository:
     ) -> list[SourceMetadata]:
         raise NotImplementedError
 
+    def hydrate_parent_context(self, sources: list[SourceMetadata]) -> list[SourceMetadata]:
+        return [_mark_parent_child_unsupported(source) for source in sources]
+
 
 @dataclass
 class InMemoryDocumentRepository(BaseDocumentRepository):
@@ -102,6 +105,30 @@ class InMemoryDocumentRepository(BaseDocumentRepository):
             top_k=top_k,
             filters=filters,
         )
+
+    def hydrate_parent_context(self, sources: list[SourceMetadata]) -> list[SourceMetadata]:
+        hydrated: list[SourceMetadata] = []
+        for source in sources:
+            try:
+                chunks = self.get_chunks(source.document_id)
+                matched_chunk = next((chunk for chunk in chunks if chunk.chunk_id == source.chunk_id), None)
+                if matched_chunk is None:
+                    hydrated.append(_mark_parent_child_unsupported(source))
+                    continue
+                neighbors = [
+                    chunk
+                    for chunk in chunks
+                    if matched_chunk.chunk_index - 1 <= chunk.chunk_index <= matched_chunk.chunk_index + 1
+                ]
+                neighbors.sort(key=lambda chunk: chunk.chunk_index)
+                metadata = {**source.metadata}
+                metadata["parent_child_mode"] = "neighbor-window"
+                metadata["context_source_chunk_ids"] = [chunk.chunk_id for chunk in neighbors]
+                metadata["content_preview"] = "\n\n".join(chunk.content for chunk in neighbors)[:1200]
+                hydrated.append(source.copy(update={"metadata": metadata}))
+            except Exception as exc:  # pragma: no cover - defensive fallback
+                hydrated.append(_mark_parent_child_error(source, exc))
+        return hydrated
 
 
 class PostgresDocumentRepository(BaseDocumentRepository):
@@ -282,6 +309,7 @@ class PostgresDocumentRepository(BaseDocumentRepository):
                         d.title AS document_title,
                         d.source_path,
                         c.title AS chunk_title,
+                        c.chunk_index,
                         c.content,
                         c.page_number,
                         c.sheet_name,
@@ -304,6 +332,50 @@ class PostgresDocumentRepository(BaseDocumentRepository):
                     tuple(params),
                 )
                 return [_row_to_source(row) for row in _fetch_dicts(cursor)]
+
+    def hydrate_parent_context(self, sources: list[SourceMetadata]) -> list[SourceMetadata]:
+        if not sources:
+            return []
+        try:
+            with self._connection() as connection:
+                with _cursor(connection) as cursor:
+                    return [self._hydrate_source_parent_context(cursor, source) for source in sources]
+        except Exception as exc:
+            return [_mark_parent_child_error(source, exc) for source in sources]
+
+    def _hydrate_source_parent_context(self, cursor: Any, source: SourceMetadata) -> SourceMetadata:
+        cursor.execute(
+            """
+            SELECT document_id, chunk_index
+            FROM document_chunks
+            WHERE id = %s
+            """,
+            (source.chunk_id,),
+        )
+        rows = _fetch_dicts(cursor)
+        if not rows:
+            return _mark_parent_child_unsupported(source)
+
+        hit = rows[0]
+        cursor.execute(
+            """
+            SELECT id, content
+            FROM document_chunks
+            WHERE document_id = %s
+              AND chunk_index BETWEEN %s AND %s
+            ORDER BY chunk_index ASC
+            """,
+            (hit["document_id"], hit["chunk_index"] - 1, hit["chunk_index"] + 1),
+        )
+        neighbors = _fetch_dicts(cursor)
+        if not neighbors:
+            return _mark_parent_child_unsupported(source)
+
+        metadata = {**source.metadata}
+        metadata["parent_child_mode"] = "neighbor-window"
+        metadata["context_source_chunk_ids"] = [str(row["id"]) for row in neighbors]
+        metadata["content_preview"] = "\n\n".join(str(row.get("content") or "") for row in neighbors)[:1200]
+        return source.copy(update={"metadata": metadata})
 
     @contextmanager
     def _connection(self):
@@ -373,6 +445,8 @@ def _row_to_source(row: dict[str, Any]) -> SourceMetadata:
     metadata = _metadata(row.get("metadata"))
     content = row.get("content") or ""
     metadata["content_preview"] = content[:600]
+    if row.get("chunk_index") is not None:
+        metadata["chunk_index"] = row["chunk_index"]
     metadata["vector_score"] = float(row["vector_score"] or 0.0)
     metadata["keyword_score"] = float(row["keyword_score"] or 0.0)
     score = metadata["vector_score"] * 0.7 + metadata["keyword_score"] * 0.3
@@ -400,6 +474,19 @@ def _metadata(value: Any) -> dict[str, object]:
 
 def _vector_literal(embedding: list[float]) -> str:
     return "[" + ",".join(str(value) for value in embedding) + "]"
+
+
+def _mark_parent_child_unsupported(source: SourceMetadata) -> SourceMetadata:
+    metadata = {**source.metadata}
+    metadata.setdefault("parent_child_mode", "unsupported")
+    return source.copy(update={"metadata": metadata})
+
+
+def _mark_parent_child_error(source: SourceMetadata, exc: Exception) -> SourceMetadata:
+    metadata = {**source.metadata}
+    metadata["parent_child_mode"] = metadata.get("parent_child_mode") or "fallback-error"
+    metadata["fallback_error"] = str(exc)
+    return source.copy(update={"metadata": metadata})
 
 
 repository = build_repository()
