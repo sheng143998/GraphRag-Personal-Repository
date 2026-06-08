@@ -33,3 +33,9 @@
 - Direct smoke script: `python smoke_test.py`; accepts `SMOKE_BASE_URL`, `SMOKE_AI_BASE_URL`, and `SMOKE_TIMEOUT`.
 
 The full-chain smoke now treats RAG query failure as a hard failure and includes an `advanced-rag` trace assertion for completed status, citation presence, and stored `rewrittenQuery`.
+
+## 2026-06-08 Agent Workflow Validation
+
+- AI pytest covers question classification, automatic strategy selection, RAG execution, citations, and workflow step trace metadata.
+- Backend Maven tests cover the Spring Boot `/api/agent/invoke` bridge request/response mapping.
+- Local full-chain smoke covers Spring Boot -> FastAPI Agent invocation and now passes 47/47 checks.

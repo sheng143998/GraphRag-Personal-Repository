@@ -2,6 +2,8 @@ package com.example.agentknowledge.client;
 
 import com.example.agentknowledge.client.dto.AiDocumentIngestRequest;
 import com.example.agentknowledge.client.dto.AiDocumentIngestResponse;
+import com.example.agentknowledge.client.dto.AiAgentInvokeRequest;
+import com.example.agentknowledge.client.dto.AiAgentInvokeResponse;
 import com.example.agentknowledge.client.dto.AiRagQueryRequest;
 import com.example.agentknowledge.client.dto.AiRagQueryResponse;
 import com.example.agentknowledge.client.dto.AiSourceMetadata;
@@ -64,6 +66,56 @@ public class AiServiceClient implements AiServiceGateway {
                 .body(request)
                 .retrieve()
                 .body(AiRagQueryResponse.class);
+    }
+
+    @Override
+    public AiAgentInvokeResponse invokeAgent(AiAgentInvokeRequest request, String traceId) {
+        if (properties.mockEnabled()) {
+            return new AiAgentInvokeResponse(
+                    request.agentName(),
+                    "Skeleton response from Spring Boot mock AI agent.",
+                    List.of(new AiSourceMetadata(
+                            null,
+                            null,
+                            "mock://ai-service/agent/invoke",
+                            null,
+                            0.0,
+                            0.0,
+                            null,
+                            null,
+                            Map.of("content_preview", "Mock AI agent response without retrieval.")
+                    )),
+                    "general",
+                    request.strategyName(),
+                    List.of(
+                            new AiAgentInvokeResponse.WorkflowStep(
+                                    "mock_agent_invoke",
+                                    "Mocked agent workflow response.",
+                                    Map.of("citation_count", 1)
+                            )
+                    ),
+                    new AiTraceMetadata(
+                            traceId,
+                            null,
+                            "agent_invoke",
+                            request.strategyName(),
+                            "agent_invoke",
+                            "v1",
+                            "mock-llm",
+                            "completed",
+                            15.0,
+                            Map.of("selected_strategy_name", request.strategyName())
+                    )
+            );
+        }
+
+        return restClient.post()
+                .uri("/ai/agent/invoke")
+                .header(HttpHeaders.CONTENT_TYPE, "application/json")
+                .header(TraceContext.HEADER_NAME, traceId)
+                .body(request)
+                .retrieve()
+                .body(AiAgentInvokeResponse.class);
     }
 
     @Override

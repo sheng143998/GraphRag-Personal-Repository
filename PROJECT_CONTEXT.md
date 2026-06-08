@@ -1289,3 +1289,13 @@ README 更新规则：
 - Completed frontend workbench wiring for runtime API settings, visible chat history, knowledge base CRUD/detail, document detail/delete, and upload validation.
 - Verified AI pytest, backend Maven tests, frontend typecheck/build, and local Spring Boot -> FastAPI -> RAG smoke. The local smoke passed 42/42 checks and includes Advanced RAG query, citations, run detail, and rewritten query persistence.
 - Key documents: `docs/plans/2026-06-08-local-fullchain-rag-validation.md`, `docs/plans/2026-06-08-frontend-workbench-wiring.md`, `docs/experiments/2026-06-08-offline-rag-strategy-comparison.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
+
+---
+
+## 2026-06-08 Phase 5 Agent Workflow Update
+
+- Completed the first verifiable Agent orchestration loop with a node-style workflow in `ai-service/app/agents/workflow.py`.
+- `/ai/agent/invoke` now classifies the question, selects a RAG strategy, executes RAG query generation, and returns citations plus workflow steps.
+- Spring Boot now exposes `/api/agent/invoke` as a bridge to FastAPI, preserving frontend-to-Spring-only browser boundaries.
+- Local full-chain smoke now includes Agent workflow invocation and passed 47/47 checks.
+- Key document: `docs/plans/2026-06-08-agent-workflow-phase5.md`.

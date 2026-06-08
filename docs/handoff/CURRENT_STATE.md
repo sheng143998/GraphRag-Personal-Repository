@@ -127,3 +127,27 @@ Frontend follow-up areas addressed by the multi-agent iteration:
 - Runtime Settings changes now drive the API client at request time.
 - Loaded chat history is mapped back into the visible thread.
 - Knowledge base create/detail/edit/delete, document detail/delete, and upload validation are wired in the UI.
+
+---
+
+## 2026-06-08 Phase 5 Agent Workflow Update
+
+Completed in this iteration:
+
+- Added `ai-service/app/agents/workflow.py` with a node-style study agent workflow.
+- `/ai/agent/invoke` now returns question classification, selected strategy, workflow steps, output, citations, and trace metadata.
+- Added Spring Boot `/api/agent/invoke` bridge to FastAPI `/ai/agent/invoke`.
+- Added AI and backend unit tests for the Agent workflow bridge.
+- Extended `smoke_test.py` with Agent workflow full-chain coverage.
+
+Validated:
+
+- `ai-service/.venv/bin/python.exe -m pytest` passed with 12 tests.
+- `mvn test` passed with 6 tests.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 47/47 smoke checks.
+
+Current remaining large project areas:
+
+- GraphRAG / knowledge graph enhancement.
+- Learning and interview assistant product workflows.
+- Optional future replacement of the local node-style runner with a real `langgraph` dependency-backed graph.

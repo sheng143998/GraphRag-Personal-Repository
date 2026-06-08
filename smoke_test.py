@@ -20,6 +20,7 @@ CREATED_EXP_ID = None
 CREATED_MSG_ID = None
 CREATED_RUN_ID = None
 CREATED_ADVANCED_RUN_ID = None
+CREATED_AGENT_RUN_ID = None
 TEST_UUID = str(uuid.uuid4())  # for use as placeholder UUIDs
 
 
@@ -229,6 +230,32 @@ if CREATED_KB_ID:
             check_field("Advanced RAG rewritten query", body, "data.rewrittenQuery")
 else:
     print("  SKIP  No KB, skipping advanced RAG trace test")
+
+
+# ============================================================
+section("4C. AGENT WORKFLOW")
+# ============================================================
+
+if CREATED_KB_ID:
+    r, body = check("Agent invoke", "POST", f"{BASE}/agent/invoke",
+                    json={"agentName": "study-agent",
+                          "userInput": "How should I implement advanced RAG rerank code?",
+                          "knowledgeBaseId": CREATED_KB_ID,
+                          "topK": 3})
+    if r is not None and r.status_code == 200:
+        check_field("Agent output", body, "data.output")
+        check_field("Agent question type", body, "data.questionType", "implementation")
+        check_field("Agent selected strategy", body, "data.selectedStrategyName", "advanced-rag")
+        steps = body.get("data", {}).get("workflowSteps") if isinstance(body, dict) else None
+        if steps and len(steps) >= 4:
+            PASS += 1
+            print(f"  PASS  Agent workflow steps present = {len(steps)}")
+        else:
+            FAIL += 1
+            ERRORS.append("Agent workflow expected at least four workflow steps")
+            print("  FAIL  Agent workflow expected at least four workflow steps")
+else:
+    print("  SKIP  No KB, skipping agent workflow test")
 
 
 # ============================================================
