@@ -200,6 +200,26 @@
               <strong>{{ store.weakPointSummary.dueReviewCount ?? 0 }}</strong>
             </div>
           </div>
+          <div class="button-row compact-row">
+            <button
+              v-for="filter in weakPointFilters"
+              :key="filter.value"
+              class="button"
+              :class="weakPointFilter === filter.value ? 'button-primary' : 'button-secondary'"
+              type="button"
+              @click="weakPointFilter = filter.value"
+            >
+              {{ filter.label }} {{ filter.count }}
+            </button>
+            <button
+              class="button button-primary"
+              type="button"
+              :disabled="store.pending || !store.currentSessionId || !nextDueWeakPoint"
+              @click="practiceNextDue"
+            >
+              Practice next due
+            </button>
+          </div>
           <article v-if="store.weakPointSummary?.nextWeakPoint" class="item-card item-card-active">
             <h3 class="item-title">Next practice: {{ store.weakPointSummary.nextWeakPoint.topic }}</h3>
             <div class="item-meta">
@@ -209,7 +229,10 @@
               </span>
             </div>
           </article>
-          <article v-for="point in store.weakPoints" :key="point.id" class="item-card">
+          <div v-if="displayedWeakPoints.length === 0" class="empty-state">
+            No weak points match the current queue filter.
+          </div>
+          <article v-for="point in displayedWeakPoints" :key="point.id" class="item-card">
             <h3 class="item-title">{{ point.topic }}</h3>
             <p class="item-description">{{ point.expectedAnswer }}</p>
             <div class="item-meta">
@@ -265,17 +288,47 @@ import SourceList from "../../components/SourceList.vue";
 import StrategySelector from "../../components/StrategySelector.vue";
 import UploadEntry from "../../components/UploadEntry.vue";
 import { useWorkbenchStore } from "../../stores/workbench";
+import type { LearningWeakPoint } from "../../types";
 
 const store = useWorkbenchStore();
 const question = ref("");
 const newSessionTitle = ref("");
 const practiceAnswers = reactive<Record<string, string>>({});
 const assessedWeakPointId = ref("");
+type WeakPointFilter = "all" | "due" | "needs-review" | "mastered";
+const weakPointFilter = ref<WeakPointFilter>("all");
 
 const strategyLabel = computed(() => {
   const item = store.ragStrategyOptions.find((option) => option.value === store.selectedStrategy);
   return item?.label ?? store.selectedStrategy;
 });
+
+const dueWeakPoints = computed(() => store.weakPoints.filter(isDueReview));
+const needsReviewWeakPoints = computed(() =>
+  store.weakPoints.filter((point) => normalizeMasteryStatus(point.masteryStatus) === "NEEDS_REVIEW")
+);
+const masteredWeakPoints = computed(() =>
+  store.weakPoints.filter((point) => normalizeMasteryStatus(point.masteryStatus) === "MASTERED")
+);
+const nextDueWeakPoint = computed(() => dueWeakPoints.value[0] ?? null);
+const displayedWeakPoints = computed(() => {
+  if (weakPointFilter.value === "due") {
+    return dueWeakPoints.value;
+  }
+  if (weakPointFilter.value === "needs-review") {
+    return needsReviewWeakPoints.value;
+  }
+  if (weakPointFilter.value === "mastered") {
+    return masteredWeakPoints.value;
+  }
+  return store.weakPoints;
+});
+const weakPointFilters = computed(() => [
+  { value: "all" as const, label: "All", count: store.weakPoints.length },
+  { value: "due" as const, label: "Due", count: dueWeakPoints.value.length },
+  { value: "needs-review" as const, label: "Needs review", count: needsReviewWeakPoints.value.length },
+  { value: "mastered" as const, label: "Mastered", count: masteredWeakPoints.value.length }
+]);
 
 onMounted(() => {
   store.loadSessions();
@@ -314,11 +367,31 @@ async function submitPracticeAnswer(weakPointId: string): Promise<void> {
   }
 }
 
+async function practiceNextDue(): Promise<void> {
+  if (!nextDueWeakPoint.value) {
+    return;
+  }
+  assessedWeakPointId.value = "";
+  await store.practiceWeakPoint(nextDueWeakPoint.value.id);
+}
+
 function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
 function formatDate(value: string): string {
   return value.replace("T", " ").slice(0, 16);
+}
+
+function isDueReview(point: LearningWeakPoint): boolean {
+  if (!point.nextReviewAt) {
+    return true;
+  }
+  const timestamp = Date.parse(point.nextReviewAt);
+  return !Number.isNaN(timestamp) && timestamp <= Date.now();
+}
+
+function normalizeMasteryStatus(value: string): string {
+  return value.trim().toUpperCase();
 }
 </script>

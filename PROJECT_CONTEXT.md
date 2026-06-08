@@ -1546,3 +1546,13 @@ README 更新规则：
 - Frontend chat displays due counts and per-item schedule metadata while keeping browser traffic on Spring Boot `/api/*`.
 - Full-chain smoke validates the new schedule fields; latest local smoke passed with 131/131 checks.
 - Key documents: `docs/plans/2026-06-08-weak-point-review-schedule.md`, `docs/reviews/2026-06-08-weak-point-review-schedule-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
+
+---
+
+## 2026-06-08 Weak Point Review Queue Controls Update
+
+- Added frontend queue controls for all, due, needs-review, and mastered weak points in the chat workbench.
+- Added a `Practice next due` shortcut that reuses the existing Spring Boot weak point practice flow.
+- No backend or FastAPI contracts changed.
+- Local validation passed: `npm.cmd run typecheck`, `npm.cmd run build`, and full-chain smoke 131/131.
+- Key documents: `docs/plans/2026-06-08-weak-point-review-queue-controls.md`, `docs/reviews/2026-06-08-weak-point-review-queue-controls-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.

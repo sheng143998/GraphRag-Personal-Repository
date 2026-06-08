@@ -435,6 +435,7 @@ Validated so far:
 - `mvn test` passed with 14 tests.
 - `npm.cmd run typecheck` passed.
 - `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 131/131 smoke checks.
 - `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 108/108 smoke checks.
 
 Current remaining large project areas:
@@ -548,6 +549,7 @@ Completed in this iteration:
 Validated:
 
 - `npm.cmd run typecheck` passed.
+- `npm.cmd run build` passed.
 - `npm.cmd run build` passed.
 - `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 123/123 smoke checks.
 
@@ -676,3 +678,23 @@ Current remaining large project areas:
 
 - Continue Advanced RAG quality iteration with stronger parent-child chunk modeling and richer GraphRAG metrics.
 - Add learning workflow refinements such as due-only filters and review queue controls.
+
+---
+
+## 2026-06-08 Weak Point Review Queue Controls Update
+
+Completed in this iteration:
+
+- Added chat workbench queue filters for all, due, needs-review, and mastered weak points.
+- Added a `Practice next due` action that starts practice through the existing Spring-backed store flow.
+- Added an empty state for filtered queues with no matching items.
+- Kept the change frontend-only; no Spring Boot or FastAPI contract changed.
+
+Validated:
+
+- `npm.cmd run typecheck` passed.
+
+Current remaining large project areas:
+
+- Continue Advanced RAG quality iteration with stronger parent-child chunk modeling and richer GraphRAG metrics.
+- Add more learning workflow ergonomics, such as persisted queue preferences or dedicated review sessions.

@@ -209,3 +209,10 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Frontend typecheck/build covers weak point schedule fields in shared types and the chat workbench display.
 - `smoke_test.py` verifies weak point summaries expose `dueReviewCount` and practice assessment responses expose `practiceCount`, `lastPracticeScore`, and a future `nextReviewAt`.
 - Local full-chain smoke passed with 131/131 checks.
+
+## 2026-06-08 Weak Point Review Queue Controls Validation
+
+- Frontend typecheck covers client-side weak point filters for all, due, needs-review, and mastered queues.
+- The chat workbench computes due items from `nextReviewAt` and uses the existing weak point practice store action.
+- Frontend build verifies the updated chat workbench bundles cleanly.
+- No backend or FastAPI API contract changed; full-chain smoke remains green with 131/131 checks on the existing weak point schedule and practice endpoints.
