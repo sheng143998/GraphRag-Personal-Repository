@@ -1,24 +1,28 @@
-# Agent Review Cards Plan
+# 2026-06-08 Agent 复习 卡片
 
-Date: 2026-06-08
+## 目标
 
-## Scope
+本计划记录 `agent-review-cards` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-- Generate active-recall `review_cards` inside the AI Agent workflow after session study plan generation.
-- Propagate FastAPI `review_cards` through Spring Boot as `reviewCards`.
-- Return `reviewCards` from `POST /api/chat/{sessionId}/assistant-turn`.
-- Display review cards in the Vue chat workbench.
+## 范围
 
-## Boundaries
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-- Review card generation stays inside `ai-service/`.
-- Spring Boot maps structured Agent responses and keeps assistant-turn persistence responsibilities.
-- The browser continues to call Spring `/api/*` only.
+## 实施要点
 
-## Verification
+- 根据 `agent-review-cards` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
-- AI pytest covers workflow step order, two generated review cards, and trace attribute propagation.
-- Backend Maven tests cover Agent and assistant-turn DTO mapping.
-- Frontend typecheck/build cover the chat store and page rendering path.
-- Full-chain smoke covers direct Agent and assistant-turn review card responses.
-- Final local full-chain smoke passed with 82/82 checks.
+## 验证方式
+
+- `.\.venv\bin\python.exe -m pytest tests -q`
+
+## 备注
+
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

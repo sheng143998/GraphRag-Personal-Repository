@@ -1,34 +1,20 @@
-# 2026-05-27 AI 服务环境配置定位审查提示
+﻿# 审查提示：AI 服务 环境 位置
 
-## 本次审查目标
+请审查 `ai-service-env-location` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-请确认 AI 服务环境变量配置定位是否准确：当前没有 `ai-service/.env`，只有根目录 `.env.example` 作为模板，AI 服务运行时通过系统环境变量读取配置。
+## 重点关注
 
-## 涉及文件
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-- `.env.example`
-- `ai-service/app/core/config.py`
-- `docs/plans/2026-05-27-ai-service-env-location.md`
-- `docs/testing/failures/2026-05-27-ai-service-env-location-notes.md`
-- `docs/handoff/CURRENT_STATE.md`
+## 建议验证命令
 
-## 关键结论
+- `git diff --check`
 
-- 未找到 `ai-service/.env`。
-- 未找到 `ai-service/.env.*`。
-- 未找到 `ai-service/*.env`。
-- 找到根目录 `.env.example`。
-- AI 服务读取 `AI_DATABASE_URL`，如果为空则读取 `DATABASE_URL`。
-- `AI_RAG_USE_DATABASE` 控制是否使用真实数据库检索。
+## 审查结论记录
 
-## 审查顺序
-
-1. 先看 `.env.example` 中的 AI Service 配置段。
-2. 再看 `ai-service/app/core/config.py` 的 `Settings` 和 `settings` 初始化逻辑。
-3. 最后确认没有把真实数据库密码写入文档。
-
-## 当前未改动内容
-
-- 没有新增真实 `.env` 文件。
-- 没有修改 AI 服务配置逻辑。
-- 没有写入任何真实密码。
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

@@ -1,26 +1,31 @@
-# 2026-05-26 基础 RAG 主链路
+# 2026-05-26 基础 RAG 链路
 
-## 背景
+## 目标
 
-当前 RAG 骨架已经具备 Spring Boot 对外接口、FastAPI 内部接口和数据库 schema，但 AI 服务只使用内存仓库，Java 后端默认返回 mock AI 结果。项目需要先完成可验证的基础 RAG 闭环。
+本计划记录 `basic-rag-pipeline` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
 ## 范围
 
-- FastAPI AI 服务从 PostgreSQL 读取 `document_chunks` 与 `chunk_embeddings`。
-- 文档 ingest 写入 `documents`、`document_chunks` 和 `chunk_embeddings`。
-- 基础 RAG 使用 stub embedding + pgvector 相似度 + 关键词匹配组合排序。
-- Java 后端调用真实 FastAPI `/ai/rag/query` schema，并保存 `rag_runs` 与 `rag_retrieval_results`。
-- 保留 mock AI 开关，便于 AI 服务未启动时本地调试。
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-## 非范围
+## 实施要点
 
-- 暂不接真实 LLM、真实 embedding 或外部 rerank 服务。
-- 暂不实现 Query Rewrite、Multi-query、Parent-Child、GraphRAG。
-- 暂不做浏览器 E2E。
+- 根据 `basic-rag-pipeline` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
-## 验证计划
+## 验证方式
 
-- Python 编译与单元测试。
-- Java `mvn test`。
-- 本地 PostgreSQL 上运行后端启动、Flyway 校验、健康接口。
-- 条件允许时联调 FastAPI ingest + Spring Boot RAG query。
+- `.\.venv\bin\python.exe -m pytest tests -q`
+- `mvn.cmd test`
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
+
+## 备注
+
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

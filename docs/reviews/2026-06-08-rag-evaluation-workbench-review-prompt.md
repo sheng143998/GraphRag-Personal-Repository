@@ -1,19 +1,25 @@
-# RAG Evaluation Workbench Review Prompt
+# 审查提示：RAG 评估 工作台
 
-Date: 2026-06-08
+请审查 `rag-evaluation-workbench` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-Please review the frontend RAG evaluation workbench slice with these priorities:
+## 重点关注
 
-1. API contract: `GET /api/rag/runs?limit={n}` should return recent run summaries without retrieval detail payloads.
-2. Evaluation flow: the experiments page should select a recent run and call `POST /api/rag/experiments/{id}/evaluate`.
-3. State update: successful evaluation should replace the updated experiment in the workbench store.
-4. Architecture boundary: frontend calls Spring `/api`; Spring calls FastAPI evaluator.
-5. UI behavior: the Evaluate button should be disabled until a run is selected, and experiment CRUD should remain intact.
-6. Regression coverage: Maven tests should cover recent run summary mapping; smoke should cover recent run listing and existing experiment evaluation.
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-Validated commands:
+## 建议验证命令
 
-- `mvn test` in `backend-java`: 14 tests passed.
-- `npm.cmd run typecheck` in `frontend`: passed.
-- `npm.cmd run build` in `frontend`: passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`: 101/101 smoke checks passed.
+- `.\.venv\bin\python.exe -m pytest tests -q`
+- `mvn.cmd test`
+- `npm.cmd --prefix frontend run typecheck`
+- `npm.cmd --prefix frontend run build`
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
+
+## 审查结论记录
+
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

@@ -1,25 +1,20 @@
-# Review Prompt: Query-Aware Context Compression
+# 审查提示：查询 感知 上下文 压缩
 
-Please review the deterministic context compression implementation for Advanced RAG.
+请审查 `query-aware-context-compression` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-Focus areas:
+## 重点关注
 
-- Compression must run only inside the AI service RAG boundary.
-- Parent-child hydration should still report the same `context_source_chunk_ids`.
-- Hit child evidence must not be dropped when parent context is long.
-- Metadata should be useful for evaluation: original chars, compressed chars, ratio, and compression mode.
-- Trace payload should expose aggregate compression statistics.
-- Existing flat chunk neighbor fallback should continue to work.
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-Validation commands:
+## 建议验证命令
 
-```powershell
-cd ai-service
-.\.venv\bin\python.exe -m pytest tests/test_advanced_rag_strategy.py -q
-.\.venv\bin\python.exe -m pytest tests -q
-```
+- `.\.venv\bin\python.exe -m pytest tests -q`
 
-```powershell
-python -m py_compile smoke_test.py
-powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1
-```
+## 审查结论记录
+
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

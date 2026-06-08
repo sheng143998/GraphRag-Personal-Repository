@@ -1,31 +1,20 @@
-# 2026-05-27 本地 `.env` 空字段配置 review 提示
+# 审查提示：本地 环境 模板
 
-## 本次 review 目标
+请审查 `local-env-template` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-请 review 根目录 `.env` 是否只包含空字段，没有真实账号、密码或 token。
+## 重点关注
 
-## 本次范围
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-- `.env`
-  - 作用：本地填写数据库和服务启动所需环境变量。
+## 建议验证命令
 
-## 重点 review 顺序
+- `git diff --check`
 
-1. `.env`
-   - 检查 `DB_URL`、`DB_USERNAME`、`DB_PASSWORD` 等字段是否留空。
-   - 检查没有写入真实密码。
+## 审查结论记录
 
-2. `.gitignore`
-   - 确认 `.env` 已被忽略，不会提交到仓库。
-
-## 当前占位实现
-
-- 本轮只创建空字段文件，不负责自动加载 `.env`。
-- 后续如需一键启动，需要在脚本中显式读取 `.env`。
-
-## 已执行验证
-
-- `Test-Path .env`：返回 `True`。
-- `Get-Content .env`：确认字段存在。
-- `Select-String -Path .env -Pattern '=.+'`：无输出，说明字段值均为空。
-- `.gitignore` 已包含 `.env` 和 `.env.*`。
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

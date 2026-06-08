@@ -1,46 +1,31 @@
-# 2026-05-27 RAG 实验列表接口
+# 2026-05-27 RAG 实验 列表
 
-## 背景
+## 目标
 
-当前 `GET /api/rag/experiments` 已有 Controller 入口，但返回的是硬编码占位数据。前端实验页已经调用该接口，项目规划中也要求沉淀 `rag_experiments` 表，用于后续对比不同 chunk、embedding、retriever 和 reranker 策略。
+本计划记录 `rag-experiments-list` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## 当前目标
+## 范围
 
-本轮只完成一个接口：`GET /api/rag/experiments` 从数据库读取实验记录并返回给前端。
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-## 涉及模块
+## 实施要点
 
-- Spring Boot 后端
-- PostgreSQL / Flyway 迁移
-- RAG 实验相关 DTO、Domain、Repository、Service
-- 项目过程文档
-
-## 预计修改文件
-
-- `backend-java/src/main/resources/db/migration/V202605270930__create_rag_experiments.sql`
-- `backend-java/src/main/java/com/example/agentknowledge/domain/RagExperiment.java`
-- `backend-java/src/main/java/com/example/agentknowledge/repository/RagExperimentRepository.java`
-- `backend-java/src/main/java/com/example/agentknowledge/dto/rag/RagExperimentResponse.java`
-- `backend-java/src/main/java/com/example/agentknowledge/service/RagExperimentService.java`
-- `backend-java/src/main/java/com/example/agentknowledge/controller/RagController.java`
-- `docs/reviews/2026-05-27-rag-experiments-list-review-prompt.md`
-- `docs/testing/failures/2026-05-27-rag-experiments-list-notes.md`
-- `docs/handoff/CURRENT_STATE.md`
-
-## 非范围
-
-- 本轮不实现 `POST /api/rag/experiments`。
-- 本轮不实现评估任务调度、自动运行评估集或图表展示。
-- 本轮不改前端实验页结构，只保证已有列表接口可从真实表读取。
+- 根据 `rag-experiments-list` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
 ## 验证方式
 
-- 运行 Java 后端测试或至少编译测试。
-- 检查 Flyway 迁移文件可被识别。
-- 人工检查接口响应字段与前端 `ExperimentRecord` 类型一致。
+- `.\.venv\bin\python.exe -m pytest tests -q`
+- `mvn.cmd test`
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
 
-## 当前风险
+## 备注
 
-- 项目当前没有 Java 自动化测试目录，本轮可能主要依赖 `mvn test` 编译验证。
-- 如果本地 PostgreSQL 未启动，只能验证编译，不能执行真实数据库迁移。
-- 当前实验指标字段仍是第一版业务抽象，后续评估体系完善后可能需要扩展。
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

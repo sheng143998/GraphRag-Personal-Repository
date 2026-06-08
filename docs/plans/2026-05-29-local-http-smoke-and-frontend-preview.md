@@ -1,52 +1,31 @@
-# 2026-05-29 本地 HTTP Smoke 与前端预览
+﻿# 2026-05-29 本地 HTTP smoke 与前端预览
 
-## 背景
+## 目标
 
-用户要求先做一次 HTTP smoke，并打开前端查看当前界面。用户随后明确要求使用本地 PostgreSQL，不启动 Docker。
+本计划记录 `local-http-smoke-and-frontend-preview` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## 当前目标
+## 范围
 
-本轮不新增业务接口，只做本地数据库模式的项目重启、HTTP smoke 和前端预览。
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-## Smoke 范围
+## 实施要点
 
-- 不启动 Docker。
-- 使用本机 PostgreSQL 服务。
-- 启动 FastAPI AI 服务。
-- 启动 Spring Boot 后端。
-- 启动 Vue 前端。
-- 检查基础健康接口。
-- 执行知识库创建、文档上传、文档列表、文档详情最小链路。
-- 在 Codex 浏览器中打开前端页面给用户查看。
+- 根据 `local-http-smoke-and-frontend-preview` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
-## 执行结果
+## 验证方式
 
-- 本机 PostgreSQL 服务 `postgresql-x64-18` 正在运行，`127.0.0.1:5432` 可连接。
-- 前端已启动：`http://127.0.0.1:5173/`，浏览器实际进入 `http://127.0.0.1:5173/chat`。
-- AI 服务已启动：`http://127.0.0.1:8001/ai/health` 返回 `status=ok`。
-- Java 后端已启动：`http://127.0.0.1:8080/api/health` 返回 `status=UP`。
-- 后端启动时使用项目内 `backend-java/.tmp` 作为 Java 临时目录，绕过当前环境用户临时目录写入限制。
-- Java 后端和 AI 服务均从根目录 `.env` 读取本地数据库配置；文档中不记录真实密码。
+- `npm.cmd --prefix frontend run typecheck`
+- `npm.cmd --prefix frontend run build`
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
 
-## HTTP Smoke 结果
+## 备注
 
-- `GET /ai/health`：通过。
-- `GET /api/health`：通过。
-- `GET /` 前端首页：通过。
-- `POST /api/knowledge-bases`：通过，创建 smoke 知识库。
-- `POST /api/documents/upload` JSON：通过，返回 `status=INDEXED`，上传响应 `chunkCount=1`。
-- `GET /api/documents?knowledgeBaseId=...`：通过，能查询到本轮上传文档。
-- `GET /api/documents/{id}`：接口可访问，但详情响应 `chunkCount=0` 且 `chunks=[]`，与上传响应 `chunkCount=1` 不一致，已记录为后续需要排查的问题。
-
-## 非范围
-
-- 不新增业务接口。
-- 不提交真实 `.env` 内容。
-- 不做生产级性能或安全测试。
-- 不做真实 PDF / Word / Excel 二进制解析验证。
-
-## 当前风险
-
-- 文档上传链路可以返回 `INDEXED`，但详情 chunk 摘要暂未读出，需要继续排查 Java 文档 ID、AI 写入 chunk、详情查询条件之间是否一致。
-- 当前 embedding、LLM generator 仍为 stub。
-- FastAPI pytest 依赖仍未补齐，本轮只做 HTTP smoke。
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

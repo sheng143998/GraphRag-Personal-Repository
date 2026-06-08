@@ -1,24 +1,31 @@
-# RAG Evaluation History Plan
+# 2026-06-08 RAG 评估 历史
 
-Date: 2026-06-08
+## 目标
 
-## Scope
+本计划记录 `rag-evaluation-history` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-- Persist every `POST /api/rag/experiments/{id}/evaluate` result as an immutable experiment evaluation history row.
-- Keep evaluator scoring logic in FastAPI `/ai/rag/evaluate`; Spring Boot only bridges, updates the experiment summary, and stores business history.
-- Return recent history in experiment responses so the frontend workbench can display repeated evaluation runs.
-- Extend non-Docker full-chain smoke coverage for the Advanced RAG evaluation path.
+## 范围
 
-## Implementation
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-- Add Flyway migration `V202606081630__create_rag_experiment_evaluations.sql`.
-- Add `RagExperimentEvaluation` entity and `RagExperimentEvaluationRepository`.
-- Extend `RagExperimentResponse` and `RagExperimentEvaluationResponse` with evaluation history DTOs.
-- Make `RagExperimentService.evaluate()` transactional so experiment summary updates and history persistence commit together.
-- Show recent evaluation history in `frontend/src/pages/experiments/ExperimentsPage.vue`.
+## 实施要点
 
-## Validation
+- 根据 `rag-evaluation-history` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
-- Backend unit test: `RagExperimentServiceTest` verifies evaluator request construction, experiment score update, and history row persistence.
-- Frontend typecheck/build covers the new response types and history UI.
-- Full-chain smoke asserts `data.evaluation`, `data.history`, and `data.experiment.evaluations` for the Advanced RAG run evaluation.
+## 验证方式
+
+- `.\.venv\bin\python.exe -m pytest tests -q`
+- `mvn.cmd test`
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
+
+## 备注
+
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

@@ -1,43 +1,23 @@
-# 2026-05-27 RAG 实验更新接口 review 提示
+# 审查提示：RAG 实验 更新
 
-## 本次 review 目标
+请审查 `rag-experiments-update` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-请 review `PUT /api/rag/experiments/{id}` 是否能按统一资源路径更新实验记录，并确认字段校验、部分更新语义和 404 处理是否符合 RAG 实验平台后续使用方式。
+## 重点关注
 
-## 本次接口范围
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-- `PUT /api/rag/experiments/{id}`
-  - 入口：`backend-java/src/main/java/com/example/agentknowledge/controller/RagController.java`
-  - 作用：更新单个 RAG 实验记录，返回更新后的 `RagExperimentResponse`。
+## 建议验证命令
 
-## 重点 review 顺序
+- `.\.venv\bin\python.exe -m pytest tests -q`
+- `mvn.cmd test`
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
 
-1. 请求 DTO
-   - `backend-java/src/main/java/com/example/agentknowledge/dto/rag/UpdateRagExperimentRequest.java`
-   - 检查可选字段、长度限制和 precision/recall 的 0 到 1 范围约束。
+## 审查结论记录
 
-2. Service 更新逻辑
-   - `backend-java/src/main/java/com/example/agentknowledge/service/RagExperimentService.java`
-   - 检查是否先查询真实记录，未找到时是否抛出 `ResourceNotFoundException`，以及是否只更新请求中传入的字段。
-
-3. Controller 路径
-   - `backend-java/src/main/java/com/example/agentknowledge/controller/RagController.java`
-   - 检查 `PUT /api/rag/experiments/{id}` 是否和列表、创建、详情接口保持同一资源路径。
-
-## 当前占位实现
-
-- 本轮不实现字段清空语义，空字符串会被忽略。
-- 本轮不触发真实 RAG 评估任务，只保存传入的实验字段。
-- 本轮不实现前端编辑表单。
-
-## 已执行验证
-
-- 在 `backend-java/` 下运行 `mvn test`，结果为 `BUILD SUCCESS`。
-- 当前没有 Java 测试源码，因此本轮验证重点是编译、Controller 路由、请求 DTO 注解和 Service 更新逻辑。
-- 本轮未启动 PostgreSQL，尚未执行真实 HTTP 更新 smoke。
-
-## Review 时特别注意
-
-- 更新接口不要创建新实验；找不到记录时必须走 404。
-- 指标字段必须限制在 0 到 1。
-- 如果传入 `knowledgeBaseId`，必须校验知识库存在。
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

@@ -1,4 +1,4 @@
-# 2026-05-27 本地 PostgreSQL smoke 复测过程记录
+﻿# 2026-05-27 本地 PostgreSQL smoke 复测
 
 ## 背景
 

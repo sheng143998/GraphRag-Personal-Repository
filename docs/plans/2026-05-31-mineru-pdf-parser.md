@@ -1,25 +1,28 @@
-﻿# 2026-05-31 MinerU PDF 解析器 — 接入 MinerU API
+# 2026-05-31 MinerU PDF 解析器
 
-## 背景
-AI 服务 `MinerUPdfParser` 目前为 reserved stub（仅返回适配器占位信息，不执行真实 PDF 解析）。
-需接入 MinerU 官方 API 实现真正的 PDF 文档文本提取。
+## 目标
 
-## 待调研（浏览器阅读 https://mineru.net/apiManage/docs）
-1. API 认证方式（API Key / Token）
-2. PDF 上传接口（endpoint、请求格式、base64 vs multipart）
-3. 解析结果获取接口
-4. 响应格式（Markdown / JSON / 纯文本）
-5. 速率限制与配额
-6. 需要配置的环境变量
+本计划记录 `mineru-pdf-parser` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## 实现方案（待确定）
-- 读取 MinerU API 文档
-- 实现 `MinerUPdfParser.parse()` 调用 MinerU API
-- 敏感信息（API Key）通过 `.env` 配置，不硬编码
-- 需用户提供 MinerU API Token 时主动提示
+## 范围
 
-## 涉及文件
-- `ai-service/app/rag/parsers/base.py` — MinerUPdfParser 重写
-- `ai-service/app/core/config.py` — 新增 MinerU 相关配置项
-- `.env` — 新增 MinerU API Key（用户手动配置）
-- `ai-service/pyproject.toml` — 如需新增依赖
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
+
+## 实施要点
+
+- 根据 `mineru-pdf-parser` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
+
+## 验证方式
+
+- `git diff --check`
+
+## 备注
+
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

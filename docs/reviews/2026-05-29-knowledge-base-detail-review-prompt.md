@@ -1,25 +1,20 @@
-﻿# 2026-05-29 GET /api/knowledge-bases/{id} 知识库详情 review 提示
+# 审查提示：知识 库 详情
 
-## 涉及文件
-- `backend-java/src/main/java/com/example/agentknowledge/controller/KnowledgeBaseController.java` — 新增 `@GetMapping("/{id}")`
-- `backend-java/src/main/java/com/example/agentknowledge/service/KnowledgeBaseService.java` — 新增 `getById(UUID id)`，注入 `KnowledgeDocumentRepository`、`DocumentChunkRepository`
-- `backend-java/src/main/java/com/example/agentknowledge/dto/knowledge/KnowledgeBaseResponse.java` — 新增 `documentCount`、`chunkCount` 字段
-- `backend-java/src/main/java/com/example/agentknowledge/repository/KnowledgeDocumentRepository.java` — 新增 `countByKnowledgeBase_Id`
-- `backend-java/src/main/java/com/example/agentknowledge/repository/DocumentChunkRepository.java` — 新增 `countByKnowledgeBase_Id`
-- `frontend/src/api/knowledgeBases.ts` — 新增 `fetchKnowledgeBaseById`
+请审查 `knowledge-base-detail` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-## 变更要点
-1. `GET /api/knowledge-bases/{id}` 返回知识库详情，包含 `documentCount` 和 `chunkCount`
-2. `GET /api/knowledge-bases` 列表也补充了统计字段
-3. `POST /api/knowledge-bases` 创建时返回 `documentCount=0, chunkCount=0`
-4. 404 时返回标准 `ResourceNotFoundException`
+## 重点关注
 
-## 验证结果
-- ✅ Java `mvn compile` 通过
-- ✅ Java `mvn test` 通过
-- ✅ 前端 `npm run build` 通过
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-## 重点 review
-- `KnowledgeBaseService` 注入 `KnowledgeDocumentRepository` + `DocumentChunkRepository` 是否合理
-- `toResponse` 签名变更是否影响已有的 `create`/`list` 调用
-- Spring Data JPA `countByKnowledgeBase_Id` 命名是否正确
+## 建议验证命令
+
+- `git diff --check`
+
+## 审查结论记录
+
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

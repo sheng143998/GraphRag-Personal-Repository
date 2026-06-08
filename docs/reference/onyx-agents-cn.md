@@ -338,7 +338,7 @@ Onyx 还规定了当 Agent 创建计划文档时，需要包含哪些内容。
 你的项目可以增加 `docs/plans/`，每个复杂功能先写一份计划：
 
 ```md
-# Plan: Hybrid Search
+# 计划：混合检索
 
 ## Issues to Address
 

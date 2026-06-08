@@ -1,63 +1,21 @@
-# Review: 2026-06-05 前端接口补齐
+# 审查提示：前端 API 补齐
 
-## Review 目标
+请审查 `frontend-api-completion` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-请重点 review 本轮补齐的前端代码是否与 `docs/architecture/api-design.md` 契约对齐，以及是否遵守 PROJECT_CONTEXT.md 中的前端规范。
+## 重点关注
 
-## 重点文件
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-### 基础层
-- `frontend/src/types/index.ts` — 新增 11 个类型、扩展 4 个现有类型
-- `frontend/src/api/client.ts` — extractErrorMessage 修复
+## 建议验证命令
 
-### API 模块
-- `frontend/src/api/chat.ts` — 新增 4 个会话/消息函数 + 修复 sendChatMessage
-- `frontend/src/api/experiments.ts` — 完整 CRUD（5 函数）
-- `frontend/src/api/feedback.ts` — 新建
-- `frontend/src/api/rag.ts` — 新建
-- `frontend/src/api/knowledgeBases.ts` — 新增 createKnowledgeBase
-- `frontend/src/api/index.ts` — re-export 补齐
+- `npm.cmd --prefix frontend run typecheck`
+- `npm.cmd --prefix frontend run build`
 
-### Store
-- `frontend/src/stores/workbench.ts` — hydrate 容错修复 + 14 个新增 actions
+## 审查结论记录
 
-### 页面
-- `frontend/src/pages/chat/ChatPage.vue` — 会话管理面板
-- `frontend/src/pages/experiments/ExperimentsPage.vue` — CRUD 表单
-- `frontend/src/pages/feedback/FeedbackPage.vue` — 新建
-- `frontend/src/pages/settings/SettingsPage.vue` — 可编辑
-
-### 路由
-- `frontend/src/router/index.ts` — /feedback 路由
-- `frontend/src/layouts/WorkbenchLayout.vue` — 导航入口
-
-## Review 检查点
-
-- 新增类型字段是否与 `docs/architecture/api-design.md` 中定义的请求/响应结构对齐。
-- API 模块函数路径前缀是否均使用 Spring Boot `/api/*`，无直调 FastAPI 的情况。
-- Store actions 是否正确组装请求参数并更新本地状态。
-- 页面表单是否有 loading / error / empty 三态处理。
-- SettingsPage localStorage 持久化是否正确。
-- ChatPage 会话管理：选择会话后是否加载后端消息、发送问题时是否附带 sessionId。
-- 是否符合 Vue 3 Composition API + TypeScript + Pinia 模式。
-
-## 对照代码
-
-后端参考（验证字段对齐用）：
-
-- `backend-java/src/main/java/com/example/agentknowledge/controller/ChatController.java`
-- `backend-java/src/main/java/com/example/agentknowledge/controller/FeedbackController.java`
-- `backend-java/src/main/java/com/example/agentknowledge/dto/chat/*.java`
-- `backend-java/src/main/java/com/example/agentknowledge/dto/feedback/*.java`
-- `backend-java/src/main/java/com/example/agentknowledge/common/api/ApiResponse.java`
-
-## 验证命令
-
-```bash
-cd frontend && npm run build
-```
-
-## 当前未验证项
-
-- 全链路 HTTP smoke（需要后端服务运行）
-- 浏览器端页面 UI 交互验证
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

@@ -1,37 +1,28 @@
-# 2026-05-27 本地 `.env` 空字段配置
+# 2026-05-27 本地 环境 模板
 
-## 背景
+## 目标
 
-当前 RAG 实验接口 HTTP smoke 被本地 PostgreSQL 凭据阻塞。用户希望先在项目根目录创建一个 `.env` 文件，字段留空，由用户自行补全本机数据库连接信息。
+本计划记录 `local-env-template` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## 当前目标
+## 范围
 
-创建根目录 `.env`，只写入环境变量名，不写入真实密码、账号或连接串。
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-## 涉及模块
+## 实施要点
 
-- 根目录本地环境配置
-- 项目过程文档
-
-## 预计修改文件
-
-- `.env`
-- `docs/reviews/2026-05-27-local-env-template-review-prompt.md`
-- `docs/testing/failures/2026-05-27-local-env-template-notes.md`
-- `docs/handoff/CURRENT_STATE.md`
-
-## 非范围
-
-- 不写入真实数据库密码。
-- 不修改 `.env.example`。
-- 不启动数据库或后端服务。
+- 根据 `local-env-template` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
 ## 验证方式
 
-- 确认 `.env` 文件存在。
-- 确认 `.env` 字段值为空。
-- 确认 `.gitignore` 已忽略 `.env`。
+- `git diff --check`
 
-## 当前风险
+## 备注
 
-- Spring Boot 本身不会自动读取根目录 `.env`；如果通过 Maven/PowerShell 启动，需要后续由启动脚本或终端环境变量加载这些字段。
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

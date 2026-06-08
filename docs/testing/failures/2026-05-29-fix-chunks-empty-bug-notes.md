@@ -1,4 +1,4 @@
-﻿# 2026-05-29 修复 chunks=[] bug 失败复盘 / 观察记录
+﻿# 2026-05-29 修复 chunks 为空问题
 
 ## 问题
 smoke 时 POST /api/documents/upload 返回 chunkCount=1，但 GET /api/documents/{id} 返回 chunks=[]

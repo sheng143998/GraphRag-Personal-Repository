@@ -1,31 +1,20 @@
-# Parent-Child Chunking Strategy Review Prompt
+# 审查提示：父级 子级 切分 策略
 
-Date: 2026-06-08
+请审查 `parent-child-chunking-strategy` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-Review the optional parent-child chunking strategy for AI ingest.
+## 重点关注
 
-## Files
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-- `ai-service/app/rag/chunkers/base.py`
-- `ai-service/app/services/ingest_service.py`
-- `ai-service/app/rag/retrievers/base.py`
-- `ai-service/app/db/repositories.py`
-- `ai-service/tests/test_parent_child_chunker.py`
-- `docs/plans/2026-06-08-parent-child-chunking-strategy.md`
-- `docs/testing/strategy.md`
-- `docs/handoff/CURRENT_STATE.md`
-- `PROJECT_CONTEXT.md`
+## 建议验证命令
 
-## Questions
+- `.\.venv\bin\python.exe -m pytest tests -q`
 
-- Does default ingest still use flat `SimpleChunker` behavior?
-- Does metadata `chunk_strategy=parent-child` produce parent chunks plus children with valid `parent_chunk_id`?
-- Are parent chunks excluded from retrieval, embeddings, and graph fact extraction so child hits can hydrate parent context?
-- Are metadata-provided chunk sizes bounded?
-- Does the query-level test prove a parent-child ingest can return `parent_child_mode=parent-child`?
+## 审查结论记录
 
-## Validation Snapshot
-
-- `.\.venv\bin\python.exe -m pytest tests/test_parent_child_chunker.py tests/test_advanced_rag_strategy.py tests/test_strategy_comparison_evaluator.py -q`: passed with 15 tests.
-- `.\.venv\bin\python.exe -m pytest tests -q`: passed with 22 tests.
-- Full-chain local smoke: passed with 131/131 checks.
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

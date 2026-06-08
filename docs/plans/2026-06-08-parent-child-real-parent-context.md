@@ -1,21 +1,28 @@
-# Parent-Child Real Parent Context Plan
+# 2026-06-08 父级 子级 真实 父级 上下文
 
-Date: 2026-06-08
+## 目标
 
-## Scope
+本计划记录 `parent-child-real-parent-context` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-Improve Advanced RAG parent-child retrieval so it uses real `parent_chunk_id` relationships when they are present, while keeping the neighbor-window fallback for existing simple chunks.
+## 范围
 
-## Implementation
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-- Add optional `parent_chunk_id` to AI service `ChunkRecord`.
-- Persist `parent_chunk_id` into `document_chunks` from the AI repository when chunk records include it.
-- Load `parent_chunk_id` back from PostgreSQL-backed chunk reads.
-- In in-memory and PostgreSQL repositories, hydrate parent-child context from the parent chunk plus same-parent child chunks before falling back to the neighbor window.
-- Keep SimpleChunker unchanged; it still emits flat chunks until a dedicated parent chunker is introduced.
+## 实施要点
 
-## Validation
+- 根据 `parent-child-real-parent-context` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
-- AI: `.\.venv\bin\python.exe -m pytest tests/test_advanced_rag_strategy.py tests/test_strategy_comparison_evaluator.py -q` passed with 11 tests.
-- AI: `.\.venv\bin\python.exe -m pytest tests -q` passed with 18 tests.
-- Full-chain: `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 131/131 smoke checks.
+## 验证方式
+
+- `.\.venv\bin\python.exe -m pytest tests -q`
+
+## 备注
+
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

@@ -1,45 +1,29 @@
-# 2026-05-27 本地 PostgreSQL smoke 复测
+﻿# 2026-05-27 本地 PostgreSQL smoke 复测
 
-## 背景
+## 目标
 
-上一轮 RAG 实验接口 HTTP smoke 被数据库连接阻塞。用户已补全根目录 `.env` 中的数据库字段，本轮使用本地 PostgreSQL 连接信息重新验证实验接口链路。
+本计划记录 `local-postgres-smoke-retry` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## 当前目标
+## 范围
 
-- 加载根目录 `.env` 到当前 PowerShell 进程。
-- 验证 PostgreSQL 可连接。
-- 确认或创建 `agent_knowledge` 数据库。
-- 启动 Spring Boot 后端。
-- 通过 HTTP smoke 验证 RAG 实验接口：列表、创建、详情、更新、删除、删除后 404。
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-## 涉及模块
+## 实施要点
 
-- 本地 `.env`
-- PostgreSQL
-- Spring Boot 后端
-- RAG 实验接口
-
-## 预计修改文件
-
-- `docs/reviews/2026-05-27-local-postgres-smoke-retry-review-prompt.md`
-- `docs/testing/failures/2026-05-27-local-postgres-smoke-retry-notes.md`
-- `docs/handoff/CURRENT_STATE.md`
-
-## 非范围
-
-- 不把真实数据库密码写入文档或代码。
-- 不修改 `.env` 内容。
-- 不启动 Docker。
+- 根据 `local-postgres-smoke-retry` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
 ## 验证方式
 
-- `psql` 连接测试。
-- `mvn test`。
-- 后端健康检查。
-- RAG 实验接口 HTTP smoke。
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
 
-## 当前风险
+## 备注
 
-- `.env` 值可能不完整或数据库不存在。
-- 本地 PostgreSQL 账号可能没有建库或创建扩展权限。
-- 后端启动时 Flyway 可能因 pgvector 或权限失败。
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

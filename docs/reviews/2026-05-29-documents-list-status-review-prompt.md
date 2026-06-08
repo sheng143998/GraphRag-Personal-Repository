@@ -1,46 +1,20 @@
-# 2026-05-29 文档列表状态接口 review 提示
+# 审查提示：文档 列表 状态
 
-## 本次 review 目标
+请审查 `documents-list-status` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-请 review `GET /api/documents` 是否能展示文档入库后的关键状态，包括知识库名称、解析器、chunk 数量和前端可读状态。
+## 重点关注
 
-## 本次接口范围
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-- `GET /api/documents`
-  - 入口：`backend-java/src/main/java/com/example/agentknowledge/controller/DocumentController.java`
-  - 作用：返回文档列表，可按 `knowledgeBaseId` 过滤。
+## 建议验证命令
 
-## 重点 review 顺序
+- `git diff --check`
 
-1. 后端 DTO
-   - `backend-java/src/main/java/com/example/agentknowledge/dto/document/DocumentResponse.java`
-   - 检查新增字段是否满足列表页展示，不影响上传接口复用。
+## 审查结论记录
 
-2. 后端 Service 与 Repository
-   - `backend-java/src/main/java/com/example/agentknowledge/service/DocumentService.java`
-   - `backend-java/src/main/java/com/example/agentknowledge/repository/DocumentChunkRepository.java`
-   - 检查 chunk 计数逻辑、状态映射和知识库过滤是否稳定。
-
-3. 前端列表展示
-   - `frontend/src/pages/documents/DocumentsPage.vue`
-   - `frontend/src/types/index.ts`
-   - 检查字段名称是否与后端一致，状态展示是否兼容 `INDEXED`、`UPLOADED`、`FAILED` 等后端状态。
-
-## 当前占位实现
-
-- chunk 数量通过 repository 逐文档统计，后续大数据量需要优化成聚合查询。
-- 不展示解析失败原因。
-- 不展示逐 chunk 详情。
-
-## 已执行验证结果
-
-- Java 构建：`mvn.cmd test` 通过，结果为 `BUILD SUCCESS`。编译结束阶段仍出现历史 Maven 本地 jar 访问拒绝日志，但未阻塞构建。
-- 前端构建：`npm.cmd run build` 通过，类型检查和生产构建成功。
-- AI 服务语法验证：`python -m compileall app tests` 通过。
-- HTTP smoke：未执行，本轮没有启动 PostgreSQL、Spring Boot 和 FastAPI。
-
-## Review 时特别注意
-
-- 前端不应继续依赖旧的 `name` 和 `knowledgeBaseName` 占位字段。
-- 后端返回的 `status` 应保持业务状态，同时由前端统一转成展示标签。
-- 本轮不能顺手实现详情、删除或重试接口。
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

@@ -1,36 +1,25 @@
-# 2026-06-08 Automated Module, E2E, and RAG Evaluation Notes
+# 2026-06-08 自动化 模块 端到端 RAG 评估 记录
 
-## Observations
+## 现象
 
-- Frontend type checking passed with `npm.cmd run typecheck`.
-- Frontend production build passed with `npm.cmd run build`.
-- Spring Boot backend passed `mvn test`, but the project currently has no Java test sources.
-- AI service passed `.venv/bin/python.exe -m pytest` with 7 tests.
-- Full-chain HTTP smoke eventually passed after starting FastAPI and Spring Boot without Docker.
+本记录用于复盘 `automated-module-e2e-rag-evaluation-notes` 相关验证或启动过程中出现的问题。历史记录中的命令、路径和错误关键字保留原样，便于再次检索。
 
-## Full-Chain Startup Findings
+## 观察
 
-- `docker ps` initially failed inside the sandbox because Docker config access was restricted.
-- Retrying with elevated permissions reached Docker, but Docker Desktop daemon was not running.
-- Starting `C:\Program Files\Docker\Docker\Docker Desktop.exe` launched Docker processes.
-- After startup, `docker ps` and `docker-compose ps` both returned `Docker Desktop is unable to start`.
-- No PostgreSQL or Redis listeners were available on 5432/6379.
-- The backend was then started against the local PostgreSQL credentials from `.env`.
-- The first service-backed smoke run passed 26/30 checks. Knowledge-base detail/update/delete and document delete failed because the running jar was stale.
-- RAG query reached AI but returned 500 because AI in-memory citations referenced document/chunk ids not present in the Java database, and retrieval-result persistence tried to create mandatory foreign-key references.
-- Rebuilding the backend jar picked up the missing route support.
-- `RagService` now associates citation document/chunk references only when local rows exist, while still storing the retrieval result metadata.
+- Docker Desktop 未就绪时，Docker 相关命令可能无法启动 PostgreSQL / Redis。
+- 本地非 Docker 路径可使用已有 PostgreSQL 配置启动 Spring Boot 与 FastAPI。
+- 如果运行中的 jar 过旧，可能出现接口缺失、删除失败或 smoke 检查不一致。
+- AI 内存模式返回的 citation id 可能不在 Java 数据库中，Spring Boot 持久化检索结果时需要容错处理。
 
-## Fixes Made
+## 已采取处理
 
-- Stabilized AI service tests by forcing stub model providers and in-memory RAG storage before service imports.
-- Replaced corrupted query transformer text with deterministic ASCII synonyms and query variants.
-- Added Advanced RAG regression tests for rewrite, filtering, fusion, parent-child context, reranking, and trace metadata.
-- Fixed RAG retrieval result persistence for AI citations whose ids are not present in the Java database.
-- Added a heuristic RAG evaluation regression test.
-- Moved pytest cache to `../.tmp/pytest-cache/ai-service` to avoid the locked `.pytest_cache` directory.
+- 使用 stub provider 和内存 RAG 存储稳定 AI 测试。
+- 使用本地 PostgreSQL 凭据启动 Spring Boot，绕开 Docker daemon 不可用问题。
+- 重新构建后端 jar，确保路由和服务实现同步。
+- 对缺失本地 document/chunk 行的 citation 做安全关联，保留检索 metadata。
 
-## Follow-Up
+## 后续建议
 
-- Keep a dedicated non-Docker local startup path documented because the project can run against an existing PostgreSQL instance.
-- Add Java integration tests for knowledge-base detail/update/delete, document delete, and RAG retrieval-result persistence.
+- 保留非 Docker 全链路脚本作为默认本地验证路径。
+- 增加 Java 集成测试覆盖知识库详情 / 更新 / 删除、文档删除和 RAG retrieval result 持久化。
+- 若 Maven 本地仓库 jar 被沙箱拒绝访问，使用非沙箱方式重跑后端测试。

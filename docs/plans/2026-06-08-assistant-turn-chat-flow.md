@@ -1,28 +1,32 @@
-# 2026-06-08 Assistant Turn Chat Flow
+# 2026-06-08 助手 轮次 聊天 流程
 
-## Scope
+## 目标
 
-- Add the first product-oriented learning/interview assistant chat turn.
-- Keep browser calls on Spring Boot `/api/*`.
-- Keep AI question classification, strategy selection, and RAG execution inside FastAPI Agent workflow.
+本计划记录 `assistant-turn-chat-flow` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## Implementation
+## 范围
 
-- Backend:
-  - Added `POST /api/chat/{sessionId}/assistant-turn`.
-  - Added `AssistantTurnService` to save the user message, invoke the existing Agent bridge, save the assistant message with citations, and return workflow metadata plus follow-up questions.
-  - Added request/response DTOs for assistant turns.
-  - Added `AssistantTurnServiceTest`.
-- Frontend:
-  - Added assistant-turn request/response types, including `followUpQuestions`.
-  - Added `sendAssistantTurn()` in `frontend/src/api/chat.ts`.
-  - Updated the workbench store chat flow to auto-create a session when needed and use assistant-turn instead of the legacy direct RAG query flow.
-- Smoke:
-  - Added full-chain assistant-turn checks for persisted user/assistant messages, selected strategy, question type, workflow steps, and follow-up questions.
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-## Validation
+## 实施要点
 
-- `mvn test` passed with 8 tests after backend implementation.
-- `npm.cmd run typecheck` passed.
-- `npm.cmd run build` passed.
-- Full-chain smoke passed with 74/74 checks after follow-up question assertions were added.
+- 根据 `assistant-turn-chat-flow` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
+
+## 验证方式
+
+- `mvn.cmd test`
+- `npm.cmd --prefix frontend run typecheck`
+- `npm.cmd --prefix frontend run build`
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
+
+## 备注
+
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

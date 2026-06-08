@@ -1,19 +1,24 @@
-# Weak Point Practice Flow Review Prompt
+﻿# 审查提示：薄弱 点 练习 流程
 
-Date: 2026-06-08
+请审查 `weak-point-practice-flow` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-Please review the weak point practice flow with these priorities:
+## 重点关注
 
-1. API contract: `POST /api/chat/{sessionId}/weak-points/{weakPointId}/practice-turn` should return `{ weakPoint, turn }`, where `turn` is the normal assistant-turn response.
-2. Ownership checks: the selected weak point must belong to the session before a practice turn is generated.
-3. Architecture boundary: Spring should assemble the business prompt and call the existing assistant turn; FastAPI remains the Agent/RAG generator.
-4. Product behavior: practice should save user/assistant messages and refresh review cards/weak points, but should not silently mark a weak point mastered.
-5. Frontend behavior: the chat page should expose a clear `Practice` action on weak point cards and continue calling only Spring `/api`.
-6. Regression coverage: Maven tests should cover prompt/variables construction; full-chain smoke should cover the persisted weak point to practice turn path.
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-Validated commands:
+## 建议验证命令
 
-- `mvn test` in `backend-java`: 13 tests passed.
-- `npm.cmd run typecheck` in `frontend`: passed.
-- `npm.cmd run build` in `frontend`: passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`: 99/99 smoke checks passed.
+- `mvn.cmd test`
+- `npm.cmd --prefix frontend run typecheck`
+- `npm.cmd --prefix frontend run build`
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
+
+## 审查结论记录
+
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

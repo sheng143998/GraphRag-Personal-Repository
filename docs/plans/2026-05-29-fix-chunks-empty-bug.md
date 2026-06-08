@@ -1,22 +1,28 @@
-﻿# 2026-05-29 修复 chunks=[] bug（AI 服务 InMemory 回退）
+﻿# 2026-05-29 修复 chunks 为空问题
 
-## 背景
-上次 smoke 发现 POST /api/documents/upload 返回 chunkCount=1，但 GET /api/documents/{id} 返回 chunkCount=0, chunks=[]。
+## 目标
 
-## 根因分析
-.env 中 DATABASE_URL 和 AI_DATABASE_URL 均为空字符串，AI 服务 config.py 的 database_url 解析为 ""。
-uild_repository() 中 settings.rag_use_database and settings.database_url → True and "" → falsy，回退到 InMemoryDocumentRepository。
-chunks 只存内存，不写入 PostgreSQL document_chunks 表，Spring Boot 查询自然为空。
+本计划记录 `fix-chunks-empty-bug` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## 修复方案
-修改 i-service/app/core/config.py，当 DATABASE_URL / AI_DATABASE_URL 为空时，从 DB_URL（JDBC 格式）+ DB_USERNAME + DB_PASSWORD 构造标准 PostgreSQL URL：
-- jdbc:postgresql://host:port/dbname → postgresql://user:password@host:port/dbname
+## 范围
 
-## 涉及文件
-- i-service/app/core/config.py
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
+
+## 实施要点
+
+- 根据 `fix-chunks-empty-bug` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
 ## 验证方式
-1. AI 服务语法编译 python -m compileall ai-service/app
-2. 重启 AI 服务，确认仓库初始化为 PostgresDocumentRepository
-3. 上传文档后查询 document_chunks 表确认 chunk 已写入
-4. 调用 GET /api/documents/{id} 确认 chunks 非空
+
+- `git diff --check`
+
+## 备注
+
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

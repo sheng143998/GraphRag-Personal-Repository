@@ -1,29 +1,28 @@
-# 2026-06-04 API 设计文档补全计划
+﻿# 2026-06-04 API 设计文档
 
-## 背景
+## 目标
 
-项目已形成前端 -> Spring Boot -> FastAPI AI Service 的多服务链路，但接口契约分散在 Controller、DTO、FastAPI schema 和前端 API 封装中。后续具体接口开发将交给其他 Agent，因此需要先补齐一份可交接的接口设计文档。
+本计划记录 `api-design-docs` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
 ## 范围
 
-- 梳理 Spring Boot 对外 `/api/*` 接口。
-- 梳理 FastAPI 内部 `/ai/*` 接口。
-- 标明前端调用映射和服务职责边界。
-- 记录当前限制：PDF 解析长耗时、MinerU pending、AI 实现仍有 stub、metadata 类型尚未完全统一。
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-## 输出
+## 实施要点
 
-- `docs/architecture/api-design.md`
-- `docs/reviews/2026-06-04-api-design-docs-review-prompt.md`
-- `PROJECT_CONTEXT.md` 阶段摘要和关键文档索引
+- 根据 `api-design-docs` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
-## 非范围
+## 验证方式
 
-- 不新增业务接口。
-- 不修改 Controller / DTO / schema。
-- 不启动服务做 HTTP smoke。
-- 不修复 PDF 解析链路遗留问题。
+- `git diff --check`
 
-## 交接建议
+## 备注
 
-后续 Agent 开发接口时，以 `docs/architecture/api-design.md` 为契约入口，并在完成接口后同步更新该文档、计划文档、review prompt 和必要的失败记录。
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

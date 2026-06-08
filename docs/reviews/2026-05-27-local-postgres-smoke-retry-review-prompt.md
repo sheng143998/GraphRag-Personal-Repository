@@ -1,43 +1,21 @@
-# 2026-05-27 本地 PostgreSQL smoke 复测 review 提示
+# 审查提示：本地 PostgreSQL smoke 重试
 
-## 本次 review 目标
+请审查 `local-postgres-smoke-retry` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-请 review 本轮是否在不泄露真实 `.env` 值的前提下，完成本地 PostgreSQL 连接验证和 RAG 实验接口 HTTP smoke。
+## 重点关注
 
-## 本次验证范围
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-- PostgreSQL 连接。
-- `agent_knowledge` 数据库准备。
-- Spring Boot 启动与 Flyway 迁移。
-- RAG 实验接口：
-  - `GET /api/rag/experiments`
-  - `POST /api/rag/experiments`
-  - `GET /api/rag/experiments/{id}`
-  - `PUT /api/rag/experiments/{id}`
-  - `DELETE /api/rag/experiments/{id}`
-  - 删除后再次详情查询 404。
+## 建议验证命令
 
-## 重点 review 顺序
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
 
-1. 过程记录
-   - `docs/testing/failures/2026-05-27-local-postgres-smoke-retry-notes.md`
-   - 检查是否记录了成功项、失败项和阻塞原因。
+## 审查结论记录
 
-2. handoff
-   - `docs/handoff/CURRENT_STATE.md`
-   - 检查下一步建议是否清楚。
-
-## 安全要求
-
-- 不在文档、日志摘要或最终回复中写出真实密码。
-- 不提交 `.env` 中的真实值。
-
-## 已执行验证
-
-- 已从 `.env` 加载非空环境变量，未展示真实密码。
-- PostgreSQL 连接测试通过，目标库 `agent_knowledge` 可访问。
-- 已确认 `vector` 扩展存在。
-- Spring Boot 通过 `mvn spring-boot:start` 启动成功，并执行 Flyway 迁移。
-- RAG 实验接口 HTTP smoke 全链路通过：列表、创建、详情、更新、删除、删除后 404。
-- 已通过 `mvn spring-boot:stop` 停止后端。
-- 已确认 8080 端口没有本轮遗留监听。
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

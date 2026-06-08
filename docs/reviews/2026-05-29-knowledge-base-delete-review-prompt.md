@@ -1,20 +1,20 @@
-﻿# 2026-05-29 DELETE /api/knowledge-bases/{id} 知识库删除 review 提示
+# 审查提示：知识 库 删除
 
-## 涉及文件
-- `backend-java/.../controller/KnowledgeBaseController.java` — `@DeleteMapping("/{id}")`
-- `backend-java/.../service/KnowledgeBaseService.java` — `@Transactional delete()`
-- `frontend/src/api/knowledgeBases.ts` — `deleteKnowledgeBase`
+请审查 `knowledge-base-delete` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-## 变更要点
-1. 删除前通过 `getReference` 验证存在，404 → `ResourceNotFoundException`
-2. `@Transactional` 确保事务一致性
-3. 数据库 `ON DELETE CASCADE`：KB → documents → chunks → embeddings 全链路级联
-4. 关联表（rag_runs、chat_sessions、rag_feedback）使用 `ON DELETE SET NULL`
+## 重点关注
 
-## 验证结果
-- ✅ `mvn compile` + `mvn test`
-- ✅ HTTP smoke：200 删除、404 重复删除
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-## 重点 review
-- `@Transactional` 是否必要（数据库级联已处理）
-- `delete()` 返回 void + Controller 返回 `ApiResponse<Void>` 是否一致
+## 建议验证命令
+
+- `git diff --check`
+
+## 审查结论记录
+
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

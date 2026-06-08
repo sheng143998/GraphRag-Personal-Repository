@@ -1,61 +1,28 @@
-# 2026-05-29 文档列表状态接口
+# 2026-05-29 文档 列表 状态
 
-## 背景
+## 目标
 
-上一轮已完成 `POST /api/documents/upload` 单篇 JSON 文档入库 Demo。入库后，用户需要通过文档列表看到文档状态、解析器和 chunk 数量，但当前 `GET /api/documents` 只返回基础文档字段，前端也仍使用旧的占位字段展示。
+本计划记录 `documents-list-status` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## 当前目标
+## 范围
 
-本轮只完成一个接口：`GET /api/documents` 文档列表状态增强。
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-状态：已完成，等待用户 review。
+## 实施要点
 
-## 接口边界
-
-- Spring Boot 对外接口仍为 `GET /api/documents`。
-- 支持现有可选参数 `knowledgeBaseId`。
-- 返回每篇文档的基础字段、知识库名称、规范化前端展示状态、解析器信息和 chunk 数量。
-- 前端文档页使用真实返回结构展示列表。
-
-## 涉及模块
-
-- Spring Boot 文档 Service / Repository / DTO
-- 前端文档列表类型、状态展示与 API 对齐
-- 项目过程文档
-
-## 预计修改文件
-
-- `backend-java/src/main/java/com/example/agentknowledge/repository/DocumentChunkRepository.java`
-- `backend-java/src/main/java/com/example/agentknowledge/service/DocumentService.java`
-- `backend-java/src/main/java/com/example/agentknowledge/dto/document/DocumentResponse.java`
-- `frontend/src/types/index.ts`
-- `frontend/src/pages/documents/DocumentsPage.vue`
-- `frontend/src/utils/mock-data.ts`
-- `docs/reviews/2026-05-29-documents-list-status-review-prompt.md`
-- `docs/testing/failures/2026-05-29-documents-list-status-notes.md`
-- `docs/handoff/CURRENT_STATE.md`
-- `PROJECT_CONTEXT.md`
-
-## 非范围
-
-- 不实现 `GET /api/documents/{id}` 详情增强。
-- 不新增文档删除、重试、状态轮询或后台任务。
-- 不做真实 HTTP smoke，除非本地数据库和服务已可用。
+- 根据 `documents-list-status` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
 ## 验证方式
 
-- 运行 Java 后端构建，确认 repository 查询和 DTO 映射可编译。
-- 运行前端构建，确认列表字段与类型定义一致。
-- 运行 AI 服务语法验证，确认上一轮入库链路未被破坏。
+- `git diff --check`
 
-## 实际验证结果
+## 备注
 
-- Java 后端：`mvn.cmd test` 通过，结果为 `BUILD SUCCESS`。
-- 前端：`npm.cmd run build` 通过，类型检查和生产构建成功。
-- AI 服务：`python -m compileall app tests` 通过。
-- HTTP smoke：本轮未启动 PostgreSQL、Spring Boot 和 FastAPI，未执行真实 HTTP smoke。
-
-## 当前风险
-
-- 列表 chunk 计数如果逐条查询，后续文档量变大时需要优化为聚合查询。
-- 当前前端知识库名称依赖后端文档关联对象，后续若加入权限隔离需要避免泄漏不可见知识库信息。
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

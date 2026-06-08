@@ -1,35 +1,31 @@
-# RAG Experiment Evaluation Loop
+# 2026-06-08 RAG 实验 评估
 
-Date: 2026-06-08
+## 目标
 
-## Goal
+本计划记录 `rag-experiment-evaluation` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-Connect persisted RAG runs to the existing FastAPI RAG evaluator through Spring Boot, so an experiment can be scored from a real Advanced RAG run without adding a new migration.
+## 范围
 
-## Scope
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-- Add `POST /api/rag/experiments/{id}/evaluate`.
-- Read the selected `rag_runs` row and its ordered `rag_retrieval_results`.
-- Call FastAPI `POST /ai/rag/evaluate` through `AiServiceGateway`.
-- Store evaluator scores back on `rag_experiments`:
-  - `precisionScore` receives evaluator `grounded_score`.
-  - `recallScore` receives evaluator `retrieval_score`.
-  - `status` becomes `COMPLETED`.
-  - `notes` appends the evaluated run id and evaluator notes.
-- Extend full-chain smoke so Advanced RAG query, persisted run lookup, and experiment evaluation are tested together.
+## 实施要点
 
-## Boundaries
+- 根据 `rag-experiment-evaluation` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
-- Spring Boot only coordinates business persistence and calls the AI service.
-- FastAPI remains responsible for evaluator logic.
-- No frontend change in this slice because the experiments page does not yet expose a stable run picker.
+## 验证方式
 
-## Validation
+- `.\.venv\bin\python.exe -m pytest tests -q`
+- `mvn.cmd test`
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
 
-- `mvn test` from `backend-java`: 12 tests passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`: 94/94 checks passed.
+## 备注
 
-## Next
-
-- Add a frontend experiment evaluation action once the UI has a clear run selection model.
-- Consider a dedicated evaluation history table when multiple evaluations per experiment need to be compared instead of only updating summary fields.
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

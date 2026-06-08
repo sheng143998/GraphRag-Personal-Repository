@@ -1,29 +1,25 @@
-# RAG Evaluation Comparison Dashboard Review Prompt
+# 审查提示：RAG 评估 对比 看板
 
-Date: 2026-06-08
+请审查 `rag-evaluation-comparison-dashboard` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-## Review Focus
+## 重点关注
 
-- Verify Spring Boot only exposes persisted run context and does not implement new evaluator scoring logic.
-- Check the history DTO extension for backward-compatible JSON field additions.
-- Confirm the experiments page dashboard communicates recent-history scope, not all-time metrics.
-- Review frontend layout for long questions, long experiment names, and narrow viewports.
-- Confirm the smoke test proves two evaluations for one experiment produce comparison history.
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-## Files
+## 建议验证命令
 
-- `backend-java/src/main/java/com/example/agentknowledge/dto/rag/RagExperimentEvaluationHistoryResponse.java`
-- `backend-java/src/main/java/com/example/agentknowledge/service/RagExperimentService.java`
-- `backend-java/src/test/java/com/example/agentknowledge/service/RagExperimentServiceTest.java`
-- `frontend/src/types/index.ts`
-- `frontend/src/pages/experiments/ExperimentsPage.vue`
-- `frontend/src/styles.css`
-- `frontend/src/utils/mock-data.ts`
-- `smoke_test.py`
-
-## Validation Commands
-
-- `mvn test` from `backend-java/`
-- `npm.cmd run typecheck` from `frontend/`
-- `npm.cmd run build` from `frontend/`
+- `.\.venv\bin\python.exe -m pytest tests -q`
+- `mvn.cmd test`
+- `npm.cmd --prefix frontend run typecheck`
+- `npm.cmd --prefix frontend run build`
+- `python -m py_compile smoke_test.py`
 - `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
+
+## 审查结论记录
+
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

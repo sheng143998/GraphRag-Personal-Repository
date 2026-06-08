@@ -1,30 +1,28 @@
-# 2026-05-27 AI 服务环境配置定位计划
+﻿# 2026-05-27 AI 服务环境配置位置
 
-## 要解决的问题
+## 目标
 
-用户需要找出 `ai-service` 的 `.env` 配置文件位置，并确认 AI 服务实际从哪里读取环境变量。
+本计划记录 `ai-service-env-location` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## 调研过程中发现的重要信息
+## 范围
 
-- `ai-service/` 目录下没有 `.env`、`.env.*` 或 `*.env` 文件。
-- 项目根目录存在 `.env.example`，其中包含 AI 服务相关配置示例。
-- AI 服务配置入口是 `ai-service/app/core/config.py`。
-- `config.py` 通过系统环境变量读取 `AI_DATABASE_URL`，如果没有则读取 `DATABASE_URL`。
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-## 涉及模块
+## 实施要点
 
-- `ai-service`
-- 根目录环境变量模板
-- 项目交接文档
+- 根据 `ai-service-env-location` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
 ## 验证方式
 
-- 使用文件搜索查找 `ai-service` 下的 `.env` 相关文件。
-- 使用全项目文件搜索确认项目自有环境模板。
-- 读取 `ai-service/app/core/config.py` 确认实际配置读取逻辑。
-- 读取根目录 `.env.example` 确认 AI 服务变量示例。
+- `git diff --check`
 
-## 当前风险
+## 备注
 
-- 项目根目录可能存在用户本地 `.env`，但当前工作区搜索结果未发现。
-- 真实密码不能写入文档，只能说明变量名和文件位置。
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

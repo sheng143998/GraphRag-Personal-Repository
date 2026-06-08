@@ -1,29 +1,20 @@
-# Parent-Child Real Parent Context Review Prompt
+# 审查提示：父级 子级 真实 父级 上下文
 
-Date: 2026-06-08
+请审查 `parent-child-real-parent-context` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-Review the AI service parent-child context hydration change.
+## 重点关注
 
-## Files
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-- `ai-service/app/schemas/ingest.py`
-- `ai-service/app/db/repositories.py`
-- `ai-service/tests/test_advanced_rag_strategy.py`
-- `docs/plans/2026-06-08-parent-child-real-parent-context.md`
-- `docs/testing/strategy.md`
-- `docs/handoff/CURRENT_STATE.md`
-- `PROJECT_CONTEXT.md`
+## 建议验证命令
 
-## Questions
+- `.\.venv\bin\python.exe -m pytest tests -q`
 
-- Does `ChunkRecord.parent_chunk_id` remain optional so existing flat chunking still works?
-- Does PostgreSQL save/read preserve `parent_chunk_id` without changing the Spring API contract?
-- Does parent context hydration prefer parent + same-parent child chunks when available?
-- Does neighbor-window fallback still work when no parent is present?
-- Does the new test prove the real parent-child path separately from the existing Advanced RAG fallback test?
+## 审查结论记录
 
-## Validation Snapshot
-
-- `.\.venv\bin\python.exe -m pytest tests/test_advanced_rag_strategy.py tests/test_strategy_comparison_evaluator.py -q`: passed with 11 tests.
-- `.\.venv\bin\python.exe -m pytest tests -q`: passed with 18 tests.
-- Full-chain local smoke: passed with 131/131 checks.
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

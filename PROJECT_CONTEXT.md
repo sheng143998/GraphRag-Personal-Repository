@@ -1,7 +1,7 @@
-# 本地知识库 Agent 项目上下文
+﻿# 本地知识库 Agent 项目上下文
 
 更新时间：2026-06-08
-项目状态：Phase 2 知识库 CRUD 已完整，Word (.docx) 解析器已接入 python-docx，PDF 解析器已接入 MinerU Agent API（v2：URL 模式 + base64 文件上传模式）（创建/列表/详情/更新/删除）、文档上传+列表+详情+删除已闭环；Phase 3 基础 RAG 后端链路已形成第一版闭环；Phase 7 RAG 实验平台已完成实验记录 CRUD 与本地 HTTP smoke；前端粒子背景+玻璃态视觉升级完成；全链路 HTTP smoke 9 接口全部通过；2026-06-04 已补齐 Spring Boot 对外 API、FastAPI 内部 API 与前端调用映射的接口设计文档；2026-06-05 已完成前端接口全面补齐：所有 API 模块（含反馈、会话、实验 CRUD）、TypeScript 类型、页面 UI（实验增删改、反馈页、设置可编辑、会话管理）和路由导航均已对齐 API 设计文档契约；2026-06-08 已完成 Phase 4 Advanced RAG 工程闭环第一版：策略分发、hybrid-rerank、metadata-filter、parent-child 邻近上下文 fallback、advanced-rag 查询改写与多查询召回、rerank 编排、metadataFilters 透传、rewritten_query 入库与评估问题集；LLM / embedding / reranker adapter 已接入 OpenAI-compatible 真实模型调用并通过小流量 smoke；adapter 已增加轻量重试
+项目状态：Phase 2 知识库 CRUD、文档上传 / 列表 / 详情 / 删除、Word `.docx` 解析与 MinerU PDF 解析已形成工程闭环；Phase 3 基础 RAG 已完成 Spring Boot -> FastAPI -> PostgreSQL 的本地链路；Phase 4 Advanced RAG 已覆盖 hybrid-rerank、metadata-filter、parent-child、query rewrite、multi-query、rerank、query-aware context compression、可配置混合检索权重、LLM 查询转换回退与 trace / 引用元数据；Phase 5 Agent 已完成问题分类、策略选择、assistant-turn、追问、学习计划、复习卡片与薄弱点学习闭环；Phase 6 GraphRAG 已完成确定性实体 / 关系抽取、图谱事实持久化、遍历检索、图谱指标评估与前端查看入口；Phase 7 RAG 实验评估已完成实验 CRUD、持久化 run 评估、评估历史、汇总接口、对比页、结构化评估用例与本地非 Docker 全链路 smoke；前端已保持浏览器只调用 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑；当前未提交工作包含 assistant-turn `retrievalOptions` 透传、聊天页混合检索预设与 LLM 查询转换开关，历史文档中文化已整理为待提交的 docs-only 改动。
 维护规则：每次开启新的开发对话时，优先提供本文件；每完成一个阶段目标或关键任务后，必须同步更新本文件。本文件只保留项目状态、关键架构决策、当前待办和阶段级变更摘要；接口级实现细节、验证命令和失败复盘放入 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 与 `docs/handoff/`。
 
 ## 1. 项目目标
@@ -627,7 +627,7 @@ LLM 调用规范：
 - 每次模型调用需要记录耗时、输入输出 token 或近似长度、重试次数、错误类型和降级路径。
 - 对 RAG 回答必须保存引用来源，便于后续评估答案是否有依据。
 
-### 9.9 Plan 文档规范
+### 9.9 计划文档规范
 
 复杂功能先在 `docs/plans/` 下写计划文档，再进入实现。文件名建议使用 `YYYY-MM-DD-feature-name.md`，例如 `2026-05-25-rag-trace-tables.md`。
 
@@ -642,7 +642,7 @@ LLM 调用规范：
 - 测试计划
 - 已知风险
 
-Plan 文档不需要写时间线，也不需要写回滚计划。实现过程中如果发现计划明显不准确，需要更新计划或在最终变更记录中说明偏差原因。
+计划文档不需要写时间线，也不需要写回滚计划。实现过程中如果发现计划明显不准确，需要更新计划或在最终变更记录中说明偏差原因。
 
 ### 9.10 代码审查与关键链路说明规范
 
@@ -1261,7 +1261,7 @@ README 更新规则：
   - 知识库更新：docs/plans/2026-05-29-knowledge-base-update.md、docs/reviews/2026-05-29-knowledge-base-update-review-prompt.md
   - 知识库删除：docs/plans/2026-05-29-knowledge-base-delete.md、docs/reviews/2026-05-29-knowledge-base-delete-review-prompt.md、docs/testing/failures/2026-05-29-knowledge-base-delete-notes.md
   - 文档删除：docs/plans/2026-05-29-document-delete.md、docs/reviews/2026-05-29-document-delete-review-prompt.md、docs/testing/failures/2026-05-29-document-delete-and-smoke-notes.md
-  - 全链路 smoke：docs/plans/2026-05-29-full-http-smoke.md
+  - 全链路 smoke 脚本：docs/plans/2026-05-29-full-http-smoke.md
 ### 2026-05-27
 
 - 完成 AI 服务环境配置定位：确认 `ai-service/` 没有独立 `.env`，配置入口为 `ai-service/app/core/config.py`，运行时读取 `AI_DATABASE_URL`、`DATABASE_URL` 和 `AI_RAG_USE_DATABASE`。
@@ -1280,351 +1280,69 @@ README 更新规则：
   - 数据库设计：`docs/architecture/database-design.md`、`docs/plans/2026-05-27-database-design-v1.md`、`docs/reviews/2026-05-27-database-design-v1-review-prompt.md`、`docs/testing/failures/2026-05-27-database-design-v1-notes.md`
 ---
 
-## 2026-06-08 Local Full-Chain Validation And RAG Evaluation Update
+## 2026-06-08 本地全链路验证与 RAG 评估更新
 
-- Completed a non-Docker local full-chain automation path with `scripts/test-fullchain-local.ps1`.
-- Extended `smoke_test.py` so full-chain smoke targets are configurable through `SMOKE_BASE_URL`, `SMOKE_AI_BASE_URL`, and `SMOKE_TIMEOUT`.
-- Added offline Advanced RAG strategy comparison support under `ai-service/app/rag/evaluators/`, with tests covering recall@k, precision@k, MRR, and citation hit.
-- Added backend unit tests for async document ingest status handling and RAG bridge failure/citation persistence behavior.
-- Completed frontend workbench wiring for runtime API settings, visible chat history, knowledge base CRUD/detail, document detail/delete, and upload validation.
-- Verified AI pytest, backend Maven tests, frontend typecheck/build, and local Spring Boot -> FastAPI -> RAG smoke. The local smoke passed 42/42 checks and includes Advanced RAG query, citations, run detail, and rewritten query persistence.
-- Key documents: `docs/plans/2026-06-08-local-fullchain-rag-validation.md`, `docs/plans/2026-06-08-frontend-workbench-wiring.md`, `docs/experiments/2026-06-08-offline-rag-strategy-comparison.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
+- 新增本地全链路自动化脚本 `scripts/test-fullchain-local.ps1`，覆盖 Spring Boot -> FastAPI -> RAG 的非 Docker 验证路径。
+- 新增离线 Advanced RAG 策略对比能力，覆盖 recall@k、precision@k、MRR 与 citation hit。
+- 补充后端异步文档入库、RAG bridge 持久化 / 失败处理相关单元测试。
+- 验证范围包括 AI 侧 pytest、后端 Maven 测试、前端类型检查 / 构建 与本地 smoke 脚本。
 
 ---
 
-## 2026-06-08 Phase 5 Agent Workflow Update
+## 2026-06-08 Agent 与学习闭环更新
 
-- Completed the first verifiable Agent orchestration loop with a node-style workflow in `ai-service/app/agents/workflow.py`.
-- `/ai/agent/invoke` now classifies the question, selects a RAG strategy, executes RAG query generation, and returns citations plus workflow steps.
-- Spring Boot now exposes `/api/agent/invoke` as a bridge to FastAPI, preserving frontend-to-Spring-only browser boundaries.
-- Local full-chain smoke now includes Agent workflow invocation and passed 47/47 checks.
-- Key document: `docs/plans/2026-06-08-agent-workflow-phase5.md`.
-
----
-
-## 2026-06-08 Phase 6 GraphRAG First Loop Update
-
-- Completed the first verifiable GraphRAG engineering loop with deterministic query entity/relationship extraction in `ai-service/app/rag/graph/`.
-- Added `graph-rag` strategy support to Advanced RAG; it augments retrieval queries, records graph entities/relationships in trace attributes, and enriches citation metadata.
-- Frontend strategy options now include `GraphRAG`.
-- Local full-chain smoke now includes GraphRAG invocation and passed 54/54 checks.
-- Key document: `docs/plans/2026-06-08-graphrag-phase6.md`.
+- FastAPI `/ai/agent/invoke` 已支持问题分类、策略选择、RAG 查询、引用返回与工作流步骤。
+- Spring Boot 暴露 `/api/agent/invoke` 与 `/api/chat/{sessionId}/assistant-turn`，只承担桥接、会话消息持久化和 DTO 映射。
+- 前端聊天页改为使用 assistant-turn，浏览器请求仍只进入 Spring Boot `/api/*`。
+- Agent 已陆续补齐追问问题、学习计划、复习卡片、薄弱点记录、薄弱点状态评估、优先级、进度汇总、练习流、自动评分、复习日程与队列控件。
+- smoke 覆盖 direct Agent、assistant-turn、弱点列表、弱点汇总、弱点练习与反馈提交。
 
 ---
 
-## 2026-06-08 GraphRAG Persistence Update
+## 2026-06-08 GraphRAG 与图谱事实更新
 
-- Added Flyway-managed graph fact tables: `graph_entities` and `graph_relationships`.
-- AI document ingest now extracts graph entities/relationships from chunks and persists them through repository methods.
-- `graph-rag` now reads persisted graph matches and includes them in trace attributes and citation metadata.
-- Verified AI pytest, backend Maven tests, frontend typecheck/build, and local full-chain smoke; full-chain remains 54/54.
-- Key document: `docs/plans/2026-06-08-graphrag-persistence.md`.
-
----
-
-## 2026-06-08 Graph Facts Query UI Update
-
-- Added Spring Boot read API `GET /api/graph/facts?knowledgeBaseId={uuid}&entity={optional}` for persisted GraphRAG entities and relationships.
-- Added frontend `/graph` workbench page through `frontend/src/api/graph.ts`; browser calls still go through Spring Boot `/api/*`.
-- Updated the non-Docker local full-chain script so AI service uses the shared local PostgreSQL database during smoke validation, allowing graph facts written by AI ingest to be read by Spring Boot.
-- Extended `smoke_test.py` graph coverage; local full-chain smoke now passes 60/60 checks, including persisted graph entity and relationship assertions.
-- Key documents: `docs/plans/2026-06-08-graph-facts-query-ui.md`, `docs/reviews/2026-06-08-graph-facts-query-ui-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
+- FastAPI 已加入确定性实体 / 关系抽取、GraphRAG 查询增强、遍历关系元数据与引用图谱元数据。
+- Spring Boot 通过 Flyway 管理 `graph_entities` 与 `graph_relationships`，并提供 `GET /api/graph/facts` 读取接口。
+- 前端新增 `/graph` 工作台，用于查看持久化实体与关系。
+- 本地全链路脚本在数据库模式运行 AI 服务，使 AI 入库写入的图谱事实可由 Spring Boot 读取。
+- GraphRAG 评估已加入实体覆盖、关系命中与扩展词命中指标，前端实验视图和对比页可展示紧凑图谱指标。
 
 ---
 
-## 2026-06-08 GraphRAG Traversal Retrieval Update
+## 2026-06-08 RAG 实验评估体系更新
 
-- Extended AI graph fact lookup so `graph-rag` can use persisted one-hop relationships, not just matched entity counts.
-- `graph-rag` now appends relationship-derived expansion terms to the retrieval query and records traversal evidence in trace and citation metadata.
-- `smoke_test.py` now checks Spring Boot RAG run metadata for graph expansion terms and traversal relationships.
-- Key documents: `docs/plans/2026-06-08-graphrag-traversal-retrieval.md`, `docs/reviews/2026-06-08-graphrag-traversal-retrieval-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
-
----
-
-## 2026-06-08 Assistant Turn Chat Flow Update
-
-- Added Spring Boot `POST /api/chat/{sessionId}/assistant-turn` for the first product-oriented learning/interview assistant chat turn.
-- The assistant turn persists the user message, invokes the existing FastAPI Agent workflow through Spring's bridge, persists the assistant answer with citations, and returns question type, selected strategy, workflow steps, and trace.
-- Frontend chat now uses `sendAssistantTurn()` and auto-creates a chat session when needed; browser calls remain under Spring Boot `/api/*`.
-- `smoke_test.py` now validates assistant-turn workflow metadata and feedback submission against the generated assistant message.
-- Key documents: `docs/plans/2026-06-08-assistant-turn-chat-flow.md`, `docs/reviews/2026-06-08-assistant-turn-chat-flow-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
+- Spring Boot 新增实验评估接口 `POST /api/rag/experiments/{id}/evaluate`，从持久化 RAG run 收集证据后调用 FastAPI `/ai/rag/evaluate`。
+- 评分逻辑仍在 FastAPI；Spring Boot 只负责桥接、事务化保存评估历史、更新实验汇总并返回业务响应。
+- 新增 `rag_experiment_evaluations` 历史表、最近 RAG run 列表、评估汇总接口与对比页数据源。
+- 前端实验页支持选择最近 run、填写 expected answer、查看评估历史；对比页支持策略 / 实验筛选、策略排行、实验排行与最近评估明细。
+- 结构化 RAG 评估已支持 evaluation case id、相关 chunk/document id、期望引用 chunk id 与 top-k，用于计算结构化检索指标。
 
 ---
 
-## 2026-06-08 Agent Follow-Up Questions Update
-
-- Added AI Agent follow-up question generation as a dedicated workflow step after citation preparation.
-- Spring Boot now propagates FastAPI `follow_up_questions` into assistant-turn `followUpQuestions` responses.
-- Frontend chat displays returned follow-up questions as clickable prompts for the next turn.
-- `smoke_test.py` now asserts direct Agent and assistant-turn responses include follow-up questions, workflow step metadata, and matching trace attributes; local full-chain smoke passed with 74/74 checks.
-- Key documents: `docs/plans/2026-06-08-agent-follow-up-questions.md`, `docs/reviews/2026-06-08-agent-follow-up-questions-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
-
----
-
-## 2026-06-08 Agent Study Plan Update
-
-- Added AI Agent session-level `study_plan` generation as a dedicated workflow step after follow-up question generation.
-- Spring Boot now propagates FastAPI `study_plan` into Agent and assistant-turn `studyPlan` responses.
-- Frontend chat displays the latest structured study plan with summary, focus areas, and steps.
-- `smoke_test.py` now asserts direct Agent and assistant-turn responses include study plan steps and matching trace attributes; local full-chain smoke passed with 78/78 checks.
-- Key documents: `docs/plans/2026-06-08-agent-study-plan.md`, `docs/reviews/2026-06-08-agent-study-plan-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
-
----
-
-## 2026-06-08 Agent Review Cards Update
-
-- Added AI Agent active-recall `review_cards` generation as a dedicated workflow step after study plan generation.
-- Spring Boot now propagates FastAPI `review_cards` into Agent and assistant-turn `reviewCards` responses.
-- Frontend chat displays review cards with question, expected answer, source hint, and difficulty.
-- `smoke_test.py` now asserts direct Agent and assistant-turn responses include review cards and matching trace questions; local full-chain smoke passed with 82/82 checks.
-- Key documents: `docs/plans/2026-06-08-agent-review-cards.md`, `docs/reviews/2026-06-08-agent-review-cards-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
-
----
-
-## 2026-06-08 Learning Weak Points Update
-
-- Added Spring Boot `learning_weak_points` persistence derived from Agent review cards during assistant turns.
-- Added `GET /api/chat/{sessionId}/weak-points` and assistant-turn `weakPoints` response data.
-- Frontend chat displays persisted session weak points for repeated review.
-- `smoke_test.py` now asserts assistant-turn weak point creation and persisted weak point query; local full-chain smoke passed with 85/85 checks.
-- Key documents: `docs/plans/2026-06-08-learning-weak-points.md`, `docs/reviews/2026-06-08-learning-weak-points-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
-
----
-
-## 2026-06-08 Weak Point Assessment Update
-
-- Added Spring Boot weak point self-assessment fields and `PATCH /api/chat/{sessionId}/weak-points/{weakPointId}`.
-- Frontend chat can mark persisted weak points as `MASTERED` or `NEEDS_REVIEW`.
-- `smoke_test.py` now asserts persisted weak point mastery updates; local full-chain smoke passed with 87/87 checks.
-- Key documents: `docs/plans/2026-06-08-weak-point-assessment.md`, `docs/reviews/2026-06-08-weak-point-assessment-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
-
----
-
-## 2026-06-08 Weak Point Prioritization Update
-
-- Spring Boot weak point listing now prioritizes `NEEDS_REVIEW` before `MASTERED`, then ranks by difficulty, review count, and recency.
-- `smoke_test.py` now verifies the order after a mastery update; local full-chain smoke passed with 89/89 checks.
-- Key documents: `docs/plans/2026-06-08-weak-point-prioritization.md`, `docs/reviews/2026-06-08-weak-point-prioritization-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
-
----
-
-## 2026-06-08 RAG Experiment Evaluation Update
-
-- Added Spring Boot `POST /api/rag/experiments/{id}/evaluate`, which evaluates a persisted RAG run through FastAPI `/ai/rag/evaluate`.
-- The endpoint stores evaluator `grounded_score` as experiment `precisionScore`, evaluator `retrieval_score` as `recallScore`, marks the experiment `COMPLETED`, and appends evaluation notes.
-- `smoke_test.py` now covers Advanced RAG query, persisted run detail, and experiment evaluation in one full-chain path; local full-chain smoke passed with 94/94 checks.
-- Key documents: `docs/plans/2026-06-08-rag-experiment-evaluation.md`, `docs/reviews/2026-06-08-rag-experiment-evaluation-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
-
----
-
-## 2026-06-08 Weak Point Practice Flow Update
-
-- Added Spring Boot `POST /api/chat/{sessionId}/weak-points/{weakPointId}/practice-turn`, reusing the assistant-turn workflow for weak point practice.
-- Frontend weak point cards now expose a `Practice` action that starts an Agent-backed practice turn while preserving explicit mastery assessment.
-- `smoke_test.py` now covers persisted weak point practice; local full-chain smoke passed with 99/99 checks.
-- Key documents: `docs/plans/2026-06-08-weak-point-practice-flow.md`, `docs/reviews/2026-06-08-weak-point-practice-flow-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
-
----
-
-## 2026-06-08 RAG Evaluation Workbench Update
-
-- Added Spring Boot `GET /api/rag/runs?limit={n}` and frontend recent run loading for experiment evaluation.
-- Frontend experiments page now supports selecting a recent RAG run and calling experiment evaluation with an optional expected answer.
-- `smoke_test.py` now covers recent RAG run listing; local full-chain smoke passed with 101/101 checks.
-- Key documents: `docs/plans/2026-06-08-rag-evaluation-workbench.md`, `docs/reviews/2026-06-08-rag-evaluation-workbench-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
-
----
-
-## 2026-06-08 RAG Evaluation History Update
-
-- Added Flyway-managed `rag_experiment_evaluations` table for per-evaluation experiment history.
-- Spring Boot `POST /api/rag/experiments/{id}/evaluate` now stores the evaluator result as history, updates the experiment summary in one transaction, and returns the new row plus recent history.
-- Frontend experiments page displays recent evaluation history while browser calls remain under Spring Boot `/api/*`.
-- `smoke_test.py` now asserts Advanced RAG evaluation history response fields; local full-chain smoke passed with 104/104 checks.
-- Key documents: `docs/plans/2026-06-08-rag-evaluation-history.md`, `docs/reviews/2026-06-08-rag-evaluation-history-review-prompt.md`, `docs/testing/strategy.md`, `docs/architecture/api-design.md`, `docs/architecture/database-design.md`, and `docs/handoff/CURRENT_STATE.md`.
-
----
-
-## 2026-06-08 RAG Evaluation Comparison Dashboard Update
-
-- Evaluation history responses now include RAG run question, strategy, retriever, model, latency, and run creation time for comparison display.
-- Frontend experiments page now shows recent-history dashboard metrics, per-experiment averages, latest deltas, question snapshots, and run context.
-- `smoke_test.py` now evaluates one experiment from Advanced RAG and Basic RAG runs to verify comparison history; local full-chain smoke passed with 108/108 checks.
-- Key documents: `docs/plans/2026-06-08-rag-evaluation-comparison-dashboard.md`, `docs/reviews/2026-06-08-rag-evaluation-comparison-dashboard-review-prompt.md`, `docs/testing/strategy.md`, `docs/architecture/api-design.md`, and `docs/handoff/CURRENT_STATE.md`.
-
----
-
-## 2026-06-08 RAG Evaluation Summary Endpoint Update
-
-- Added Spring Boot `GET /api/rag/experiment-evaluations/summary?limit={n}` for recent evaluation aggregation.
-- The endpoint returns evaluation count, average grounded/retrieval scores, best experiment, and recent evaluation rows with experiment/run context.
-- Frontend dashboard now loads the backend summary during hydrate and refreshes it after experiment evaluation.
-- `smoke_test.py` verifies the summary endpoint after two evaluations; local full-chain smoke passed with 115/115 checks.
-- Key documents: `docs/plans/2026-06-08-rag-evaluation-summary-endpoint.md`, `docs/reviews/2026-06-08-rag-evaluation-summary-endpoint-review-prompt.md`, `docs/testing/strategy.md`, `docs/architecture/api-design.md`, and `docs/handoff/CURRENT_STATE.md`.
-
----
-
-## 2026-06-08 RAG Evaluator Answer Alignment Update
-
-- Improved the deterministic FastAPI RAG evaluator so grounded score combines citation support with optional expected/generated answer alignment.
-- Added AI pytest coverage proving a mismatched answer scores lower than a matched answer with the same citation set.
-- Added Spring unit coverage asserting `expectedAnswer` is forwarded into the evaluator request.
-- Key documents: `docs/plans/2026-06-08-rag-evaluator-answer-alignment.md`, `docs/reviews/2026-06-08-rag-evaluator-answer-alignment-review-prompt.md`, and `docs/testing/strategy.md`.
-
----
-
-## 2026-06-08 RAG Evaluation Comparison Page Update
-
-- Added frontend route `/experiments/comparison` for persisted RAG evaluation comparison.
-- The page reuses the Spring Boot summary endpoint through the existing Pinia store and aggregates recent rows by strategy and experiment.
-- Added comparison ranking and recent evaluation context so Advanced RAG, Basic RAG, and GraphRAG results can be inspected outside the CRUD-heavy experiment page.
-- Key documents: `docs/plans/2026-06-08-rag-evaluation-comparison-page.md`, `docs/reviews/2026-06-08-rag-evaluation-comparison-page-review-prompt.md`, and `docs/testing/strategy.md`.
-
----
-
-## 2026-06-08 GraphRAG Offline Evaluation Fixture Update
-
-- Extended the deterministic offline strategy comparison tests with graph relationship and graph expansion cases.
-- The fixture compares `advanced-rag` and `graph-rag`, expecting GraphRAG to win on recall@k, precision@k, MRR, and citation hit when relationship/traversal evidence is required.
-- Key documents: `docs/plans/2026-06-08-graphrag-offline-evaluation-fixture.md`, `docs/reviews/2026-06-08-graphrag-offline-evaluation-fixture-review-prompt.md`, `docs/experiments/2026-06-08-offline-rag-strategy-comparison.md`, and `docs/testing/strategy.md`.
-
----
-
-## 2026-06-08 Weak Point Progress Summary Update
-
-- Added Spring Boot `GET /api/chat/{sessionId}/weak-points/summary` for session-level learning progress aggregation.
-- Frontend chat now displays weak point progress metrics and the next suggested practice item while keeping browser calls under Spring Boot `/api/*`.
-- Full-chain smoke now validates weak point summary before and after mastery assessment.
-- Key documents: `docs/plans/2026-06-08-weak-point-progress-summary.md`, `docs/reviews/2026-06-08-weak-point-progress-summary-review-prompt.md`, `docs/architecture/api-design.md`, and `docs/testing/strategy.md`.
-
----
-
-## 2026-06-08 RAG Evaluation Comparison Filters Update
-
-- Added frontend-only strategy and experiment filters to `/experiments/comparison`.
-- Filtered rows now drive strategy ranking, experiment ranking, and recent evaluation details while the global summary remains visible.
-- No backend or FastAPI contract changed.
-- Key documents: `docs/plans/2026-06-08-rag-evaluation-comparison-filters.md`, `docs/reviews/2026-06-08-rag-evaluation-comparison-filters-review-prompt.md`, and `docs/testing/strategy.md`.
-
----
-
-## 2026-06-08 Structured RAG Evaluation Case Update
-
-- Added optional structured RAG evaluation case fields for experiment evaluation: case id, relevant chunk ids, relevant document ids, expected citation chunk ids, and top-k.
-- FastAPI now reuses deterministic retrieval metrics for structured cases while preserving the previous heuristic fallback.
-- Spring Boot only forwards evaluation case data to FastAPI and continues to persist returned scores/history.
-- Full-chain smoke now validates Advanced RAG structured retrieval metrics; latest local smoke passed with 123/123 checks.
-- Key documents: `docs/plans/2026-06-08-structured-rag-evaluation-case.md`, `docs/reviews/2026-06-08-structured-rag-evaluation-case-review-prompt.md`, `docs/experiments/eval-questions.md`, and `docs/testing/strategy.md`.
-
----
-
-## 2026-06-08 Structured RAG Evaluation UI Update
-
-- Added a frontend experiments-page path for creating a structured evaluation case from the selected RAG run's top retrieval result.
-- The UI submits structured relevance fields through the existing Spring Boot experiment evaluation API and can clear the case to use the simple evaluator path.
-- No browser-to-FastAPI calls were added.
-- Local validation passed: `npm.cmd run typecheck`, `npm.cmd run build`, and non-Docker full-chain smoke 123/123.
-- Key documents: `docs/plans/2026-06-08-structured-rag-evaluation-ui.md`, `docs/reviews/2026-06-08-structured-rag-evaluation-ui-review-prompt.md`, and `docs/testing/strategy.md`.
-
----
-
-## 2026-06-08 Weak Point Practice Assessment Update
-
-- Added automatic weak point practice assessment from submitted user answers using deterministic expected-answer overlap scoring in Spring Boot.
-- Practice responses now include assessment, updated weak point, refreshed summary, and the existing assistant turn.
-- Frontend weak point cards now provide an answer box and show the latest assessment feedback.
-- Full-chain smoke validates the answer submission path; latest local smoke passed with 126/126 checks.
-- Key documents: `docs/plans/2026-06-08-weak-point-practice-assessment.md`, `docs/reviews/2026-06-08-weak-point-practice-assessment-review-prompt.md`, and `docs/testing/strategy.md`.
-
----
-
-## 2026-06-08 Weak Point Review Schedule Update
-
-- Added weak point practice scheduling fields in Spring Boot: practice count, last practice score, and next review time.
-- Weak point summaries now expose due review count, and due items are prioritized for the next practice queue.
-- Historical mastered weak points are backfilled to a future review time during migration.
-- Frontend chat displays due counts and per-item schedule metadata while keeping browser traffic on Spring Boot `/api/*`.
-- Full-chain smoke validates the new schedule fields; latest local smoke passed with 131/131 checks.
-- Key documents: `docs/plans/2026-06-08-weak-point-review-schedule.md`, `docs/reviews/2026-06-08-weak-point-review-schedule-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
-
----
-
-## 2026-06-08 Weak Point Review Queue Controls Update
-
-- Added frontend queue controls for all, due, needs-review, and mastered weak points in the chat workbench.
-- Added a `Practice next due` shortcut that reuses the existing Spring Boot weak point practice flow.
-- No backend or FastAPI contracts changed.
-- Local validation passed: `npm.cmd run typecheck`, `npm.cmd run build`, and full-chain smoke 131/131.
-- Key documents: `docs/plans/2026-06-08-weak-point-review-queue-controls.md`, `docs/reviews/2026-06-08-weak-point-review-queue-controls-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
-
----
-
-## 2026-06-08 Parent-Child Real Parent Context Update
-
-- Advanced RAG parent-child hydration now uses real `parent_chunk_id` relationships when chunk data provides them.
-- AI repository save/read paths preserve `parent_chunk_id`; flat SimpleChunker output still uses neighbor-window fallback.
-- AI pytest validates both real parent-child context and the existing fallback path.
-- Local full-chain smoke remained green with 131/131 checks.
-- Key documents: `docs/plans/2026-06-08-parent-child-real-parent-context.md`, `docs/reviews/2026-06-08-parent-child-real-parent-context-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
-
----
-
-## 2026-06-08 Parent-Child Chunking Strategy Update
-
-- Added opt-in AI `ParentChildChunker`; ingest metadata `chunk_strategy=parent-child` now emits parent chunks plus child chunks with `parent_chunk_id`.
-- Parent chunks are stored as context carriers but excluded from retrieval, embeddings, and graph fact extraction.
-- Default flat `SimpleChunker` behavior remains unchanged.
-- AI pytest validates chunker output, ingest selection, default flat chunking, and query-level parent-child hydration.
-- Local full-chain smoke remained green with 142/142 checks.
-- Key documents: `docs/plans/2026-06-08-parent-child-chunking-strategy.md`, `docs/reviews/2026-06-08-parent-child-chunking-strategy-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
-
----
-
-## 2026-06-08 Configurable Hybrid Retrieval Update
-
-- Added request-level `retrieval_options` / `retrievalOptions` for Advanced RAG hybrid retrieval.
-- Default hybrid ranking remains 0.7 vector / 0.3 keyword; request weights are normalized and bounded in FastAPI.
-- Spring Boot and frontend only pass the option through the existing `/api/rag/query` path.
-- Citation metadata now records `vector_score`, `keyword_score`, `vector_weight`, and `keyword_weight` for RAG evaluation.
-- Local full-chain smoke passed with 143/143 checks.
-- Key documents: `docs/plans/2026-06-08-configurable-hybrid-retrieval.md`, `docs/reviews/2026-06-08-configurable-hybrid-retrieval-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
-
----
-
-## 2026-06-08 Query-Aware Context Compression Update
-
-- Added deterministic query-aware sentence packing for parent-child and neighbor-window context hydration in FastAPI.
-- Citation metadata records compression mode, original/compressed character counts, and compression ratio.
-- Advanced RAG trace reports aggregate context compression stats for evaluation.
-- Full-chain smoke now validates parent-child compression metadata.
-- Local full-chain smoke passed with 144/144 checks.
-- Key documents: `docs/plans/2026-06-08-query-aware-context-compression.md`, `docs/reviews/2026-06-08-query-aware-context-compression-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
-
----
-
-## 2026-06-08 GraphRAG Evaluation Metrics Update
-
-- FastAPI evaluator now scores GraphRAG citation metadata: entity coverage, relationship hit, and expansion-term hit.
-- GraphRAG metric notes are included in RAG evaluation responses and full-chain smoke now checks the persisted GraphRAG run evaluation path.
-- Spring Boot continues to forward evaluation data only; it does not implement GraphRAG scoring.
-- Local full-chain smoke passed with 146/146 checks.
-- Key documents: `docs/plans/2026-06-08-graphrag-evaluation-metrics.md`, `docs/reviews/2026-06-08-graphrag-evaluation-metrics-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
-
----
-
-## 2026-06-08 GraphRAG Metrics UI Update
-
-- Frontend experiment views now parse GraphRAG evaluator notes and show entity, relation, and expansion-term metrics.
-- The comparison page includes a Graph metrics column while continuing to use Spring Boot evaluation history only.
-- Local full-chain smoke remained green with 146/146 checks.
-- Key documents: `docs/plans/2026-06-08-graphrag-metrics-ui.md`, `docs/reviews/2026-06-08-graphrag-metrics-ui-review-prompt.md`, `docs/handoff/CURRENT_STATE.md`, and `docs/testing/strategy.md`.
+## 2026-06-08 Advanced RAG 工程化更新
+
+- Advanced RAG 已覆盖 query rewrite、multi-query、metadata filter、hybrid rerank、parent-child 上下文、query-aware context compression 与 GraphRAG 评估指标。
+- Parent-Child 已支持真实 `parent_chunk_id` 关系；缺失父块或扁平 chunk 时继续使用邻近窗口 fallback。
+- 可选 `ParentChildChunker` 支持入库时生成父块与子块，父块作为上下文载体保存但不参与检索、embedding 与图谱事实抽取。
+- 混合检索已支持请求级 `retrieval_options` / `retrievalOptions`，FastAPI 归一化 vector / keyword 权重并保留默认 0.7 / 0.3。
+- 引用元数据记录 `vector_score`、`keyword_score`、`vector_weight`、`keyword_weight` 与上下文压缩统计，便于后续评估。
 
 ---
 
 ## 2026-06-08 LLM 查询转换回退更新
 
-- Advanced RAG 现在支持通过 `retrievalOptions.enableLlmQueryTransform` 按请求开启基于 LLM 的查询改写与多查询扩展。
+- Advanced RAG 支持通过 `retrievalOptions.enableLlmQueryTransform` 按请求开启基于 LLM 的查询改写与多查询扩展。
 - 规则查询改写 / 扩展仍是默认路径，也是 LLM 输出异常时的回退路径。
 - Trace 步骤会记录查询转换器 provider 与 fallback 元数据。
 - Spring Boot 继续只透传请求选项；查询转换逻辑仍由 FastAPI 负责。
 - 关键文档：`docs/plans/2026-06-08-llm-query-transform-fallback.md`、`docs/reviews/2026-06-08-llm-query-transform-fallback-review-prompt.md`、`docs/handoff/CURRENT_STATE.md` 与 `docs/testing/strategy.md`。
+
+---
+
+## 2026-06-08 RAG 检索选项 UI 更新
+
+- 聊天工作台新增混合检索权重预设与 LLM 查询转换开关。
+- Spring Boot assistant-turn 链路现在透传 `retrievalOptions` 到 FastAPI Agent 上下文，仍不实现 RAG 逻辑。
+- FastAPI Agent 工作流在 `retrieve_and_generate` 步骤记录检索选项是否启用与选项 key，便于全链路 smoke 脚本 脚本验证。
+- 全链路 smoke 脚本 脚本覆盖 assistant-turn 检索选项透传。
+- 关键文档：`docs/plans/2026-06-08-rag-retrieval-options-ui.md`、`docs/reviews/2026-06-08-rag-retrieval-options-ui-review-prompt.md`、`docs/handoff/CURRENT_STATE.md` 与 `docs/testing/strategy.md`。

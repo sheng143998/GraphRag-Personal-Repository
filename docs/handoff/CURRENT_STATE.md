@@ -3,842 +3,126 @@
 
 ## 当前正在做什么
 
-已完成 Phase 4 Advanced RAG 工程闭环第一版，并完成 OpenAI-compatible LLM / Embedding / Rerank 真实模型 adapter 接入。用户要求项目先完成到 Advanced RAG，后续 LangGraph、GraphRAG、复习/面试辅助暂不继续。
+当前正在按用户要求执行两条主线：历史英文文档全文中文化已完成，并同步 `PROJECT_CONTEXT.md` 与本文件，准备先做 docs-only 提交；随后继续验证并提交 RAG 检索选项 UI / assistant-turn `retrievalOptions` 透传改动。
 
-## 本轮已完成的变更
+## 当前项目完成度
 
-### Python AI 服务
+- Phase 2 知识库 CRUD、文档上传 / 列表 / 详情 / 删除、Word `.docx` 解析与 MinerU PDF 解析已有工程闭环。
+- Phase 3 基础 RAG 已打通 Spring Boot -> FastAPI -> PostgreSQL 的本地链路。
+- Phase 4 Advanced RAG 已覆盖 hybrid-rerank、metadata-filter、parent-child、query rewrite、multi-query、rerank、上下文压缩、可配置混合检索权重与 LLM 查询转换回退。
+- Phase 5 Agent 已覆盖问题分类、策略选择、assistant-turn、追问、学习计划、复习卡片和薄弱点学习闭环。
+- Phase 6 GraphRAG 已覆盖实体 / 关系抽取、图谱事实持久化、遍历检索、图谱指标评估和前端查看入口。
+- Phase 7 RAG 实验评估已覆盖实验 CRUD、持久化 run 评估、评估历史、汇总接口、对比页和结构化评估用例。
 
-- `ai-service/app/rag/query_transformers/base.py`（新建）— 规则型 `RuleBasedQueryRewriter` 与 `RuleBasedMultiQueryExpander`，用于无真实 LLM 情况下验证 query rewrite / multi-query 工程链路。
-- `ai-service/app/rag/query_transformers/__init__.py`（新建）— query transformer 包入口。
-- `ai-service/app/rag/strategies/advanced.py`（新建）— `AdvancedRagStrategy`，支持 `hybrid-rerank`、`metadata-filter`、`parent-child`、`advanced-rag`。
-- `ai-service/app/services/rag_service.py`（修改）— 从固定 `BasicRagStrategy` 改为策略分发：`basic-rag` 走基础策略，其余 Phase 4 策略走 AdvancedRagStrategy。
-- `ai-service/app/db/repositories.py`（修改）— 增加 `hydrate_parent_context()`，PostgreSQL / InMemory 均支持邻近 chunk window fallback，metadata 写入 `parent_child_mode` 与 `context_source_chunk_ids`。
-- `ai-service/app/core/config.py`（修改）— 自动读取根目录 `.env`，新增 LLM / Embedding / Rerank adapter 配置，并支持 `MODEL_MAX_RETRIES`。
-- `ai-service/app/services/adapters/openai_compatible.py`（新建）— OpenAI-compatible LLM、Embedding、Rerank HTTP adapter；对网络异常、超时、429 与 5xx 做轻量指数退避重试。
-- `ai-service/app/services/adapters/registry.py`（修改）— 根据 `.env` 自动选择真实 adapter 或 fallback stub。
+## 当前未提交工作
 
-### Java 后端
+- 文档：历史 `docs/plans/`、`docs/reviews/`、`docs/experiments/`、`docs/testing/failures/` 已完成全文中文化；`PROJECT_CONTEXT.md`、`docs/handoff/CURRENT_STATE.md`、`docs/testing/strategy.md` 已同步为中文当前状态。
+- AI 服务：Agent 工作流在 `retrieve_and_generate` 步骤暴露 `retrieval_options_enabled` 与 `retrieval_option_keys`。
+- Spring Boot：assistant-turn / Agent bridge 新增 `retrievalOptions` 透传，仍不实现 RAG 逻辑。
+- 前端：聊天页新增混合检索预设与 LLM 查询转换开关，Pinia 状态层生成 `retrievalOptions`。
+- smoke：assistant-turn 请求新增 `retrievalOptions` 并断言 Agent 工作流收到该配置。
+- `opencode.json` 是未跟踪文件，不纳入暂存、提交或推送。
 
-- `backend-java/src/main/java/.../dto/rag/RagQueryRequest.java`（修改）— 新增 `metadataFilters`，并要求 `knowledgeBaseId` 非空。
-- `backend-java/src/main/java/.../client/dto/AiRagQueryRequest.java`（确认）— 通过 `metadata_filters` 透传到 Python。
-- `backend-java/src/main/java/.../client/dto/AiTraceMetadata.java`（修改）— 新增 `attributes`，用于接收 Python trace attributes。
-- `backend-java/src/main/java/.../client/AiServiceClient.java`（修改）— mock trace 构造补齐 `attributes`。
-- `backend-java/src/main/java/.../service/RagService.java`（修改）— metadataFilters 空值安全透传；保存 Python trace attributes 中的 `rewritten_query` 到 `rag_runs.rewritten_query`；retrieval result rank 改为顺序计数。
+## 已通过的近期验证
 
-### 前端
+- AI 定向测试：`.\.venv\bin\python.exe -m pytest tests/test_agent_workflow.py tests/test_advanced_rag_strategy.py -q`，15 个测试通过。
+- Spring 定向测试：`mvn.cmd test "-Dtest=AgentServiceTest,AssistantTurnServiceTest"`，2 个测试通过；沙箱内 Maven 访问本地 `maven-repo` jar 可能被拒，必要时使用非沙箱运行。
+- 前端：`npm.cmd --prefix frontend run typecheck` 与 `npm.cmd --prefix frontend run build` 已通过。
+- 语法：`python -m py_compile smoke_test.py` 已通过。
 
-- `frontend/src/types/index.ts`（修改）— `ChatRequest` 新增 `knowledgeBaseId`、`messageId`、`retrieverType`、`metadataFilters`、`topK`。
-- `frontend/src/api/chat.ts`（修改）— `sendChatMessage()` 透传 `knowledgeBaseId/sessionId/messageId/retrieverType/metadataFilters/topK` 到 `/api/rag/query`。
-- `frontend/src/utils/mock-data.ts`（修改）— 策略列表补齐并对齐 `basic-rag`、`hybrid-rerank`、`metadata-filter`、`parent-child`、`advanced-rag`。
-- `frontend/src/stores/workbench.ts`（修改）— 提问前校验默认/选中知识库，避免向 Python 发送空 knowledgeBaseId。
+## 待重新验证
 
-### 环境配置
+- 非 Docker 全链路：`powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` 上次被用户中断，需要在文档提交后重新运行。
+- 文档质量门禁：`git diff --check` 与英文模板词扫描需要在 docs-only 提交前重新运行。
 
-- `.env`（本地忽略文件）— 已配置用户提供的 DashScope OpenAI-compatible LLM / Embedding / Rerank 信息；真实密钥只保留在本地 `.env`。
-- `.env.example`（可提交示例）— 补充模型 adapter 占位变量，不包含真实密钥。
-- 根据阿里百炼文档修正：
-  - `text-embedding-v4` 使用 `compatible-mode/v1/embeddings`，维度 1536，批量大小 10。
-  - 文本 rerank 使用 `qwen3-rerank` 与 `compatible-api/v1/reranks`。
-  - `qwen3-vl-rerank` 不走 OpenAI-compatible 文本 rerank，本项目文本 RAG 暂不用。
+## 当前限制与后续方向
 
-### 文档
-
-- `docs/plans/2026-06-08-advanced-rag-phase4.md`（新建）— Phase 4 实现计划。
-- `docs/plans/2026-06-08-openai-compatible-model-adapters.md`（新建）— 模型 adapter 接入计划。
-- `docs/experiments/eval-questions.md`（新建）— Advanced RAG 固定评估问题集。
-- `docs/testing/failures/2026-06-08-advanced-rag-phase4-notes.md`（新建）— pytest/pydantic 环境缺失与 PowerShell UTF-8 BOM 问题复盘。
-- `docs/reviews/2026-06-08-openai-compatible-model-adapters-review-prompt.md`（新建）— adapter review 提示。
-- `ai-service/README.md`、`backend-java/README.md`、`frontend/README.md`（修改）— 补充 Advanced RAG 与模型 adapter 当前能力、入口和限制。
-- `PROJECT_CONTEXT.md`（修改）— 更新阶段状态、当前待办与 2026-06-08 变更摘要。
-
-## 已通过的验证
-
-- ✅ `python -m compileall ai-service/app`
-- ✅ `mvn compile -q -f backend-java/pom.xml`
-- ✅ `frontend npm run build`
-- ✅ adapter import smoke：registry 自动选择 `OpenAICompatibleLLMAdapter`、`OpenAICompatibleEmbeddingAdapter`、`OpenAICompatibleRerankAdapter`
-- ✅ 真实 adapter 小流量 smoke：embedding 返回 1536 维；rerank 返回 2 个分数且相关文档更高；LLM 接口可返回内容
-- ✅ retry 改造后再次执行 embedding / rerank 小流量 smoke，通过
-
-## 尚未验证
-
-- ❌ `python -m pytest ai-service/tests -q`：当前 shell Python 缺少 `pytest` 与 `pydantic`，已写入失败复盘。
-- ❌ 全链路 HTTP smoke：当前 Docker CLI 存在但 Docker Desktop daemon 未运行，无法启动 PostgreSQL / Redis；需启动 Docker Desktop 后再验证 `/api/rag/query` 多策略行为。
-- ❌ 浏览器端策略切换与真实引用展示。
-
-## 当前重点 review 文件
-
-1. `ai-service/app/services/adapters/openai_compatible.py` — 真实模型 adapter、响应解析、错误处理与重试。
-2. `ai-service/app/services/adapters/registry.py` — adapter 自动选择与 fallback。
-3. `ai-service/app/core/config.py` — `.env` 读取与模型配置。
-4. `ai-service/app/rag/strategies/advanced.py` — Advanced RAG 主策略链路。
-5. `ai-service/app/rag/query_transformers/base.py` — 规则型 query rewrite / multi-query。
-6. `ai-service/app/db/repositories.py` — hybrid search 与 parent-child fallback。
-7. `ai-service/app/services/rag_service.py` — 策略分发与生成上下文。
-8. `backend-java/src/main/java/.../service/RagService.java` — metadataFilters 透传、rewritten_query 入库、rank 修复。
-9. `frontend/src/api/chat.ts` / `frontend/src/utils/mock-data.ts` — 前端策略与参数透传。
-10. `docs/experiments/eval-questions.md` — Phase 4 评估问题。
-
-## 当前仍是占位或限制
-
-- 如果 `.env` 中模型配置缺失，会 fallback 到 stub embedding / LLM / reranker。
-- 当前真实 adapter 已有轻量重试，但尚未实现限流、熔断、成本统计。
-- query rewrite / multi-query 当前是规则型 fallback，不是真实 LLM 改写。
-- parent-child 已支持 opt-in 父/子块切分、真实 `parent_chunk_id` hydration；邻近 chunk fallback 保留给历史 flat chunks。
-- DashScope-native 高级 embedding 参数（text_type、instruct、sparse vector）尚未接入。
-
-## 下一步建议
-
-1. 按用户要求，Advanced RAG 之后能力暂不继续开发。
-2. 若继续增强，优先做全链路 HTTP smoke：PostgreSQL + FastAPI + Spring Boot + 浏览器端策略切换。
-3. 若继续增强模型侧，补限流、熔断、成本统计，并在 `docs/experiments/eval-questions.md` 固定问题集上做对比评估。
-4. 在依赖环境就绪后运行 Python pytest。
+- `.env` 缺少模型配置时仍会 fallback 到 stub provider。
+- OpenAI-compatible adapter 已有轻量重试，但限流、熔断和成本统计仍待补齐。
+- 基于 LLM 的 GraphRAG 抽取仍待实现，并需要结构化 fallback。
+- 历史 UI 英文文案仍需单独中文化整理。
 ---
 
-## 2026-06-08 Local Full-Chain Validation Update
+## 2026-06-08 本地全链路验证更新
 
-This update keeps the historical handoff content intact and records the latest non-Docker validation pass.
+本轮已完成：
 
-Completed in this iteration:
+- 新增 `scripts/test-fullchain-local.ps1` 本地全链路自动化脚本。
+- 新增离线 Advanced RAG 策略对比辅助代码与测试。
+- 补充异步文档入库、RAG bridge 行为、前端构建与 smoke 相关验证。
+- Advanced RAG 覆盖 query rewrite、multi-query、metadata filter、hybrid rerank、run detail 与 `rewrittenQuery` 持久化检查。
 
-- Added local full-chain automation at `scripts/test-fullchain-local.ps1`.
-- Made `smoke_test.py` configurable with `SMOKE_BASE_URL`, `SMOKE_AI_BASE_URL`, and `SMOKE_TIMEOUT`.
-- Added offline Advanced RAG strategy comparison helpers under `ai-service/app/rag/evaluators/`.
-- Added AI tests for strategy comparison and backend unit tests for async ingest plus RAG bridge behavior.
-- Updated testing documentation in `docs/testing/strategy.md` and automation notes in `scripts/README.md`.
+验证记录：
 
-Validated:
-
-- `ai-service/.venv/bin/python.exe -m pytest` passed.
-- `mvn test` passed for backend Java tests.
-- `npm.cmd run typecheck` and `npm.cmd run build` passed for frontend.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1 -SkipBuild` passed with 42/42 smoke checks.
-
-Advanced RAG coverage now includes:
-
-- Offline strategy comparison metrics: recall@k, precision@k, MRR, and citation hit.
-- Full-chain HTTP query using `strategyName=advanced-rag`.
-- Citation presence check.
-- Run detail retrieval and `rewrittenQuery` persistence check.
-
-Frontend follow-up areas addressed by the multi-agent iteration:
-
-- Runtime Settings changes now drive the API client at request time.
-- Loaded chat history is mapped back into the visible thread.
-- Knowledge base create/detail/edit/delete, document detail/delete, and upload validation are wired in the UI.
+- AI 侧 pytest、后端 Maven 测试、前端类型检查 / 构建 与本地 smoke 脚本 均已在对应阶段跑通过。
+- 后续如遇 Maven 本地仓库权限问题，需要使用非沙箱方式运行后端测试。
 
 ---
 
-## 2026-06-08 Phase 5 Agent Workflow Update
+## 2026-06-08 Agent 与聊天学习闭环更新
 
-Completed in this iteration:
+本轮已完成：
 
-- Added `ai-service/app/agents/workflow.py` with a node-style study agent workflow.
-- `/ai/agent/invoke` now returns question classification, selected strategy, workflow steps, output, citations, and trace metadata.
-- Added Spring Boot `/api/agent/invoke` bridge to FastAPI `/ai/agent/invoke`.
-- Added AI and backend unit tests for the Agent workflow bridge.
-- Extended `smoke_test.py` with Agent workflow full-chain coverage.
+- FastAPI Agent 支持问题分类、策略选择、RAG 执行、引用返回与工作流步骤。
+- Spring Boot 新增 `/api/agent/invoke` 和 `/api/chat/{sessionId}/assistant-turn` 桥接能力。
+- 前端聊天页使用 assistant-turn，并自动创建会话；浏览器请求仍只走 Spring Boot `/api/*`。
+- Agent 已补齐追问问题、学习计划、复习卡片、薄弱点记录、薄弱点评估、排序、汇总、练习、自动评分、复习日程和队列控件。
 
-Validated:
+当前剩余较大工作：
 
-- `ai-service/.venv/bin/python.exe -m pytest` passed with 12 tests.
-- `mvn test` passed with 6 tests.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 47/47 smoke checks.
-
-Current remaining large project areas after Phase 5:
-
-- GraphRAG / knowledge graph enhancement, addressed in the next section as a first engineering loop.
-- Learning and interview assistant product workflows.
-- Optional future replacement of the local node-style runner with a real `langgraph` dependency-backed graph.
+- 继续增强 Agent 的真实 LLM 编排与 GraphRAG 抽取能力。
+- 对历史页面中的英文 UI 文案做独立中文化整理。
 
 ---
 
-## 2026-06-08 Phase 6 GraphRAG First Loop Update
+## 2026-06-08 GraphRAG 与图谱事实更新
 
-Completed in this iteration:
+本轮已完成：
 
-- Added deterministic query entity and relationship extraction under `ai-service/app/rag/graph/`.
-- Added `graph-rag` as a supported Advanced RAG strategy.
-- GraphRAG now stores graph entities, relationships, and the graph-augmented query in trace attributes.
-- Citation metadata now includes graph entity and relationship context.
-- Frontend strategy options now include `GraphRAG`.
-- `smoke_test.py` now covers GraphRAG through Spring Boot `/api/rag/query`.
+- AI 服务新增确定性实体 / 关系抽取、GraphRAG 查询增强与图谱引用元数据。
+- Spring Boot 通过 Flyway 管理图谱事实表，并提供 `GET /api/graph/facts` 查询接口。
+- 前端新增 `/graph` 工作台页面查看实体和关系。
+- 本地全链路脚本在数据库模式下运行 AI 服务，保证 AI 入库图谱事实可被 Spring Boot 读取。
+- GraphRAG evaluator notes 已加入实体覆盖、关系命中和扩展词命中指标，前端实验视图可展示图谱指标。
 
-Validated:
+当前剩余较大工作：
 
-- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests.
-- `npm.cmd run typecheck` and `npm.cmd run build` passed.
-- `mvn test` passed with 6 tests.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 54/54 smoke checks.
-
-Current remaining large project areas after the first GraphRAG loop:
-
-- Persist graph entities and relationships with Flyway-managed tables, addressed in the next section.
-- Implement graph-aware retrieval over persisted graph facts.
-- Build learning and interview assistant product workflows.
+- 增加基于 LLM 的 GraphRAG 抽取，并提供结构化回退。
+- 丰富 GraphRAG 评估对比维度。
 
 ---
 
-## 2026-06-08 GraphRAG Persistence Update
+## 2026-06-08 RAG 实验评估体系更新
 
-Completed in this iteration:
+本轮已完成：
 
-- Added `backend-java/src/main/resources/db/migration/V202606081300__create_graph_facts.sql`.
-- Added `graph_entities` and `graph_relationships` tables with knowledge base, document, and chunk references.
-- Added AI repository methods for graph fact writes and graph fact lookup in both in-memory and PostgreSQL modes.
-- AI ingest now extracts and saves graph facts for chunks.
-- `graph-rag` now reads persisted graph matches into trace attributes and citation metadata.
+- Spring Boot 新增实验评估接口，基于持久化 RAG run 调用 FastAPI evaluator。
+- 评估历史已持久化到 `rag_experiment_evaluations`，实验摘要同步更新。
+- 新增最近 RAG run 列表、评估汇总接口、实验页 run 选择与评估历史展示。
+- 新增评估对比页，支持策略 / 实验聚合、筛选、排行与最近评估明细。
+- 结构化评估用例支持相关 chunk/document id、期望引用 chunk id 与 top-k，评分逻辑仍在 FastAPI。
 
-Validated:
+当前剩余较大工作：
 
-- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests.
-- `mvn test` passed with 6 tests.
-- `npm.cmd run typecheck` and `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 54/54 smoke checks.
-
-Current remaining large project areas:
-
-- Build learning and interview assistant product workflows.
+- 增加更多固定评估集和策略对比样例。
+- 将评估结果用于自动化 RAG 参数优化建议。
 
 ---
 
-## 2026-06-08 Assistant Turn Chat Flow Update
+## 2026-06-08 Advanced RAG 工程化更新
 
-Completed in this iteration:
+本轮已完成：
 
-- Added Spring Boot `POST /api/chat/{sessionId}/assistant-turn`.
-- Added `AssistantTurnService` to persist a user message, invoke the existing Agent bridge, persist the assistant message with citations, and return workflow metadata.
-- Frontend chat now uses the assistant-turn API and auto-creates a session when needed.
-- Full-chain smoke now exercises assistant-turn before message history and feedback checks.
+- Parent-Child 上下文优先使用真实 `parent_chunk_id`，并保留邻近窗口 fallback。
+- 新增可选 `ParentChildChunker`，支持父块 / 子块入库，父块不参与检索和 embedding。
+- 可配置混合检索支持 `retrieval_options` / `retrievalOptions`，并持久化 vector / keyword 权重元数据。
+- Query-aware context compression 已记录压缩模式、压缩比例与上下文统计。
+- GraphRAG evaluator 已融合图谱元数据指标。
 
-Validated so far:
+当前剩余较大工作：
 
-- `mvn test` passed with 8 tests.
-- `npm.cmd run typecheck` and `npm.cmd run build` passed.
-
-Current remaining large project areas:
-
-- Broaden learning/interview assistant workflows with review cards and session-level study plans.
-
----
-
-## 2026-06-08 Agent Follow-Up Questions Update
-
-Completed in this iteration:
-
-- Added deterministic follow-up question generation to the AI Agent workflow after citation preparation.
-- Propagated `follow_up_questions` from FastAPI to Spring Boot `followUpQuestions` fields.
-- Assistant-turn responses now include follow-up questions.
-- Frontend chat displays follow-up questions as clickable prompts that refill the question input.
-- Full-chain smoke now asserts assistant-turn returns at least three non-empty follow-up questions.
-
-Validated so far:
-
-- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests.
-- `mvn test` passed with 8 tests.
-- `npm.cmd run typecheck` and `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 74/74 smoke checks.
-
-Current remaining large project areas:
-
-- Add richer learning artifacts such as review cards and session-level study plans.
-
----
-
-## 2026-06-08 Agent Study Plan Update
-
-Completed in this iteration:
-
-- Added deterministic session-level study plan generation to the AI Agent workflow.
-- Propagated FastAPI `study_plan` through Spring Boot as `studyPlan`.
-- Assistant-turn responses now include a structured study plan with summary, focus areas, and steps.
-- Frontend chat displays the latest study plan in the workbench side stack.
-- Full-chain smoke now asserts direct Agent and assistant-turn study plan responses and trace attributes.
-
-Validated so far:
-
-- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests.
-- `mvn test` passed with 8 tests.
-- `npm.cmd run typecheck` and `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 78/78 smoke checks.
-
-Current remaining large project areas:
-
-- Add richer learning artifacts such as review cards and persisted weak-point tracking.
-
----
-
-## 2026-06-08 Agent Review Cards Update
-
-Completed in this iteration:
-
-- Added deterministic active-recall review card generation to the AI Agent workflow.
-- Propagated FastAPI `review_cards` through Spring Boot as `reviewCards`.
-- Assistant-turn responses now include review cards with question, expected answer, source hint, and difficulty.
-- Frontend chat displays the latest review cards in the workbench side stack.
-- Full-chain smoke now asserts direct Agent and assistant-turn review card responses and trace questions.
-
-Validated so far:
-
-- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests.
-- `mvn test` passed with 8 tests.
-- `npm.cmd run typecheck` and `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 82/82 smoke checks.
-
-Current remaining large project areas:
-
-- Add persisted weak-point tracking from review card feedback and answer history.
-
----
-
-## 2026-06-08 Learning Weak Points Update
-
-Completed in this iteration:
-
-- Added `learning_weak_points` persistence for session-level weak topics derived from Agent review cards.
-- Added Spring Boot `GET /api/chat/{sessionId}/weak-points`.
-- Assistant-turn responses now include persisted weak points after saving review card evidence.
-- Frontend chat displays session weak points in the workbench side stack.
-- Full-chain smoke now verifies assistant-turn weak point creation and persisted weak point query.
-
-Validated so far:
-
-- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests.
-- `mvn test` passed with 9 tests.
-- `npm.cmd run typecheck` and `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 85/85 smoke checks.
-
-Current remaining large project areas:
-
-- Add explicit user self-assessment/feedback updates for weak points and ranking recommendations.
-
----
-
-## 2026-06-08 Weak Point Assessment Update
-
-Completed in this iteration:
-
-- Added weak point assessment fields: `mastery_status` and `last_assessed_at`.
-- Added Spring Boot `PATCH /api/chat/{sessionId}/weak-points/{weakPointId}`.
-- Frontend chat can mark weak points as `MASTERED` or `NEEDS_REVIEW`.
-- Full-chain smoke now verifies persisted weak point status updates.
-
-Validated so far:
-
-- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests.
-- `mvn test` passed with 10 tests.
-- `npm.cmd run typecheck` and `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 87/87 smoke checks.
-
-Current remaining large project areas:
-
-- Add weak point ranking recommendations and explicit practice flows.
-
----
-
-## 2026-06-08 Weak Point Prioritization Update
-
-Completed in this iteration:
-
-- Spring Boot now returns `NEEDS_REVIEW` weak points before `MASTERED` ones.
-- Weak point ordering is deterministic by mastery status, difficulty, review count, and last seen time.
-- Full-chain smoke now re-lists weak points after marking one mastered and checks that review items remain first.
-
-Validated so far:
-
-- `mvn test` passed with 11 tests.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 89/89 smoke checks.
-
-Current remaining large project areas:
-
-- Add explicit practice flows and richer RAG evaluation dashboards.
-
----
-
-## 2026-06-08 RAG Experiment Evaluation Update
-
-Completed in this iteration:
-
-- Added Spring Boot `POST /api/rag/experiments/{id}/evaluate`.
-- The endpoint evaluates a persisted RAG run through FastAPI `/ai/rag/evaluate` and stores grounded/retrieval evaluator scores on the experiment summary fields.
-- Full-chain smoke now evaluates the created experiment from an Advanced RAG run and verifies status, scores, and notes.
-
-Validated so far:
-
-- `mvn test` passed with 12 tests.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 94/94 smoke checks.
-
-Current remaining large project areas:
-
-- Add a frontend experiment evaluation action with a clear run picker.
-- Add richer RAG evaluation dashboards and historical evaluation comparisons.
-
----
-
-## 2026-06-08 RAG Evaluation Workbench Update
-
-Completed in this iteration:
-
-- Added Spring Boot `GET /api/rag/runs?limit={n}` for recent RAG run summaries.
-- Frontend experiments page now loads recent runs, lets the user select a run, optionally enter an expected answer, and evaluate an experiment.
-- Successful evaluation updates the experiment scores/status in the workbench store.
-- Full-chain smoke verifies recent run listing and the existing Advanced RAG experiment evaluation path.
-
-Validated so far:
-
-- `mvn test` passed with 14 tests.
-- `npm.cmd run typecheck` passed.
-- `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 101/101 smoke checks.
-
-Current remaining large project areas:
-
-- Add richer RAG evaluation dashboards and historical evaluation comparisons.
-
----
-
-## 2026-06-08 RAG Evaluation History Update
-
-Completed in this iteration:
-
-- Added Flyway-managed `rag_experiment_evaluations` table for per-evaluation history.
-- Added Spring Boot entity/repository/DTO support and made experiment evaluation transactional.
-- `POST /api/rag/experiments/{id}/evaluate` now returns the newly saved evaluation row plus recent history.
-- Frontend experiments page displays recent evaluation history for each experiment.
-- Full-chain smoke now asserts Advanced RAG evaluation history fields in the response.
-
-Validated so far:
-
-- `mvn test` passed with 14 tests.
-- `npm.cmd run typecheck` passed.
-- `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 104/104 smoke checks.
-
-Current remaining large project areas:
-
-- Continue richer RAG evaluation dashboards and historical comparison views.
-
----
-
-## 2026-06-08 RAG Evaluation Comparison Dashboard Update
-
-Completed in this iteration:
-
-- Extended evaluation history responses with read-only RAG run context: question, strategy, retriever, model, latency, and run creation time.
-- Added a frontend recent-history dashboard for total evaluations, average grounded/retrieval scores, best latest experiment, per-experiment averages, and latest score deltas.
-- Upgraded experiment history rows to show question snapshots and run context instead of only short run ids.
-- Full-chain smoke now evaluates one experiment from both Advanced RAG and Basic RAG runs and verifies comparison history.
-
-Validated so far:
-
-- `mvn test` passed with 14 tests.
-- `npm.cmd run typecheck` passed.
-- `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 142/142 smoke checks.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 108/108 smoke checks.
-
-Current remaining large project areas:
-
-- Add a dedicated RAG evaluation comparison page or backend aggregation endpoint if recent-history-only dashboard is no longer enough.
-
----
-
-## 2026-06-08 RAG Evaluation Summary Endpoint Update
-
-Completed in this iteration:
-
-- Added Spring Boot `GET /api/rag/experiment-evaluations/summary?limit={n}`.
-- The endpoint returns recent evaluation count, average grounded/retrieval scores, best experiment, and recent evaluation rows with experiment/run context.
-- Frontend workbench store now loads the summary during hydrate and refreshes it after experiment evaluation.
-- Experiments dashboard now uses the backend summary when available, while retaining local/mock history fallback.
-- Full-chain smoke verifies the summary endpoint after Advanced RAG and Basic RAG evaluations of the same experiment.
-
-Validated so far:
-
-- `mvn test` passed with 15 tests.
-- `npm.cmd run typecheck` passed.
-- `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 115/115 smoke checks.
-
-Current remaining large project areas:
-
-- Add a dedicated comparison page if users need filtering, ranking, or charts beyond the compact experiments dashboard.
-
----
-
-## 2026-06-08 RAG Evaluator Answer Alignment And Comparison Page Update
-
-Completed in this iteration:
-
-- Improved the FastAPI deterministic RAG evaluator to factor in expected/generated answer alignment.
-- Added AI pytest coverage for matched versus mismatched answers with the same citation set.
-- Added Spring unit coverage for `expectedAnswer` forwarding to the evaluator request.
-- Added frontend route `/experiments/comparison` with summary metrics, strategy ranking, experiment ranking, and recent evaluation rows.
-- Kept browser traffic within the existing Spring Boot `/api/*` boundary.
-
-Validated:
-
-- `ai-service/.venv/bin/python.exe -m pytest tests -q` passed with 14 tests.
-- `mvn test` passed with 15 tests.
-- `npm.cmd run typecheck` passed.
-- `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 115/115 smoke checks.
-
----
-
-## 2026-06-08 GraphRAG Offline Evaluation Fixture Update
-
-Completed in this iteration:
-
-- Added AI pytest coverage comparing `advanced-rag` and `graph-rag` on graph relationship and graph expansion cases.
-- The offline fixture expects GraphRAG to win on recall@k, precision@k, MRR, and citation hit when relationship/traversal evidence is required.
-- Updated experiment and testing docs.
-
-Validated:
-
-- `ai-service/.venv/bin/python.exe -m pytest tests -q` passed with 15 tests.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 115/115 smoke checks.
-
----
-
-## 2026-06-08 Weak Point Progress Summary Update
-
-Completed in this iteration:
-
-- Added Spring Boot `GET /api/chat/{sessionId}/weak-points/summary`.
-- Added weak point progress aggregation for total, needs-review, mastered, hard, total review count, completion rate, and next suggested weak point.
-- Frontend chat displays the progress summary above weak point cards.
-- `smoke_test.py` verifies the summary before and after mastery assessment.
-
-Validated:
-
-- `mvn test` passed with 16 tests.
-- `npm.cmd run typecheck` passed.
-- `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 122/122 smoke checks.
-
----
-
-## 2026-06-08 Weak Point Practice Assessment Update
-
-Completed in this iteration:
-
-- Added deterministic practice-answer scoring for learning weak points in Spring Boot.
-- Practice turns with `userAnswer` now return assessment, updated weak point, refreshed summary, and the existing assistant turn.
-- Frontend weak point cards now support answer submission and display the latest assessment feedback.
-- Full-chain smoke now validates automatic mastery assessment through the practice endpoint.
-
-Validated:
-
-- `mvn test` passed with 18 tests after rerunning with elevated permissions for the local Maven repository.
-- `npm.cmd run typecheck` passed.
-- `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 126/126 smoke checks.
-
----
-
-## 2026-06-08 Structured RAG Evaluation UI Update
-
-Completed in this iteration:
-
-- Added an experiments-page control that loads a selected RAG run detail and derives a structured evaluation case from the top retrieval result.
-- The evaluate action now submits optional structured relevance fields when a case is selected, while preserving the simple expected-answer path.
-- Added a clear action so users can return to the simple evaluator flow.
-
-Validated:
-
-- `npm.cmd run typecheck` passed.
-- `npm.cmd run build` passed.
-- `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 123/123 smoke checks.
-
----
-
-## 2026-06-08 Structured RAG Evaluation Case Update
-
-Completed in this iteration:
-
-- Added optional structured evaluation case fields to experiment evaluation requests.
-- FastAPI RAG evaluation now uses recall@k, precision@k, MRR, and citation hit when relevant chunk/document ids are supplied.
-- Spring Boot forwards structured evaluation case data to FastAPI while keeping scoring out of Java.
-- Full-chain smoke now proves Advanced RAG evaluation uses structured retrieval metrics.
-
-Validated:
-
-- `.\.venv\bin\python.exe -m pytest tests/test_advanced_rag_strategy.py tests/test_strategy_comparison_evaluator.py -q` passed with 9 tests.
-- `mvn test` passed with 16 tests after rerunning with elevated permissions for the local Maven repository.
-- `npm.cmd run typecheck` passed.
-- `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 123/123 smoke checks.
-
----
-
-## 2026-06-08 RAG Evaluation Comparison Filters Update
-
-Completed in this iteration:
-
-- Added frontend-only strategy and experiment filters to `/experiments/comparison`.
-- Filtered rows now drive strategy ranking, experiment ranking, and recent evaluation details.
-- Added a clear empty state for filter combinations with no matching evaluations.
-
-Validated:
-
-- `npm.cmd run typecheck` passed.
-- `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 122/122 smoke checks.
-
----
-
-## 2026-06-08 Weak Point Practice Flow Update
-
-Completed in this iteration:
-
-- Added Spring Boot `POST /api/chat/{sessionId}/weak-points/{weakPointId}/practice-turn`.
-- Practice turns validate the selected weak point, build a controlled practice prompt, and reuse the existing assistant-turn path for Agent invocation, message persistence, review cards, and weak point refresh.
-- Frontend weak point cards now include a `Practice` action that starts a practice turn from the chat workbench.
-- Full-chain smoke verifies the persisted weak point to practice turn path.
-
-Validated so far:
-
-- `mvn test` passed with 13 tests.
-- `npm.cmd run typecheck` passed.
-- `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 99/99 smoke checks.
-
-Current remaining large project areas:
-
-- Add a frontend experiment evaluation action with a clear run picker.
-- Add richer RAG evaluation dashboards and historical evaluation comparisons.
-
----
-
-## 2026-06-08 GraphRAG Traversal Retrieval Update
-
-Completed in this iteration:
-
-- Extended AI repository `find_graph_facts()` results with one-hop graph relationships and expansion terms.
-- `graph-rag` now appends persisted graph expansion terms to the retrieval query.
-- GraphRAG trace and citation metadata now include `graph_expansion_terms` and `graph_traversal_relationships`.
-- Full-chain smoke now verifies traversal metadata from Spring Boot RAG run retrieval results.
-
-Validated so far:
-
-- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests.
-
-Current remaining large project areas:
-
-- Build learning and interview assistant product workflows.
-
----
-
-## 2026-06-08 Graph Facts Query UI Update
-
-Completed in this iteration:
-
-- Added Spring Boot graph fact read API: `GET /api/graph/facts?knowledgeBaseId={uuid}&entity={optional}`.
-- Added JPA mappings and repositories for `graph_entities` and `graph_relationships`.
-- Added a Vue workbench page at `/graph` for inspecting persisted GraphRAG entities and relationships.
-- Extended `smoke_test.py` with graph fact query assertions.
-- Updated `scripts/test-fullchain-local.ps1` so full-chain validation runs the AI service in database-backed mode and verifies persisted graph facts through Spring Boot.
-
-Validated:
-
-- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests from `ai-service/`.
-- `mvn test` passed with 7 tests.
-- `npm.cmd run typecheck` and `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 60/60 smoke checks.
-
-Current remaining large project areas:
-
-- Add dedicated graph traversal/retrieval over persisted graph facts.
-- Build learning and interview assistant product workflows.
-
----
-
-## 2026-06-08 Weak Point Review Schedule Update
-
-Completed in this iteration:
-
-- Added weak point schedule persistence fields: `practiceCount`, `lastPracticeScore`, and `nextReviewAt`.
-- Added `dueReviewCount` to weak point summaries.
-- Prioritized due weak points in the session weak point list.
-- Added a follow-up migration so historical mastered weak points are scheduled into the future instead of all becoming immediately due.
-- Scheduled next review dates from manual mastery updates and practice answer assessments.
-- Displayed due counts, practice counts, last scores, and next review dates in the chat workbench.
-- Extended full-chain smoke checks for the new weak point schedule fields and future `nextReviewAt` semantics.
-
-Validated:
-
-- `mvn test` passed with 18 tests.
-- `npm.cmd run typecheck` and `npm.cmd run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 142/142 smoke checks.
-
-Current remaining large project areas:
-
-- Continue Advanced RAG quality iteration with configurable hybrid fusion, context compression, and richer GraphRAG metrics.
-- Add learning workflow refinements such as due-only filters and review queue controls.
-
----
-
-## 2026-06-08 Weak Point Review Queue Controls Update
-
-Completed in this iteration:
-
-- Added chat workbench queue filters for all, due, needs-review, and mastered weak points.
-- Added a `Practice next due` action that starts practice through the existing Spring-backed store flow.
-- Added an empty state for filtered queues with no matching items.
-- Kept the change frontend-only; no Spring Boot or FastAPI contract changed.
-
-Validated:
-
-- `npm.cmd run typecheck` passed.
-
-Current remaining large project areas:
-
-- Continue Advanced RAG quality iteration with configurable hybrid fusion, context compression, and richer GraphRAG metrics.
-- Add more learning workflow ergonomics, such as persisted queue preferences or dedicated review sessions.
-
----
-
-## 2026-06-08 Parent-Child Real Parent Context Update
-
-Completed in this iteration:
-
-- Added optional `parent_chunk_id` to AI `ChunkRecord`.
-- AI repository save/read paths now preserve `parent_chunk_id` for PostgreSQL-backed chunks.
-- Parent-child hydration now prefers real parent + same-parent child context when available.
-- Neighbor-window fallback remains in place for existing flat SimpleChunker output.
-- Added AI regression tests that prove real parent-child context hydration and missing-parent fallback separately from the flat-chunk neighbor path.
-
-Validated:
-
-- `.\.venv\bin\python.exe -m pytest tests/test_advanced_rag_strategy.py tests/test_strategy_comparison_evaluator.py -q` passed with 11 tests.
-- `.\.venv\bin\python.exe -m pytest tests -q` passed with 18 tests.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 131/131 smoke checks.
-
-Current remaining large project areas:
-
-- Add a dedicated parent chunking strategy that emits parent chunks and child chunks during ingest.
-- Continue GraphRAG metric refinement and Advanced RAG evaluation depth.
-
----
-
-## 2026-06-08 Parent-Child Chunking Strategy Update
-
-Completed in this iteration:
-
-- Added an opt-in `ParentChildChunker` for AI ingest.
-- Ingest metadata `chunk_strategy=parent-child` now emits parent chunks and child chunks with `parent_chunk_id`.
-- Default ingest remains flat `SimpleChunker`.
-- Parent chunks are stored for context but excluded from retrieval, embeddings, and graph fact extraction.
-- Added AI tests for chunker output, ingest-time selection, default flat chunking, and query-level `parent_child_mode=parent-child` hydration.
-
-Validated:
-
-- `.\.venv\bin\python.exe -m pytest tests/test_parent_child_chunker.py tests/test_advanced_rag_strategy.py tests/test_strategy_comparison_evaluator.py -q` passed with 15 tests.
-- `.\.venv\bin\python.exe -m pytest tests -q` passed with 22 tests.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 142/142 smoke checks.
-
-Current remaining large project areas:
-
-- Continue GraphRAG metric refinement and Advanced RAG evaluation depth.
-- Add UI/API affordances for selecting parent-child chunking during document upload if product needs it.
-
----
-
-## 2026-06-08 Configurable Hybrid Retrieval Update
-
-Completed in this iteration:
-
-- Added request-level `retrieval_options` / `retrievalOptions` passthrough from frontend and Spring Boot to FastAPI.
-- Advanced RAG now records retrieval options in trace attributes when provided.
-- PostgreSQL hybrid retrieval now normalizes vector/keyword weights per request while preserving the 0.7/0.3 default.
-- Retrieval citation metadata now includes `vector_score`, `keyword_score`, `vector_weight`, and `keyword_weight`.
-- Full-chain smoke now verifies configured hybrid weights are persisted in retrieval metadata.
-
-Validated:
-
-- `.\.venv\bin\python.exe -m pytest tests -q` passed with 23 tests.
-- `mvn test -f backend-java/pom.xml` passed with 18 tests.
-- `npm.cmd --prefix frontend run typecheck` passed.
-- `npm.cmd --prefix frontend run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 143/143 smoke checks.
-
-Current remaining large project areas:
-
-- Add UI controls and experiment records for comparing hybrid weight presets.
-- Continue context compression and GraphRAG metric refinement.
-
----
-
-## 2026-06-08 Query-Aware Context Compression Update
-
-Completed in this iteration:
-
-- Added deterministic query-aware sentence packing to AI parent-child hydration.
-- Citation metadata now records `context_compression_mode`, original/compressed character counts, and compression ratio.
-- Advanced RAG `parent_child_context` trace payload now reports aggregate compression statistics.
-- Full-chain smoke now verifies parent-child RAG run metadata exposes the compression mode.
-
-Validated:
-
-- `.\.venv\bin\python.exe -m pytest tests/test_advanced_rag_strategy.py -q` passed with 9 tests.
-- `.\.venv\bin\python.exe -m pytest tests -q` passed with 24 tests.
-- `python -m py_compile smoke_test.py` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 144/144 smoke checks.
-
-Current remaining large project areas:
-
-- Add UI controls and experiment records for comparing hybrid weight presets.
-- Continue GraphRAG metric refinement and LLM-backed rewrite/extraction work.
-
----
-
-## 2026-06-08 GraphRAG Evaluation Metrics Update
-
-Completed in this iteration:
-
-- FastAPI RAG evaluator now derives GraphRAG metadata metrics from persisted citations.
-- Evaluator notes report entity coverage, relationship evidence hit, and expansion-term hit.
-- Retrieval score blends the existing retrieval score with GraphRAG metadata score when graph metadata is present.
-- Full-chain smoke now evaluates a persisted GraphRAG run and checks the GraphRAG metric note.
-
-Validated:
-
-- `.\.venv\bin\python.exe -m pytest tests/test_advanced_rag_strategy.py tests/test_strategy_comparison_evaluator.py -q` passed with 14 tests.
-- `.\.venv\bin\python.exe -m pytest tests -q` passed with 25 tests.
-- `mvn test -f backend-java/pom.xml` passed with 18 tests.
-- `npm.cmd --prefix frontend run typecheck` passed.
-- `npm.cmd --prefix frontend run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 146/146 smoke checks.
-
-Current remaining large project areas:
-
-- Add UI display for GraphRAG metric notes and strategy comparison details.
-- Continue LLM-backed rewrite/extraction work.
-
----
-
-## 2026-06-08 GraphRAG Metrics UI Update
-
-Completed in this iteration:
-
-- Added frontend parsing for GraphRAG evaluator notes.
-- Experiment history rows now show compact entity, relation, and expansion metrics when notes contain GraphRAG metric data.
-- The comparison page now includes a Graph metrics column and counts graph-metric evaluations in strategy rows.
-- Mock data includes a GraphRAG metric example for offline UI inspection.
-
-Validated:
-
-- `npm.cmd --prefix frontend run typecheck` passed.
-- `npm.cmd --prefix frontend run build` passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 146/146 smoke checks.
-
-Current remaining large project areas:
-
-- Continue LLM-backed rewrite/extraction work.
-- Add richer controls for hybrid retrieval presets and GraphRAG evaluation comparisons.
+- 扩展 LLM-backed 查询转换与图谱抽取。
+- 增加更多检索预设和前端可视化解释。
 
 ---
 
@@ -850,9 +134,26 @@ Current remaining large project areas:
 - 现有规则查询转换仍是默认路径。
 - LLM 输出无效或不符合预期时，会回退到规则转换器。
 - Advanced RAG trace 步骤会记录 provider 与 fallback 元数据。
-- 全链路 smoke 现在会在 stub LLM 回退场景下覆盖该可选路径。
+- 全链路 smoke 脚本 脚本会在 stub LLM 回退场景下覆盖该可选路径。
 
 当前剩余较大工作：
 
 - 增加基于 LLM 的 GraphRAG 抽取，并提供结构化回退。
 - 增加查询转换与混合检索预设的 UI 控件。
+
+---
+
+## 2026-06-08 RAG 检索选项 UI 更新
+
+本轮已完成：
+
+- 聊天页新增混合检索预设与 LLM 查询转换开关。
+- Pinia 状态层会把控件状态转换为 `retrievalOptions` 并随 assistant-turn 请求发送。
+- Spring Boot assistant-turn / Agent bridge 透传 `retrievalOptions` 到 FastAPI。
+- FastAPI Agent 工作流在 `retrieve_and_generate` 步骤暴露检索选项可观测字段。
+- smoke 脚本增加 assistant-turn 检索选项透传断言。
+
+当前剩余较大工作：
+
+- 增加基于 LLM 的 GraphRAG 抽取，并提供结构化回退。
+- 对历史页面中遗留的英文 UI 文案做一次独立中文化整理。

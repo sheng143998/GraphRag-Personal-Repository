@@ -1,21 +1,20 @@
-﻿# 2026-05-29 PUT /api/knowledge-bases/{id} 知识库更新 review 提示
+# 审查提示：知识 库 更新
 
-## 涉及文件
-- `backend-java/.../dto/knowledge/UpdateKnowledgeBaseRequest.java`（新增）— 全部字段可选
-- `backend-java/.../controller/KnowledgeBaseController.java` — 新增 `@PutMapping("/{id}")`
-- `backend-java/.../service/KnowledgeBaseService.java` — 新增 `update()`，仅更新非 null 字段
-- `frontend/src/api/knowledgeBases.ts` — 新增 `updateKnowledgeBase`
+请审查 `knowledge-base-update` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-## 变更要点
-1. 请求体所有字段可选，只更新传入的非 null 字段（部分更新语义）
-2. 支持更新 `status` 字段（如 ACTIVE → ARCHIVED）
-3. 404 返回 `ResourceNotFoundException`
-4. 响应包含最新的 `documentCount` 和 `chunkCount`
+## 重点关注
 
-## 验证结果
-- ✅ `mvn compile` 通过
-- ✅ `mvn test` 通过
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-## 重点 review
-- UpdateKnowledgeBaseRequest 使用 `@Size` 而非 `@NotBlank`，是否正确表达"可选但有长度限制"
-- `update()` 中 null 检查是否遗漏需要区分"不传"和"传空字符串"的场景
+## 建议验证命令
+
+- `git diff --check`
+
+## 审查结论记录
+
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

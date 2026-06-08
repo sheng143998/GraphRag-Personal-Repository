@@ -1,138 +1,25 @@
-# 2026-06-08 Advanced RAG Phase 4 验证记录与问题复盘
+﻿# 2026-06-08 Advanced RAG 第四阶段记录
 
-## 问题一：当前 shell Python 缺少 pytest / pydantic
+## 现象
 
-### 问题现象
+本记录用于复盘 `advanced-rag-phase4-notes` 相关验证或启动过程中出现的问题。历史记录中的命令、路径和错误关键字保留原样，便于再次检索。
 
-执行：
+## 观察
 
-```powershell
-pytest ai-service/tests -q
-```
+- Docker Desktop 未就绪时，Docker 相关命令可能无法启动 PostgreSQL / Redis。
+- 本地非 Docker 路径可使用已有 PostgreSQL 配置启动 Spring Boot 与 FastAPI。
+- 如果运行中的 jar 过旧，可能出现接口缺失、删除失败或 smoke 检查不一致。
+- AI 内存模式返回的 citation id 可能不在 Java 数据库中，Spring Boot 持久化检索结果时需要容错处理。
 
-失败：
+## 已采取处理
 
-```text
-pytest: 无法将 pytest 识别为 cmdlet
-```
+- 使用 stub provider 和内存 RAG 存储稳定 AI 测试。
+- 使用本地 PostgreSQL 凭据启动 Spring Boot，绕开 Docker daemon 不可用问题。
+- 重新构建后端 jar，确保路由和服务实现同步。
+- 对缺失本地 document/chunk 行的 citation 做安全关联，保留检索 metadata。
 
-继续执行：
+## 后续建议
 
-```powershell
-python -m pytest ai-service/tests -q
-```
-
-失败：
-
-```text
-No module named pytest
-```
-
-执行 Python import smoke：
-
-```powershell
-python -c "import sys; sys.path.insert(0, 'ai-service'); from app.services.rag_service import RagService"
-```
-
-失败：
-
-```text
-ModuleNotFoundError: No module named 'pydantic'
-```
-
-### 根因分析
-
-当前 shell 使用的 Python 环境没有安装 AI 服务运行依赖和测试依赖。`python -m compileall ai-service/app` 只能做语法编译，不会实际 import 外部依赖，因此可以通过；但 import smoke 和 pytest 需要 `pydantic`、`pytest` 等依赖。
-
-### 处理方式
-
-本轮记录为环境依赖缺失，未在项目中新增依赖或提交真实环境配置。已完成以下可执行验证：
-
-- `python -m compileall ai-service/app` 通过。
-- `mvn compile -q -f backend-java/pom.xml` 通过。
-- `npm run build` 通过。
-
-### 后续建议
-
-后续需要在 AI 服务虚拟环境或项目标准 Python 环境中安装依赖后再执行：
-
-```powershell
-python -m pytest ai-service/tests -q
-```
-
-如果项目后续固定使用 venv，应在 `ai-service/README.md` 中明确创建、激活和安装依赖命令。
-
-## 问题二：PowerShell 写 Java 文件时引入 UTF-8 BOM
-
-### 问题现象
-
-修改 `RagService.java` 后执行：
-
-```powershell
-mvn compile -q -f backend-java/pom.xml
-```
-
-失败，报错包含：
-
-```text
-非法字符: '\ufeff'
-```
-
-### 根因分析
-
-使用 PowerShell / .NET 写文件时默认 UTF-8 编码可能带 BOM，Java 编译器将文件开头 BOM 识别为非法字符。
-
-### 修复方案
-
-使用无 BOM UTF-8 重新写入文件：
-
-```powershell
-$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-[System.IO.File]::WriteAllText($path, $text, $utf8NoBom)
-```
-
-修复后 `mvn compile` 通过。
-
-### 后续避免方式
-
-后续修改 Java / Python / TypeScript 文件时，尽量使用专用 Edit/Write 工具；若必须用 PowerShell 写入文件，需要显式使用 `UTF8Encoding($false)`。
-## 2026-06-08 OpenAI-compatible adapter parser tests
-
-新增 `ai-service/tests/test_openai_compatible_adapters.py` 覆盖：
-
-- embedding 响应按 `index` 排序；
-- rerank `results` 响应按原始 document index 还原；
-- rerank `output.results` 形态兼容；
-- 直接 `scores` 列表不足时补 0。
-
-当前 shell 运行：
-
-```powershell
-python -m pytest ai-service/tests/test_openai_compatible_adapters.py -q
-```
-
-失败原因仍是本地 Python 环境缺少 `pytest`：
-
-```text
-No module named pytest
-```
-
-处理建议：进入 AI 服务依赖环境后重新运行该测试与全量 `ai-service/tests`。
-## 2026-06-08 全链路 HTTP smoke 阻塞
-
-尝试检查 Docker：
-
-```powershell
-docker --version
-if ($?) { docker compose ps }
-```
-
-结果：Docker CLI 存在，但 Docker Desktop daemon 未运行，无法连接 `dockerDesktopLinuxEngine`。因此当前环境暂不能启动 `docker-compose.yml` 中的 PostgreSQL / Redis，也不能完成 FastAPI + Spring Boot + 数据库的全链路 HTTP smoke。
-
-处理建议：启动 Docker Desktop 后执行：
-
-```powershell
-scripts/dev-start.ps1
-```
-
-再分别启动 AI 服务、Java 后端和前端进行 `/api/rag/query` 多策略验证。
+- 保留非 Docker 全链路脚本作为默认本地验证路径。
+- 增加 Java 集成测试覆盖知识库详情 / 更新 / 删除、文档删除和 RAG retrieval result 持久化。
+- 若 Maven 本地仓库 jar 被沙箱拒绝访问，使用非沙箱方式重跑后端测试。

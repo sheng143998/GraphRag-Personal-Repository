@@ -1,33 +1,29 @@
-# 2026-06-05 前端接口补齐计划
+# 2026-06-05 前端 API 补齐
 
-## 背景
+## 目标
 
-2026-06-04 完成 `docs/architecture/api-design.md` 接口设计文档后，Java 后端 Controller 与 FastAPI 路由均已实现文档中定义的所有端点，但前端侧存在明显缺口：缺少 API 模块函数、TypeScript 类型定义、页面 CRUD UI 和部分路由。
+本计划记录 `frontend-api-completion` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
 ## 范围
 
-以 `docs/architecture/api-design.md` 为契约，补齐前端以下层级：
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-- API 模块层：新增 feedback.ts + rag.ts，扩充 chat.ts / experiments.ts / knowledgeBases.ts
-- TypeScript 类型层：补齐缺失的 11 个类型，扩展 4 个现有类型
-- 客户端层：修复 client.ts 错误消息提取路径
-- Store 层：修复 hydrate 容错、新增 chat sessions / experiments / feedback 完整 actions
-- 页面层：ExperimentsPage CRUD UI、SettingsPage 可编辑、FeedbackPage 新建、ChatPage 会话管理
-- 路由与导航层：新增 /feedback 路由、WorkbenchLayout 导航入口
+## 实施要点
 
-## 输出
+- 根据 `frontend-api-completion` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
-- 前端 5 个 API 模块补齐（chat / experiments / knowledgeBases / feedback / rag）
-- 11 个新增 TypeScript 类型 + 4 个修复
-- 1 个 Store 重写 + 14 个新增 actions
-- 4 个页面新建/重写 + 1 个路由新增 + 1 个导航新增
-- `docs/reviews/2026-06-05-frontend-api-completion-review-prompt.md`
-- `docs/handoff/CURRENT_STATE.md` 更新
-- `PROJECT_CONTEXT.md` 更新
+## 验证方式
 
-## 非范围
+- `npm.cmd --prefix frontend run typecheck`
+- `npm.cmd --prefix frontend run build`
 
-- 不修改 Java 后端 Controller / Service / DTO
-- 不修改 FastAPI 路由 / Schema / Service
-- 不启动服务做 HTTP smoke
-- 不新增后端接口
+## 备注
+
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

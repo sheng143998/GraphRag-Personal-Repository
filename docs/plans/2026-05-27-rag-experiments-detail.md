@@ -1,41 +1,31 @@
-# 2026-05-27 RAG 实验详情接口
+# 2026-05-27 RAG 实验 详情
 
-## 背景
+## 目标
 
-当前已经完成 `GET /api/rag/experiments` 和 `POST /api/rag/experiments`。为了让前端后续能够进入某个实验详情页、查看实验配置和指标，需要补齐按 ID 查询实验记录的接口。
+本计划记录 `rag-experiments-detail` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## 当前目标
+## 范围
 
-本轮只完成一个接口：`GET /api/rag/experiments/{id}` 查询单个 RAG 实验详情。
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-## 涉及模块
+## 实施要点
 
-- Spring Boot 后端
-- RAG 实验 Service 与 Controller
-- 项目过程文档
-
-## 预计修改文件
-
-- `backend-java/src/main/java/com/example/agentknowledge/service/RagExperimentService.java`
-- `backend-java/src/main/java/com/example/agentknowledge/controller/RagController.java`
-- `backend-java/README.md`
-- `docs/reviews/2026-05-27-rag-experiments-detail-review-prompt.md`
-- `docs/testing/failures/2026-05-27-rag-experiments-detail-notes.md`
-- `docs/handoff/CURRENT_STATE.md`
-- `PROJECT_CONTEXT.md`
-
-## 非范围
-
-- 本轮不实现实验更新、删除或运行详情聚合。
-- 本轮不新增前端详情页。
-- 本轮不触发真实 RAG 评估任务。
+- 根据 `rag-experiments-detail` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
 ## 验证方式
 
-- 运行 Java 后端 `mvn test`。
-- 人工检查不存在记录时是否抛出统一 `ResourceNotFoundException`。
-- 人工检查响应 DTO 与列表和创建接口保持一致。
+- `.\.venv\bin\python.exe -m pytest tests -q`
+- `mvn.cmd test`
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
 
-## 当前风险
+## 备注
 
-- 本地 PostgreSQL 未启动时，只能做编译级验证，不能做真实 HTTP 查询 smoke。
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

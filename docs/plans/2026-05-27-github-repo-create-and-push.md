@@ -1,53 +1,28 @@
-# GitHub 仓库创建与远程推送计划
+﻿# 2026-05-27 GitHub 仓库创建与推送
 
-更新时间：2026-05-27
+## 目标
 
-## 当前目标
+本计划记录 `github-repo-create-and-push` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-在 GitHub 上创建当前项目的远程仓库，配置本地 Git `origin`，并将 `main` 分支推送到远程仓库。
+## 范围
 
-## 默认决策
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-- 仓库名默认使用当前目录名：`agent-vue-java-springboot-fastapi-ai`。
-- 仓库可见性默认使用私有仓库，避免误公开本地学习项目和阶段性代码。
-- 远程配置默认使用 GitHub CLI 返回的仓库地址，不手写伪造远程地址。
+## 实施要点
 
-## 涉及范围
-
-- GitHub CLI 登录态检查。
-- GitHub 仓库创建。
-- 本地 Git `origin` 配置。
-- `main` 分支推送。
-- `PROJECT_CONTEXT.md` 当前待办与阶段级变更摘要。
-- `docs/handoff/CURRENT_STATE.md` 最新交接状态。
-
-## 预计修改文件
-
-- `PROJECT_CONTEXT.md`
-- `docs/plans/2026-05-27-github-repo-create-and-push.md`
-- `docs/reviews/2026-05-27-github-repo-create-and-push-review-prompt.md`
-- `docs/testing/failures/2026-05-27-github-repo-create-and-push-notes.md`
-- `docs/handoff/CURRENT_STATE.md`
-
-## 执行步骤
-
-1. 检查本机是否安装 GitHub CLI。
-2. 检查 GitHub CLI 是否已登录。
-3. 确认本地 Git 工作区干净、当前分支为 `main`。
-4. 创建 GitHub 私有仓库并配置 `origin`。
-5. 推送 `main` 分支并设置 upstream。
-6. 验证远程地址、远程分支和本地状态。
+- 根据 `github-repo-create-and-push` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
 ## 验证方式
 
-- 查看 GitHub CLI 登录态。
-- 查看 `git remote -v`。
-- 查看 `git status --short`。
-- 查看 `git branch -vv`。
-- 查看 `git ls-remote --heads origin main`。
+- `git diff --check`
 
-## 当前风险
+## 备注
 
-- 当前环境网络受限，GitHub 创建仓库或推送可能失败。
-- 如果本机 GitHub CLI 未登录，需要用户完成授权。
-- 如果 GitHub 上已存在同名仓库，需要改用已有仓库或选择新仓库名。
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

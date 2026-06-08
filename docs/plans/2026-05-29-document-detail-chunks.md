@@ -1,61 +1,28 @@
-# 2026-05-29 文档详情与 Chunk 摘要接口
+﻿# 2026-05-29 文档详情与 chunk 摘要
 
-## 背景
+## 目标
 
-上一轮已增强 `GET /api/documents`，列表能看到文档状态、解析器和 chunk 数量。当前 `GET /api/documents/{id}` 仍只返回文档基础字段，无法查看入库后的 chunk 摘要，不利于 review 文档解析、切分和 embedding 入库结果。
+本计划记录 `document-detail-chunks` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## 当前目标
+## 范围
 
-本轮只完成一个接口：`GET /api/documents/{id}` 文档详情增强。
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-状态：已完成，等待用户 review。
+## 实施要点
 
-## 接口边界
-
-- Spring Boot 对外接口仍为 `GET /api/documents/{id}`。
-- 返回文档基础信息、知识库名称、chunk 数量和按 `chunkIndex` 排序的 chunk 摘要列表。
-- chunk 摘要包含 chunk ID、标题、序号、内容预览、切分策略、页码、sheet 名称、行范围和 metadata。
-
-## 涉及模块
-
-- Spring Boot 文档 Service / Repository / DTO
-- 前端类型定义，为后续详情页预留结构
-- 项目过程文档
-
-## 预计修改文件
-
-- `backend-java/src/main/java/com/example/agentknowledge/repository/DocumentChunkRepository.java`
-- `backend-java/src/main/java/com/example/agentknowledge/service/DocumentService.java`
-- `backend-java/src/main/java/com/example/agentknowledge/dto/document/DocumentResponse.java`
-- `backend-java/src/main/java/com/example/agentknowledge/dto/document/DocumentChunkResponse.java`
-- `frontend/src/types/index.ts`
-- `backend-java/README.md`
-- `docs/reviews/2026-05-29-document-detail-chunks-review-prompt.md`
-- `docs/testing/failures/2026-05-29-document-detail-chunks-notes.md`
-- `docs/handoff/CURRENT_STATE.md`
-- `PROJECT_CONTEXT.md`
-
-## 非范围
-
-- 不实现前端详情页面。
-- 不返回完整 embedding 向量。
-- 不新增 chunk 删除、重切分、重试或编辑接口。
-- 不改变数据库结构。
+- 根据 `document-detail-chunks` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
 ## 验证方式
 
-- 运行 Java 后端构建，确认 DTO、Repository 和 Service 映射可编译。
-- 运行前端构建，确认类型定义未破坏现有页面。
-- 运行 AI 服务语法验证，确认 Python 侧未受影响。
+- `git diff --check`
 
-## 实际验证结果
+## 备注
 
-- Java 后端：`mvn.cmd test` 通过，结果为 `BUILD SUCCESS`。
-- 前端：`npm.cmd run build` 通过，类型检查和生产构建成功。
-- AI 服务：`python -m compileall app tests` 通过。
-- HTTP smoke：本轮未启动 PostgreSQL、Spring Boot 和 FastAPI，未执行真实 HTTP smoke。
-
-## 当前风险
-
-- 当前详情接口直接返回 chunk 内容预览，后续如内容较长或数量较多，需要增加分页或限制。
-- metadata 仍以 JSON 字符串形式透出，后续可再统一成结构化对象。
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

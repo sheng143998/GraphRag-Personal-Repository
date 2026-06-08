@@ -1,16 +1,23 @@
-# RAG Experiment Evaluation Review Prompt
+# 审查提示：RAG 实验 评估
 
-Date: 2026-06-08
+请审查 `rag-experiment-evaluation` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-Please review the Spring Boot RAG experiment evaluation loop with these priorities:
+## 重点关注
 
-1. API contract: `POST /api/rag/experiments/{id}/evaluate` should accept a persisted `runId` and optional `expectedAnswer`, then return the updated experiment plus grounded/retrieval scores and notes.
-2. Architecture boundary: Spring Boot should not implement evaluator scoring logic; it should only gather persisted run evidence and call FastAPI `/ai/rag/evaluate`.
-3. Persistence behavior: evaluator `grounded_score` is stored as `precisionScore`, evaluator `retrieval_score` as `recallScore`, status is set to `COMPLETED`, and notes append the evaluated run id.
-4. Trace and request mapping: Java DTO JSON field names must match FastAPI snake_case schema fields.
-5. Regression coverage: `RagExperimentServiceTest` should verify request construction and score persistence; `smoke_test.py` should verify the full Advanced RAG run -> evaluation path.
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-Validated commands:
+## 建议验证命令
 
-- `mvn test` in `backend-java`: 12 tests passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`: 94/94 smoke checks passed.
+- `.\.venv\bin\python.exe -m pytest tests -q`
+- `mvn.cmd test`
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
+
+## 审查结论记录
+
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

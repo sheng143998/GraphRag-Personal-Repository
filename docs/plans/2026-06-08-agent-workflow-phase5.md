@@ -1,29 +1,28 @@
-# Phase 5 Agent Workflow
+﻿# 2026-06-08 Agent 工作流第五阶段
 
-Date: 2026-06-08
+## 目标
 
-## Scope
+本计划记录 `agent-workflow-phase5` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-- Build the first verifiable Agent orchestration loop without Docker.
-- Keep AI orchestration inside `ai-service/`.
-- Keep Spring Boot responsible for API bridging only.
-- Do not start GraphRAG in this batch.
+## 范围
 
-## Completed
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-- Added a node-style study agent workflow in `ai-service/app/agents/workflow.py`.
-- The workflow executes `classify_question -> select_rag_strategy -> retrieve_and_generate -> cite_sources -> generate_follow_up_questions`.
-- The workflow auto-routes implementation, troubleshooting, and interview questions to `advanced-rag` unless an explicit non-basic strategy is provided.
-- `/ai/agent/invoke` now returns `question_type`, `selected_strategy_name`, `workflow_steps`, and `follow_up_questions` while preserving `output`, `citations`, and `trace`.
-- Added Spring Boot `/api/agent/invoke` bridge to FastAPI `/ai/agent/invoke`.
-- Added full-chain smoke coverage for Spring Boot -> FastAPI Agent invocation.
+## 实施要点
 
-## Verification
+- 根据 `agent-workflow-phase5` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
-- `ai-service/.venv/bin/python.exe -m pytest`: 12 passed.
-- `mvn test`: 6 passed.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`: 47/47 smoke checks passed.
+## 验证方式
 
-## Notes
+- `.\.venv\bin\python.exe -m pytest tests -q`
 
-- This batch intentionally implements a local node-style workflow instead of adding a new `langgraph` dependency. The node boundaries mirror the planned LangGraph graph, so a later dependency-backed graph can replace the runner without changing the public API.
+## 备注
+
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

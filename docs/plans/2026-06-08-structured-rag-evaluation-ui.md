@@ -1,19 +1,33 @@
-# Structured RAG Evaluation UI Plan
+# 2026-06-08 结构化 RAG 评估 UI
 
-## Goal
+## 目标
 
-Expose the structured RAG evaluation case flow from the experiments page so users can evaluate a persisted run with retrieval relevance data without hand-copying chunk ids.
+本计划记录 `structured-rag-evaluation-ui` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## Scope
+## 范围
 
-- Keep browser calls under Spring Boot `/api/*`.
-- Load the selected RAG run detail through the existing Spring run-detail endpoint.
-- Build a structured evaluation case from the top retrieval result.
-- Submit the structured case through the existing experiment evaluation API.
-- Keep the existing simple expected-answer evaluation path available.
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-## Validation
+## 实施要点
 
-- `npm.cmd run typecheck`
-- `npm.cmd run build`
+- 根据 `structured-rag-evaluation-ui` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
+
+## 验证方式
+
+- `.\.venv\bin\python.exe -m pytest tests -q`
+- `mvn.cmd test`
+- `npm.cmd --prefix frontend run typecheck`
+- `npm.cmd --prefix frontend run build`
+- `python -m py_compile smoke_test.py`
 - `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
+
+## 备注
+
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

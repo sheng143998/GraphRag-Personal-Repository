@@ -1,46 +1,20 @@
-# 2026-05-29 文档详情与 Chunk 摘要接口 review 提示
+# 审查提示：文档 详情 chunk
 
-## 本次 review 目标
+请审查 `document-detail-chunks` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-请 review `GET /api/documents/{id}` 是否能用于检查文档入库结果，尤其是 chunk 顺序、内容预览、解析 metadata 和文档基础状态是否清晰。
+## 重点关注
 
-## 本次接口范围
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-- `GET /api/documents/{id}`
-  - 入口：`backend-java/src/main/java/com/example/agentknowledge/controller/DocumentController.java`
-  - 作用：返回单篇文档详情和 chunk 摘要列表。
+## 建议验证命令
 
-## 重点 review 顺序
+- `git diff --check`
 
-1. DTO 结构
-   - `backend-java/src/main/java/com/example/agentknowledge/dto/document/DocumentResponse.java`
-   - `backend-java/src/main/java/com/example/agentknowledge/dto/document/DocumentChunkResponse.java`
-   - 检查列表接口和详情接口复用响应结构是否清楚，chunk 字段是否足够 review 入库结果。
+## 审查结论记录
 
-2. Service 与 Repository
-   - `backend-java/src/main/java/com/example/agentknowledge/service/DocumentService.java`
-   - `backend-java/src/main/java/com/example/agentknowledge/repository/DocumentChunkRepository.java`
-   - 检查详情接口是否按 `chunkIndex` 排序、404 行为是否保持不变、chunk 内容是否只返回预览。
-
-3. 前端类型预留
-   - `frontend/src/types/index.ts`
-   - 检查类型定义是否能支撑后续文档详情页。
-
-## 当前占位实现
-
-- 暂不实现前端详情页。
-- 暂不分页返回 chunk。
-- 暂不返回 embedding 向量。
-
-## 已执行验证结果
-
-- Java 构建：`mvn.cmd test` 通过，结果为 `BUILD SUCCESS`。编译结束阶段仍出现历史 Maven 本地 jar 访问拒绝日志，但未阻塞构建。
-- 前端构建：`npm.cmd run build` 通过，类型检查和生产构建成功。
-- AI 服务语法验证：`python -m compileall app tests` 通过。
-- HTTP smoke：未执行，本轮没有启动 PostgreSQL、Spring Boot 和 FastAPI。
-
-## Review 时特别注意
-
-- 列表接口不应返回完整 chunks，避免文档页变重。
-- 详情接口不应泄漏 embedding 向量。
-- chunk 顺序必须稳定，方便人工 review 切分结果。
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

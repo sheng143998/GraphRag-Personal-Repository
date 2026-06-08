@@ -1,33 +1,23 @@
-# 2026-06-08 Advanced RAG Evaluation
+# 2026-06-08 Advanced RAG 评估
 
-## Scope
+## 评估范围
 
-This evaluation used deterministic offline fixtures first, then a real backend-to-AI HTTP smoke path with FastAPI running in stub/in-memory mode and Spring Boot using the local PostgreSQL credentials from `.env`.
+本实验记录 `advanced-rag-evaluation` 相关的 RAG / Advanced RAG / GraphRAG 评估思路。实验目标是用固定问题、固定引用或离线样例观察检索质量、引用命中和回答 grounded 程度。
 
-## Coverage
+## 覆盖内容
 
-- Query rewrite expands RAG-related terms into retrieval-oriented variants.
-- Multi-query expansion creates distinct original, rewritten, technical, and implementation-focused query variants.
-- Metadata filters restrict retrieval to the requested topic.
-- Parent-child mode hydrates neighbor chunk context.
-- Rerank scores are attached and used for final ordering.
-- Trace steps expose `query_rewrite`, `multi_query_expand`, `fusion`, `parent_child_context`, and `rerank`.
-- Heuristic evaluation returns grounded and retrieval scores when citations are present.
-- HTTP smoke through `/api/rag/query` accepts `strategyName=advanced-rag`, stores a completed run, and preserves the rewritten query.
+- 对比 `basic-rag`、`advanced-rag` 或 `graph-rag` 在固定样例上的表现。
+- 关注 recall@k、precision@k、MRR、citation hit、grounded score 与 retrieval score。
+- 离线样例不依赖真实 LLM、embedding、reranker 或数据库。
+- HTTP smoke 样例通过 Spring Boot `/api/*` 进入系统，不从浏览器直接调用 FastAPI。
 
-## Result
+## 结果记录
 
-- AI service pytest: 7 passed.
-- Advanced RAG focused tests: 2 passed.
-- Heuristic RAG evaluation test: passed.
-- Advanced RAG HTTP smoke: completed with one citation and a populated rewritten query.
+- 评估结果用于指导后续检索策略、query rewrite、multi-query、rerank、Parent-Child 和 GraphRAG 优化。
+- 若结果不稳定，应优先固定评估集、引用 id 和期望引用 chunk，再扩大样例数量。
 
-## Optimization Applied
+## 后续优化
 
-- Replaced corrupted multilingual synonym strings with stable ASCII query rewrite terms.
-- Kept the rule-based rewrite simple and deterministic so it can run in offline CI and local smoke without model access.
-- Preserved model-backed extension points through the existing embedding, rerank, and generator adapters.
-
-## Remaining Evaluation Gap
-
-The next evaluation should compare basic-rag and advanced-rag over a fixed question set with expected citations and score deltas.
+- 增加基础 RAG 与 Advanced RAG 在同一问题集上的对比。
+- 增加 GraphRAG 关系证据、扩展词命中和实体覆盖相关样例。
+- 将评估输出沉淀到 `docs/experiments/eval-questions.md` 或后端实验历史表。

@@ -1,40 +1,28 @@
-# 2026-05-27 PROJECT_CONTEXT 变更记录精简
+# 2026-05-27 项目 上下文 变更日志 压缩
 
-## 背景
+## 目标
 
-当前 `PROJECT_CONTEXT.md` 的 2026-05-27 变更记录已经包含大量接口级流水账。用户决定采用“方案 1 + 方案 5”：`PROJECT_CONTEXT.md` 只保留阶段级摘要和文档索引，接口细节继续放在 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 和 `docs/handoff/`。
+本计划记录 `project-context-changelog-compaction` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## 当前目标
+## 范围
 
-- 压缩 `PROJECT_CONTEXT.md` 的 2026-05-27 变更记录。
-- 保留关键阶段成果、当前待办和文档索引。
-- 明确后续维护规则：接口级细节不再写入 `PROJECT_CONTEXT.md`。
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-## 涉及模块
+## 实施要点
 
-- 项目总上下文文档
-- 交接文档
-- review 与过程记录
-
-## 预计修改文件
-
-- `PROJECT_CONTEXT.md`
-- `docs/reviews/2026-05-27-project-context-changelog-compaction-review-prompt.md`
-- `docs/testing/failures/2026-05-27-project-context-changelog-compaction-notes.md`
-- `docs/handoff/CURRENT_STATE.md`
-
-## 非范围
-
-- 不删除已有 plans/reviews/failures 细节文档。
-- 不改变代码。
-- 不改变接口行为。
+- 根据 `project-context-changelog-compaction` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
 ## 验证方式
 
-- 人工检查 2026-05-27 变更记录不再逐接口展开。
-- 确认仍可通过文档索引找到接口级计划、review 和失败复盘。
-- 确认当前待办和 API 规划不丢失。
+- `git diff --check`
 
-## 当前风险
+## 备注
 
-- 过度压缩可能让后续 Agent 找不到细节，因此需要保留索引入口。
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

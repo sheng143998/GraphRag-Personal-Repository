@@ -1,23 +1,29 @@
-﻿# 2026-05-29 全链路 HTTP Smoke 验证
+﻿# 2026-05-29 完整 HTTP smoke 验证
 
-## 背景
-完成知识库 CRUD + 文档删除后，启动三端服务做全链路 HTTP smoke。
+## 目标
 
-## 已验证接口
-| # | 接口 | 结果 |
-|---|---|---|
-| 1 | `POST /api/knowledge-bases` | ✅ 200 |
-| 2 | `GET /api/knowledge-bases/{id}` | ✅ 200, docs=0 |
-| 3 | `PUT /api/knowledge-bases/{id}` | ✅ 200, name updated |
-| 4 | `POST /api/documents/upload` | ✅ 200, status=INDEXED, chunks=1 |
-| 5 | `GET /api/documents/{id}` | ✅ 200, chunkCount=1, chunks=[1] |
-| 6 | `GET /api/documents?knowledgeBaseId=` | ✅ 200, count=1 |
-| 7 | KB detail (stats) | ✅ docs=1, chunks=1 |
-| 8 | `DELETE /api/documents/{id}` | ✅ 200 → 404 |
-| 9 | `DELETE /api/knowledge-bases/{id}` | ✅ 200 → 404 |
+本计划记录 `full-http-smoke` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## 修复的问题
-- AI 服务端口：8001 → 8000
-- documentType 枚举大小写：自动 `.toLowerCase()`
-- DB 凭据注入：batch 脚本传 `DB_USERNAME`/`DB_PASSWORD`
-- chunks=[] bug：AI 服务 `config.py` 从 `DB_URL` 构造连接
+## 范围
+
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
+
+## 实施要点
+
+- 根据 `full-http-smoke` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
+
+## 验证方式
+
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
+
+## 备注
+
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

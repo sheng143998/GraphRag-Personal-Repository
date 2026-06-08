@@ -1,29 +1,31 @@
-# Local Full-Chain RAG Validation
+﻿# 2026-06-08 本地全链路 RAG 验证
 
-Date: 2026-06-08
+## 目标
 
-## Scope
+本计划记录 `local-fullchain-rag-validation` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-- Keep Docker out of this iteration.
-- Validate the completed AI, backend, frontend, and full-chain paths with local services.
-- Focus Advanced RAG on strategy comparison, HTTP trace persistence, citations, and run detail retrieval.
-- Preserve architecture boundaries: Vue calls Spring Boot only; Spring Boot bridges business APIs to FastAPI; FastAPI owns RAG logic.
+## 范围
 
-## Automation
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-- `scripts/test-fullchain-local.ps1` starts FastAPI in stub/in-memory mode on `127.0.0.1:8001`, starts Spring Boot on `127.0.0.1:8080`, waits for health checks, runs `smoke_test.py`, and stops services it started.
-- `smoke_test.py` reads `SMOKE_BASE_URL`, `SMOKE_AI_BASE_URL`, and `SMOKE_TIMEOUT`, so the same smoke suite can target local scripts or already-running services.
+## 实施要点
 
-## Verification Targets
+- 根据 `local-fullchain-rag-validation` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
-- AI: `ai-service/.venv/bin/python.exe -m pytest`
-- Backend: `mvn test`
-- Frontend: `npm.cmd run typecheck` and `npm.cmd run build`
-- Full-chain: `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1 -SkipBuild`
+## 验证方式
 
-## Current Result
+- `.\.venv\bin\python.exe -m pytest tests -q`
+- `mvn.cmd test`
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
 
-- AI pytest passed with the offline strategy comparison evaluator included.
-- Backend Maven tests passed with async ingest and RAG bridge coverage.
-- Frontend typecheck and production build passed.
-- Local full-chain smoke passed with 42/42 checks, including Advanced RAG query, citations, run detail, and rewritten query persistence.
+## 备注
+
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

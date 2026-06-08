@@ -1,23 +1,28 @@
-# 2026-05-31 Word (.docx) 解析器 — python-docx 接入 AI 服务
+﻿# 2026-05-31 基于 python-docx 的 `.docx` 解析器
 
-## 背景
-AI 服务 `DocxParser` 原为 stub（继承 `PlainTextParser`，仅 `strip()`）。需接入 python-docx 实现真正的 Word 文档文本提取。
+## 目标
 
-## 实现方案
-1. MSYS2 pacman 安装 `mingw-w64-x86_64-python-docx`（含预编译 lxml）
-2. venv 通过 `.pth` 文件引用系统 site-packages
-3. `DocumentPayload` 新增 `content_base64: str | None` 字段
-4. `DocxParser` 重写 — 继承 `BaseParser`，base64 解码后用 python-docx 提取段落和表格文本
-5. `InlineContentLoader` 支持 base64 解码
-6. `pyproject.toml` 添加 `python-docx>=1.1.0,<2.0.0` 依赖声明
+本计划记录 `docx-parser-python-docx` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## 涉及文件
+## 范围
 
-- `ai-service/app/schemas/ingest.py` — DocumentPayload 新增 content_base64
-- `ai-service/app/rag/parsers/base.py` — DocxParser 重写为 v2
-- `ai-service/app/rag/loaders/base.py` — InlineContentLoader 支持 base64
-- `ai-service/pyproject.toml` — 依赖声明
-- `ai-service/.venv/lib/python3.12/site-packages/system-packages.pth` — 系统包引用
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
+
+## 实施要点
+
+- 根据 `docx-parser-python-docx` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
 ## 验证方式
-- Python compileall 全量通过
+
+- `git diff --check`
+
+## 备注
+
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

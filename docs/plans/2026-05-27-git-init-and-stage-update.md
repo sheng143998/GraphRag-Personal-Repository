@@ -1,44 +1,28 @@
-# Git 初始化与项目阶段更新计划
+﻿# 2026-05-27 Git 初始化与阶段暂存更新
 
-更新时间：2026-05-27
+## 目标
 
-## 当前目标
+本计划记录 `git-init-and-stage-update` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-完成项目根目录 Git 初始化，使当前代码能够形成本地首个提交，并同步更新 `PROJECT_CONTEXT.md` 中的项目阶段状态。
+## 范围
 
-## 涉及范围
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-- 根目录 Git 仓库初始化。
-- `.gitignore` 规则验证，重点确认本地 `.env` 不会被提交。
-- `PROJECT_CONTEXT.md` 项目状态、阶段目标状态、当前待办与阶段级变更摘要。
-- `docs/handoff/CURRENT_STATE.md` 最新交接状态。
+## 实施要点
 
-## 预计修改文件
-
-- `PROJECT_CONTEXT.md`
-- `docs/plans/2026-05-27-git-init-and-stage-update.md`
-- `docs/reviews/2026-05-27-git-init-and-stage-update-review-prompt.md`
-- `docs/testing/failures/2026-05-27-git-init-and-stage-update-notes.md`
-- `docs/handoff/CURRENT_STATE.md`
-
-## 执行步骤
-
-1. 确认当前目录不是 Git 仓库。
-2. 确认 `.gitignore` 已忽略 `.env`、构建产物、依赖目录和本地缓存。
-3. 更新项目阶段状态，反映当前真实进度。
-4. 执行 Git 初始化并设置主分支为 `main`。
-5. 暂存当前可提交文件并创建本地首个提交。
-6. 验证 `.env` 被忽略、本地提交存在、远程地址状态明确。
+- 根据 `git-init-and-stage-update` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
 ## 验证方式
 
-- 使用 Git 状态检查确认仓库已初始化。
-- 使用 Git 忽略规则检查确认 `.env` 不会进入提交。
-- 查看最近一次提交确认本地首个提交已生成。
-- 查看远程配置确认是否已有 `origin`。
+- `git diff --check`
 
-## 当前风险
+## 备注
 
-- 远程仓库 URL 尚未提供，因此只能完成本地初始化和本地提交，不能真实推送到远程。
-- 根目录存在 `Docker Desktop Installer.exe.part` 这类本地下载残留文件，初始化前需要确认它是否被提交；如不适合入库，应通过 `.gitignore` 排除。
-- `.env` 已包含用户本地数据库配置，必须确保不会被提交或打印真实内容。
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

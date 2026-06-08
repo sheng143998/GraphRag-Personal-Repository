@@ -1,43 +1,24 @@
-# Weak Point Review Schedule Review Prompt
+﻿# 审查提示：薄弱 点 复习 日程
 
-Date: 2026-06-08
+请审查 `weak-point-review-schedule` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-Review the weak point review schedule change for correctness and project-boundary compliance.
+## 重点关注
 
-## Files
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-- `backend-java/src/main/resources/db/migration/V202606081700__add_weak_point_review_schedule.sql`
-- `backend-java/src/main/java/com/example/agentknowledge/domain/LearningWeakPoint.java`
-- `backend-java/src/main/java/com/example/agentknowledge/dto/chat/LearningWeakPointResponse.java`
-- `backend-java/src/main/java/com/example/agentknowledge/dto/chat/LearningWeakPointSummaryResponse.java`
-- `backend-java/src/main/java/com/example/agentknowledge/repository/LearningWeakPointRepository.java`
-- `backend-java/src/main/java/com/example/agentknowledge/service/LearningWeakPointService.java`
-- `backend-java/src/test/java/com/example/agentknowledge/service/LearningWeakPointServiceTest.java`
-- `backend-java/src/test/java/com/example/agentknowledge/service/WeakPointPracticeServiceTest.java`
-- `backend-java/src/test/java/com/example/agentknowledge/service/AssistantTurnServiceTest.java`
-- `frontend/src/types/index.ts`
-- `frontend/src/pages/chat/ChatPage.vue`
-- `smoke_test.py`
+## 建议验证命令
 
-## Questions
+- `mvn.cmd test`
+- `npm.cmd --prefix frontend run typecheck`
+- `npm.cmd --prefix frontend run build`
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
 
-- Does the Flyway migration safely add nullable schedule fields for existing weak points?
-- Does manual mastery assessment schedule mastered items into the future and needs-review items as due now?
-- Does practice answer assessment update score, practice count, and next review time consistently?
-- Does repository prioritization keep weak points with lower mastery and due review status at the top?
-- Does migration backfill keep historical `MASTERED` weak points from becoming immediately due?
-- Does the frontend display schedule metadata without bypassing Spring Boot APIs?
-- Do backend unit tests and full-chain smoke cover the new response fields?
+## 审查结论记录
 
-## Validation Snapshot
-
-- `mvn test`: passed with 18 tests.
-- `npm.cmd run typecheck`: passed.
-- `npm.cmd run build`: passed.
-- Full-chain local smoke: passed with 131/131 checks.
-
-Reviewer follow-up hardening:
-
-- Due status now sorts before difficulty inside the same mastery bucket.
-- A follow-up migration backfills historical mastered weak point review times.
-- Smoke validation now checks practice `nextReviewAt` parses as a future timestamp.
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

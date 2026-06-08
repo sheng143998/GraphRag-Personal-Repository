@@ -1,33 +1,20 @@
-# GitHub 仓库创建与远程推送 Review 提示
+﻿# 审查提示：GitHub 仓库 创建 与 推送
 
-更新时间：2026-05-27
+请审查 `github-repo-create-and-push` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-## 本轮目标
+## 重点关注
 
-创建 GitHub 私有仓库，配置本地 `origin`，并将当前 `main` 分支推送到远程。
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
 
-## 重点 Review 顺序
+## 建议验证命令
 
-1. GitHub 仓库
-   - 仓库名是否符合预期。
-   - 仓库可见性是否为私有。
-   - 远程 `main` 分支是否存在。
+- `git diff --check`
 
-2. 本地 Git 配置
-   - `origin` 是否指向正确 GitHub 仓库。
-   - `main` 是否已设置 upstream。
-   - 工作区是否干净。
+## 审查结论记录
 
-3. 隐私与忽略规则
-   - `.env` 是否仍未被提交。
-   - `.git-store/` 与 `.git-blocked-by-sandbox/` 是否未进入提交。
-   - 本地依赖缓存和构建产物是否未进入远程仓库。
-
-4. 项目文档
-   - `PROJECT_CONTEXT.md` 是否将“配置远程 Git 仓库并推送 `main` 分支”标记为真实状态。
-   - `docs/handoff/CURRENT_STATE.md` 是否记录远程地址和验证结果。
-
-## 当前占位或待补
-
-- 如果 GitHub CLI 未登录，需要用户完成授权后继续。
-- 如果网络被当前环境拦截，需要用户在本机终端执行我给出的命令，或在 GitHub 网页上先创建空仓库。
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

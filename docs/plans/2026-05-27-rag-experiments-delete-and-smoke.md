@@ -1,48 +1,31 @@
-# 2026-05-27 RAG 实验删除接口与 HTTP smoke
+﻿# 2026-05-27 RAG 实验删除与 smoke 验证
 
-## 背景
+## 目标
 
-当前 RAG 实验接口已经支持列表、创建、详情和更新。用户明确要求继续完成 `DELETE /api/rag/experiments/{id}`，并启动数据库与后端做真实 HTTP smoke，把已完成的实验接口链路跑通。
+本计划记录 `rag-experiments-delete-and-smoke` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## 当前目标
+## 范围
 
-本轮完成一个接口和一次联调验证：
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-- `DELETE /api/rag/experiments/{id}` 删除 RAG 实验记录。
-- 通过 PostgreSQL + Spring Boot HTTP smoke 验证实验接口链路。
+## 实施要点
 
-## 涉及模块
-
-- Spring Boot 后端
-- PostgreSQL / Flyway 迁移验证
-- RAG 实验 Controller、Service
-- 项目过程文档
-
-## 预计修改文件
-
-- `backend-java/src/main/java/com/example/agentknowledge/service/RagExperimentService.java`
-- `backend-java/src/main/java/com/example/agentknowledge/controller/RagController.java`
-- `backend-java/README.md`
-- `docs/reviews/2026-05-27-rag-experiments-delete-and-smoke-review-prompt.md`
-- `docs/testing/failures/2026-05-27-rag-experiments-delete-and-smoke-notes.md`
-- `docs/handoff/CURRENT_STATE.md`
-- `PROJECT_CONTEXT.md`
-
-## 非范围
-
-- 本轮不做前端页面联调。
-- 本轮不做 RAG 自动评估任务。
-- 本轮不删除数据库卷或重置本地数据。
+- 根据 `rag-experiments-delete-and-smoke` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
 ## 验证方式
 
-- 运行 Java 后端 `mvn test`。
-- 启动 PostgreSQL。
-- 启动 Spring Boot 后端。
-- 通过 HTTP 调用：健康检查、实验列表、创建、详情、更新、删除、删除后再次详情查询 404。
+- `.\.venv\bin\python.exe -m pytest tests -q`
+- `mvn.cmd test`
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
 
-## 当前风险
+## 备注
 
-- Docker Desktop 可能未启动，导致 PostgreSQL 无法启动。
-- 8080 端口可能被占用，需要记录原因并避免误杀不属于本项目的进程。
-- 当前本地 Maven jar 访问拒绝提示已多次出现，但此前不阻塞构建。
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

@@ -1,9 +1,23 @@
-# Review Prompt: Structured RAG Evaluation Case
+# 审查提示：结构化 RAG 评估 用例
 
-Review the structured RAG evaluation case change for these concerns:
+请审查 `structured-rag-evaluation-case` 相关改动，重点确认实现是否符合项目架构边界、数据流和验证要求。
 
-- Existing experiment evaluation calls with only `runId` and `expectedAnswer` remain backward compatible.
-- Spring Boot forwards structured relevance ids only through the AI service gateway and does not implement RAG scoring logic.
-- FastAPI uses the existing offline retrieval metrics for structured cases and falls back to the old heuristic when no case is supplied.
-- Full-chain smoke proves the Advanced RAG evaluation response includes structured retrieval metric notes.
-- Browser code still calls only Spring Boot `/api/*` endpoints.
+## 重点关注
+
+- 前端不得直接调用 FastAPI，浏览器请求必须经过 Spring Boot `/api/*`。
+- Spring Boot 只做桥接、业务持久化、DTO 映射和事务边界，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 负责 RAG、Agent、GraphRAG、检索策略、生成和评估逻辑。
+- 新增字段、trace payload、metadata 和 API 响应必须向后兼容。
+- 测试应覆盖主要成功路径、回退路径和跨服务透传路径。
+
+## 建议验证命令
+
+- `.\.venv\bin\python.exe -m pytest tests -q`
+- `mvn.cmd test`
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
+
+## 审查结论记录
+
+- 若发现问题，应标注文件、行为风险和建议修复方式。
+- 若无问题，应说明仍存在的测试缺口或后续观察点。

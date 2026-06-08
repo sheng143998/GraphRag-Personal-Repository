@@ -1,35 +1,28 @@
-# 2026-06-08 Iterative Test Hardening
+# 2026-06-08 迭代 测试 加固
 
-## Scope
+## 目标
 
-- Make full-chain smoke stricter for RAG failures.
-- Add Advanced RAG HTTP trace assertions to the full-chain smoke path.
-- Add Java unit coverage for the Spring Boot RAG bridge without requiring a database.
-- Re-run frontend, backend, AI service, and full-chain tests.
+本计划记录 `iterative-test-hardening` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## Changes
+## 范围
 
-- `smoke_test.py` now requires `/api/rag/query` to return HTTP 200 instead of treating failures as graceful.
-- `smoke_test.py` now runs an `advanced-rag` query and checks:
-  - run id is present
-  - status is `COMPLETED`
-  - strategy is `advanced-rag`
-  - at least one citation is present
-  - stored run exposes a populated `rewrittenQuery`
-- Added `RagServiceTest` to verify:
-  - metadata filters are forwarded to the AI service request
-  - rewritten query from AI trace metadata is persisted on the run
-  - retrieval results remain valid when AI citation document/chunk ids do not exist in the Java database
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-## Verification
+## 实施要点
 
-- `ai-service`: `.venv/bin/python.exe -m pytest` -> 7 passed
-- `frontend`: `npm.cmd run typecheck` -> passed
-- `frontend`: `npm.cmd run build` -> passed
-- `backend-java`: `mvn test` -> 1 test passed
-- Full-chain: `python smoke_test.py` -> 42/42 passed
+- 根据 `iterative-test-hardening` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
 
-## Notes
+## 验证方式
 
-- Maven test execution needed elevated permissions because Windows denied sandboxed reads of the local Maven repository jar path.
-- Full-chain testing used local PostgreSQL credentials from `.env` and FastAPI stub/in-memory mode.
+- `git diff --check`
+
+## 备注
+
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。

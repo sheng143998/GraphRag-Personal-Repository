@@ -1,24 +1,33 @@
-# 2026-06-08 GraphRAG Traversal Retrieval
+# 2026-06-08 GraphRAG 遍历 检索
 
-## Scope
+## 目标
 
-- Extend GraphRAG beyond persisted graph match counts.
-- Use persisted one-hop graph relationships to expand the retrieval query and expose traversal evidence in trace/citation metadata.
-- Keep graph logic inside the AI service; Spring Boot remains a bridge and persistence reader.
+本计划记录 `graphrag-traversal-retrieval` 相关工作的实现意图、边界和验证方式。该工作服务于本地知识库 Agent / Advanced RAG 项目，要求保持前端、Spring Boot 与 FastAPI 的职责边界清晰。
 
-## Implementation
+## 范围
 
-- `ai-service/app/db/repositories.py`
-  - `find_graph_facts()` now returns matched entities, relationship count, relationship records, and one-hop `expansion_terms`.
-  - In-memory and PostgreSQL repositories return the same response shape.
-- `ai-service/app/rag/strategies/advanced.py`
-  - `graph-rag` appends persisted expansion terms to the graph-augmented retrieval query.
-  - Trace attributes now include `graph_expansion_terms` and `graph_traversal_relationships`.
-  - Citation metadata now carries traversal relationships and expansion terms.
-- `smoke_test.py`
-  - GraphRAG run-detail checks now assert traversal metadata is persisted through Spring Boot retrieval results.
+- 按当前主题补齐对应模块能力或验证入口。
+- 前端浏览器请求仅允许进入 Spring Boot `/api/*`。
+- Spring Boot 只负责业务编排、桥接、DTO 映射和持久化，不实现 RAG、GraphRAG 或 evaluator 评分逻辑。
+- FastAPI 继续负责 RAG、Agent、GraphRAG、检索、生成与评估逻辑。
+- 命令、接口、字段、策略名和模型名保持原样，便于与代码和测试对应。
 
-## Validation
+## 实施要点
 
-- `ai-service/.venv/bin/python.exe -m pytest` passed with 13 tests.
-- Full verification should include backend tests, frontend typecheck/build, and local full-chain smoke after documentation updates.
+- 根据 `graphrag-traversal-retrieval` 的主题更新对应服务、测试或文档。
+- 保持改动小步可验证，避免跨模块混入无关重构。
+- 如果涉及 UI，优先复用现有 Pinia store、`frontend/src/api/*` 和页面样式。
+- 如果涉及评估或检索，必须保留可观测 trace、metadata 或 smoke 断言。
+
+## 验证方式
+
+- `.\.venv\bin\python.exe -m pytest tests -q`
+- `mvn.cmd test`
+- `npm.cmd --prefix frontend run typecheck`
+- `npm.cmd --prefix frontend run build`
+- `python -m py_compile smoke_test.py`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1`
+
+## 备注
+
+本文件已从历史英文计划文档中文化；文件名保持不变以避免破坏既有索引和交叉引用。
