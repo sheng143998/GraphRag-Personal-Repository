@@ -127,3 +127,10 @@ The full-chain smoke now treats RAG query failure as a hard failure and includes
 - Frontend typecheck/build covers `practiceWeakPointTurn()` API mapping, Pinia practice action, and chat page `Practice` button wiring.
 - `smoke_test.py` now verifies a persisted weak point can trigger a practice turn and returns the selected weak point, assistant message, review cards, and updated weak points.
 - Local full-chain smoke now passes 99/99 checks.
+
+## 2026-06-08 RAG Evaluation Workbench Validation
+
+- Backend Maven tests cover recent RAG run summary mapping and limit clamping.
+- Frontend typecheck/build covers recent run loading, experiment evaluation API mapping, and the experiments page run selector.
+- `smoke_test.py` now verifies `GET /api/rag/runs?limit=10` includes the created run before experiment evaluation.
+- Local full-chain smoke now passes 101/101 checks.

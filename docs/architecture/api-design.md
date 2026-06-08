@@ -478,6 +478,31 @@ Response `data`:
 
 Spring Boot reads the persisted `rag_runs` row and ordered `rag_retrieval_results`, then calls FastAPI `POST /ai/rag/evaluate`. Evaluator scoring logic stays in the AI service.
 
+### 6.7 List Recent RAG Runs
+
+`GET /api/rag/runs?limit=20`
+
+Response `data`:
+
+```json
+[
+  {
+    "id": "uuid",
+    "traceId": "trace-id",
+    "knowledgeBaseId": "uuid",
+    "question": "How does Advanced RAG rerank?",
+    "strategyName": "advanced-rag",
+    "retrieverType": "hybrid",
+    "modelName": "stub-llm",
+    "latencyMs": 42,
+    "status": "COMPLETED",
+    "createdAt": "2026-06-08T00:00:00Z"
+  }
+]
+```
+
+The list endpoint returns lightweight run summaries for frontend selection. Retrieval results remain available through `GET /api/rag/runs/{id}`.
+
 ## 7. Chat 接口
 
 当前 Chat 接口主要记录会话和消息，RAG 问答仍走 `/api/rag/query`。
@@ -901,10 +926,10 @@ Base URL：`http://localhost:8001`，Spring Boot 通过 `AI_SERVICE_BASE_URL` / 
 | `frontend/src/api/knowledgeBases.ts` | `GET /knowledge-bases`、`POST /knowledge-bases`、`GET /knowledge-bases/{id}`、`PUT /knowledge-bases/{id}`、`DELETE /knowledge-bases/{id}` |
 | `frontend/src/api/documents.ts` | `GET /documents`、`GET /documents/{id}`、`POST /documents/upload`、`DELETE /documents/{id}` |
 | `frontend/src/api/chat.ts` | `POST /chat/sessions`、`GET /chat/sessions`、`POST /chat/{sessionId}/messages`、`GET /chat/{sessionId}/messages`、`POST /chat/{sessionId}/assistant-turn`、`GET /chat/{sessionId}/weak-points`、`PATCH /chat/{sessionId}/weak-points/{weakPointId}`、`POST /chat/{sessionId}/weak-points/{weakPointId}/practice-turn`、`POST /rag/query` |
-| `frontend/src/api/experiments.ts` | `GET /rag/experiments`、`GET /rag/experiments/{id}`、`POST /rag/experiments`、`PUT /rag/experiments/{id}`、`DELETE /rag/experiments/{id}` |
+| `frontend/src/api/experiments.ts` | `GET /rag/experiments`、`GET /rag/experiments/{id}`、`POST /rag/experiments`、`PUT /rag/experiments/{id}`、`POST /rag/experiments/{id}/evaluate`、`DELETE /rag/experiments/{id}` |
 | `frontend/src/api/feedback.ts` | `POST /feedback` |
 | `frontend/src/api/graph.ts` | `GET /graph/facts?knowledgeBaseId={uuid}&entity={optional}` |
-| `frontend/src/api/rag.ts` | `GET /rag/runs/{id}` |
+| `frontend/src/api/rag.ts` | `GET /rag/runs?limit={n}`、`GET /rag/runs/{id}` |
 | `frontend/src/api/settings.ts` | `GET /settings` |
 
 后续新增前端页面时，必须继续通过 `src/api/` 封装，不允许页面组件直接 `fetch` 后端或直接调用 AI Service。

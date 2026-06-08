@@ -1423,3 +1423,12 @@ README 更新规则：
 - Frontend weak point cards now expose a `Practice` action that starts an Agent-backed practice turn while preserving explicit mastery assessment.
 - `smoke_test.py` now covers persisted weak point practice; local full-chain smoke passed with 99/99 checks.
 - Key documents: `docs/plans/2026-06-08-weak-point-practice-flow.md`, `docs/reviews/2026-06-08-weak-point-practice-flow-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.
+
+---
+
+## 2026-06-08 RAG Evaluation Workbench Update
+
+- Added Spring Boot `GET /api/rag/runs?limit={n}` and frontend recent run loading for experiment evaluation.
+- Frontend experiments page now supports selecting a recent RAG run and calling experiment evaluation with an optional expected answer.
+- `smoke_test.py` now covers recent RAG run listing; local full-chain smoke passed with 101/101 checks.
+- Key documents: `docs/plans/2026-06-08-rag-evaluation-workbench.md`, `docs/reviews/2026-06-08-rag-evaluation-workbench-review-prompt.md`, `docs/testing/strategy.md`, and `docs/handoff/CURRENT_STATE.md`.

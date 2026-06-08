@@ -376,6 +376,28 @@ Current remaining large project areas:
 
 ---
 
+## 2026-06-08 RAG Evaluation Workbench Update
+
+Completed in this iteration:
+
+- Added Spring Boot `GET /api/rag/runs?limit={n}` for recent RAG run summaries.
+- Frontend experiments page now loads recent runs, lets the user select a run, optionally enter an expected answer, and evaluate an experiment.
+- Successful evaluation updates the experiment scores/status in the workbench store.
+- Full-chain smoke verifies recent run listing and the existing Advanced RAG experiment evaluation path.
+
+Validated so far:
+
+- `mvn test` passed with 14 tests.
+- `npm.cmd run typecheck` passed.
+- `npm.cmd run build` passed.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\test-fullchain-local.ps1` passed with 101/101 smoke checks.
+
+Current remaining large project areas:
+
+- Add richer RAG evaluation dashboards and historical evaluation comparisons.
+
+---
+
 ## 2026-06-08 Weak Point Practice Flow Update
 
 Completed in this iteration:

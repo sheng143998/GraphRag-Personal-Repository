@@ -203,6 +203,16 @@ if CREATED_EXP_ID:
 
 if CREATED_RUN_ID:
     check("Get RAG run", "GET", f"{BASE}/rag/runs/{CREATED_RUN_ID}")
+    r, body = check("List recent RAG runs", "GET", f"{BASE}/rag/runs?limit=10")
+    if r is not None and r.status_code == 200:
+        runs = body.get("data") if isinstance(body, dict) else None
+        if isinstance(runs, list) and any(isinstance(run, dict) and run.get("id") == CREATED_RUN_ID for run in runs):
+            PASS += 1
+            print("  PASS  Recent RAG runs include created run")
+        else:
+            FAIL += 1
+            ERRORS.append("Recent RAG runs expected to include created run")
+            print("  FAIL  Recent RAG runs expected to include created run")
 
 
 # ============================================================
