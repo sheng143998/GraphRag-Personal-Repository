@@ -25,5 +25,6 @@ class AgentInvokeResponse(BaseModel):
     citations: list[SourceMetadata]
     question_type: str = "general"
     selected_strategy_name: str = "basic-rag"
+    follow_up_questions: list[str] = Field(default_factory=list)
     workflow_steps: list[AgentWorkflowStep] = Field(default_factory=list)
     trace: TraceMetadata

@@ -30,6 +30,7 @@ class AgentService:
             citations=state.citations,
             question_type=state.question_type,
             selected_strategy_name=state.selected_strategy_name,
+            follow_up_questions=state.follow_up_questions,
             workflow_steps=state.steps,
             trace=trace,
         )

@@ -19,6 +19,7 @@ class AgentWorkflowState:
     selected_strategy_name: str = "basic-rag"
     answer: str = ""
     citations: list = field(default_factory=list)
+    follow_up_questions: list[str] = field(default_factory=list)
     rag_trace_id: str | None = None
     steps: list[AgentWorkflowStep] = field(default_factory=list)
 
@@ -33,6 +34,7 @@ class StudyAgentWorkflow:
         self._select_rag_strategy(state, trace_builder)
         await self._retrieve_and_generate(state, trace_builder)
         self._cite_sources(state, trace_builder)
+        self._generate_follow_up_questions(state, trace_builder)
         return state
 
     def _classify_question(self, state: AgentWorkflowState, trace_builder: TraceBuilder) -> None:
@@ -110,6 +112,43 @@ class StudyAgentWorkflow:
             payload={"citation_count": len(state.citations)},
         )
 
+    def _generate_follow_up_questions(self, state: AgentWorkflowState, trace_builder: TraceBuilder) -> None:
+        base_topic = _short_topic(state.request.user_input)
+        if state.question_type == "interview":
+            questions = [
+                f"Can you give a 60-second interview answer for {base_topic}?",
+                f"What follow-up challenge might an interviewer ask about {base_topic}?",
+                f"Which project experience can prove I really used {base_topic}?",
+            ]
+        elif state.question_type == "implementation":
+            questions = [
+                f"What implementation pitfalls should I avoid for {base_topic}?",
+                f"How can I test {base_topic} end to end?",
+                f"What trade-offs should I mention when explaining {base_topic}?",
+            ]
+        elif state.question_type == "troubleshooting":
+            questions = [
+                f"What logs or traces should I inspect first for {base_topic}?",
+                f"What is the fastest reproduction path for {base_topic}?",
+                f"How can I prevent this {base_topic} issue from recurring?",
+            ]
+        else:
+            questions = [
+                f"What is the core principle behind {base_topic}?",
+                f"Can you compare {base_topic} with a related concept?",
+                f"What example helps me remember {base_topic}?",
+            ]
+
+        state.follow_up_questions = questions
+        trace_builder.set_attribute("follow_up_questions", questions)
+        self._record_step(
+            state,
+            trace_builder,
+            name="generate_follow_up_questions",
+            detail="Generated study and interview follow-up questions.",
+            payload={"follow_up_count": len(questions), "follow_up_questions": questions},
+        )
+
     def _record_step(
         self,
         state: AgentWorkflowState,
@@ -121,3 +160,11 @@ class StudyAgentWorkflow:
     ) -> None:
         state.steps.append(AgentWorkflowStep(name=name, detail=detail, payload=payload))
         trace_builder.add_step(name=name, status="completed", detail=detail, payload=payload)
+
+
+def _short_topic(text: str) -> str:
+    words = [word.strip(" ?!.,;:") for word in text.split() if word.strip(" ?!.,;:")]
+    if not words:
+        return "this topic"
+    topic = " ".join(words[:6])
+    return topic[:80]

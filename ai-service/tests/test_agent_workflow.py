@@ -26,7 +26,10 @@ def test_agent_workflow_routes_implementation_question_to_advanced_rag() -> None
         "select_rag_strategy",
         "retrieve_and_generate",
         "cite_sources",
+        "generate_follow_up_questions",
     ]
+    assert len(response.follow_up_questions) == 3
+    assert response.trace.attributes["follow_up_questions"] == response.follow_up_questions
     assert response.trace.attributes["question_type"] == "implementation"
     assert response.trace.attributes["selected_strategy_name"] == "advanced-rag"
     assert response.trace.attributes["rag_trace_id"]
@@ -43,6 +46,7 @@ def test_agent_workflow_respects_explicit_strategy() -> None:
 
     assert response.selected_strategy_name == "basic-rag"
     assert response.citations
+    assert response.follow_up_questions
 
 
 async def _invoke_agent(
