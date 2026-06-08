@@ -1,7 +1,7 @@
-﻿# 本地知识库 Agent 项目上下文
+# 本地知识库 Agent 项目上下文
 
-更新时间：2026-05-31
-项目状态：Phase 2 知识库 CRUD 已完整，Word (.docx) 解析器已接入 python-docx，PDF 解析器已接入 MinerU Agent API（v2：URL 模式 + base64 文件上传模式）（创建/列表/详情/更新/删除）、文档上传+列表+详情+删除已闭环；Phase 3 基础 RAG 后端链路已形成第一版闭环；Phase 7 RAG 实验平台已完成实验记录 CRUD 与本地 HTTP smoke；前端粒子背景+玻璃态视觉升级完成；全链路 HTTP smoke 9 接口全部通过
+更新时间：2026-06-08
+项目状态：Phase 2 知识库 CRUD 已完整，Word (.docx) 解析器已接入 python-docx，PDF 解析器已接入 MinerU Agent API（v2：URL 模式 + base64 文件上传模式）（创建/列表/详情/更新/删除）、文档上传+列表+详情+删除已闭环；Phase 3 基础 RAG 后端链路已形成第一版闭环；Phase 7 RAG 实验平台已完成实验记录 CRUD 与本地 HTTP smoke；前端粒子背景+玻璃态视觉升级完成；全链路 HTTP smoke 9 接口全部通过；2026-06-04 已补齐 Spring Boot 对外 API、FastAPI 内部 API 与前端调用映射的接口设计文档；2026-06-05 已完成前端接口全面补齐：所有 API 模块（含反馈、会话、实验 CRUD）、TypeScript 类型、页面 UI（实验增删改、反馈页、设置可编辑、会话管理）和路由导航均已对齐 API 设计文档契约；2026-06-08 已完成 Phase 4 Advanced RAG 工程闭环第一版：策略分发、hybrid-rerank、metadata-filter、parent-child 邻近上下文 fallback、advanced-rag 查询改写与多查询召回、rerank 编排、metadataFilters 透传、rewritten_query 入库与评估问题集；LLM / embedding / reranker adapter 已接入 OpenAI-compatible 真实模型调用并通过小流量 smoke；adapter 已增加轻量重试
 维护规则：每次开启新的开发对话时，优先提供本文件；每完成一个阶段目标或关键任务后，必须同步更新本文件。本文件只保留项目状态、关键架构决策、当前待办和阶段级变更摘要；接口级实现细节、验证命令和失败复盘放入 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 与 `docs/handoff/`。
 
 ## 1. 项目目标
@@ -995,7 +995,7 @@ README 更新规则：
 
 ### Phase 4：Advanced RAG 策略
 
-状态：未开始
+状态：已完成（工程闭环第一版，真实模型效果待 adapter 升级）
 
 目标：
 
@@ -1101,8 +1101,8 @@ README 更新规则：
 - [x] 增强 `GET /api/documents` 文档列表状态展示，并按规则暂停 review
 - [x] 增强 `GET /api/documents/{id}` 文档详情与 chunk 摘要，并按规则暂停 review
 - [x] 增强 `POST /api/documents/upload` multipart 单文件上传，并按规则暂停 review
-- [ ] 实现 Markdown / TXT / Word / PDF / Excel 入库 Demo（真实 multipart 文件上传、多格式解析增强待继续；本地 HTTP smoke 已发现详情 chunk 摘要为空的问题）
-- [ ] 调研并接入 MinerU 作为 PDF 提取工具
+- [x] 实现 Markdown / TXT / Word / PDF / Excel 入库 Demo（MinerU PDF + python-docx 已接入，真实 multipart 上传已闭环）
+- [x] 调研并接入 MinerU 作为 PDF 提取工具
 - [x] 实现基础向量检索 Demo
 - [x] 实现第一版 RAG 对话接口
 - [x] 将 `GET /api/rag/experiments` 从硬编码占位改为数据库读取
@@ -1112,6 +1112,19 @@ README 更新规则：
 - [x] 实现 `DELETE /api/rag/experiments/{id}` 删除实验记录接口
 - [x] 完成 RAG 实验接口数据库 + HTTP smoke 验证
 - [x] 配置远程 Git 仓库并推送 `main` 分支
+- [x] 补齐 API 设计文档：Spring Boot `/api/*` 对外接口、FastAPI `/ai/*` 内部接口、前端调用映射
+- [x] 补齐前端 API 模块：feedback.ts（新建）、chat.ts（会话/消息 CRUD）、experiments.ts（完整 CRUD）、knowledgeBases.ts（create）、rag.ts（新建）
+- [x] 补齐前端 TypeScript 类型：ChatSession、ChatMessageRecord、FeedbackRecord、ExperimentRequest、RagRunDetail、RetrievalResult 等共 11 个
+- [x] 修复前端 client.ts 错误提取路径对齐 Spring Boot `{error: {code, message}}` 结构
+- [x] 前端 Store 升级：hydrate 部分失败容错、新增会话/实验/反馈/知识库/文档全部 actions
+- [x] 前端页面补齐：ExperimentsPage 增删改 UI、SettingsPage 可编辑+localStorage、FeedbackPage 新建、ChatPage 会话管理面板
+- [x] 前端路由补齐：/feedback 路由 + 侧边栏导航入口
+- [x] 为文档解析引入异步任务模型（上传先返回 PROCESSING，前端轮询或新增任务状态接口）
+- [ ] 为 Chat 问答建立单一业务接口（创建 user message → 调用 RAG → 保存 assistant message → 返回完整对话状态）
+- [x] 将 LLM / embedding / reranker adapter 从 stub 升级为真实模型调用（OpenAI-compatible adapter，已按 DashScope 文档完成小流量 smoke）
+- [x] 实现 Advanced RAG 策略（Hybrid Search、Rerank、Query Rewrite、Multi-query、Parent-Child 等；当前为工程闭环第一版）
+- [ ] 实现 LangGraph Agent 编排
+- [ ] 实现 GraphRAG / 知识图谱增强
 
 ## 12. 会话交接规则
 
@@ -1134,6 +1147,47 @@ README 更新规则：
 - 必要时更新目录结构、接口规划、数据库规划、迁移规范、测试策略、可观测性规范、RAG 策略规划和模块 README
 
 ## 13. 变更记录
+
+### 2026-06-08
+
+- 完成 Phase 4 Advanced RAG 工程闭环第一版：Python AI 服务新增规则型 query rewrite / multi-query expansion、`AdvancedRagStrategy`、策略分发与 parent-child 邻近 chunk fallback。
+- 策略已支持 `basic-rag`、`hybrid-rerank`、`metadata-filter`、`parent-child`、`advanced-rag`；前端策略列表已对齐。
+- Java 后端 `RagQueryRequest` 新增 `metadataFilters` 并透传到 FastAPI `metadata_filters`；`rag_retrieval_results.rank` 改为顺序计数；Python trace attributes 中的 `rewritten_query` 已写入 `rag_runs.rewritten_query`。
+- 新增 Advanced RAG 评估问题集 `docs/experiments/eval-questions.md`，补充计划与失败复盘文档。
+- 验证：`python -m compileall ai-service/app`、`mvn compile -q -f backend-java/pom.xml`、`frontend npm run build` 通过；`pytest` 因当前 shell Python 缺少 pytest/pydantic 未运行，已记录复盘。
+- 用户明确要求 Advanced RAG 之后的 LangGraph、GraphRAG、复习/面试辅助暂不完成。
+- 完成 OpenAI-compatible 模型 adapter 接入：新增 `openai_compatible.py`，`config.py` 自动读取根目录 `.env`，`registry.py` 可根据 LLM / Embedding / Rerank 配置自动切换真实 adapter 或 fallback stub；对网络异常、超时、429 与 5xx 做轻量指数退避重试。
+- 根据阿里百炼文档修正配置：`text-embedding-v4` 使用 `/compatible-mode/v1/embeddings` 且维度 1536，文本 rerank 使用 `qwen3-rerank` 与 `/compatible-api/v1/reranks`，不使用 `qwen3-vl-rerank` 的 OpenAI 兼容方式。
+- 小流量真实 adapter smoke 已通过：embedding 返回 1536 维，rerank 返回相关分数，LLM 返回内容；关键文档：`docs/plans/2026-06-08-openai-compatible-model-adapters.md`、`docs/reviews/2026-06-08-openai-compatible-model-adapters-review-prompt.md`。
+### 2026-06-05
+
+- 完成前端接口全面补齐：以 `docs/architecture/api-design.md` 为契约，补齐所有前端 API 模块、TypeScript 类型、页面 UI 和路由导航。
+- 新建 `frontend/src/api/feedback.ts`（POST /api/feedback）与 `frontend/src/api/rag.ts`（GET /api/rag/runs/{id}）。
+- 扩充 `chat.ts`：新增 createChatSession / fetchChatSessions / addChatMessage / fetchChatMessages，修复 sendChatMessage 补齐 knowledgeBaseId / sessionId / messageId / topK 字段。
+- 扩充 `experiments.ts`：新增 fetchExperimentById / createExperiment / updateExperiment / deleteExperiment，形成完整 CRUD。
+- 扩充 `knowledgeBases.ts`：新增 createKnowledgeBase。
+- 修复 `client.ts` extractErrorMessage：从错误的 `payload.message` 改为正确的 `payload.error.message`（对齐 Spring Boot ApiResponse 结构）。
+- 新增 11 个 TypeScript 类型：ChatSession、ChatSessionRequest、ChatMessageRecord、ChatMessageRequest、FeedbackRecord、FeedbackRequest、ExperimentRequest、ExperimentUpdateRequest、RagRunDetail、RetrievalResult、HealthResponse；扩展现有 ExperimentRecord / ChatRequest / AppSettings / ApiEnvelope。
+- Store 全面升级：hydrate() 改为部分失败容错（仅全部失败才回退 mock）；新增 chatSessions / currentSessionId / sessionMessages / feedbackPending / lastFeedback 等状态；新增 createSession / loadSessions / loadSessionMessages / createKb / updateKb / deleteKb / removeDocument / loadDocumentDetail / createExp / updateExp / deleteExp / loadExpDetail / submitFeedback 共 14 个 actions。
+- ExperimentsPage 升级为完整 CRUD：内联创建/编辑表单（名称/描述/策略/数据集/样本数/Precision/Recall/状态/备注）、编辑/删除按钮、确认对话框、空状态提示。
+- SettingsPage 从只读变为可编辑：v-model 绑定本地状态、默认知识库下拉选择、localStorage 持久化。
+- 新建 FeedbackPage：评分 1-5、反馈类型下拉（answer_quality / retrieval_relevance / citation_accuracy / usability）、Run/Session/Message ID 关联、提交后展示最近反馈。
+- ChatPage 新增会话管理面板：新建会话、刷新列表、选择会话加载历史消息、会话选中高亮（新增 `.item-card-active` 样式）。
+- 路由新增 `/feedback` 懒加载路由，侧边栏 WorkbenchLayout 新增「用户反馈」导航入口。
+- 关键文档索引：
+  - 计划文档：`docs/plans/2026-06-05-frontend-api-completion.md`
+  - Review 提示：`docs/reviews/2026-06-05-frontend-api-completion-review-prompt.md`
+  - 交接状态：`docs/handoff/CURRENT_STATE.md`
+
+### 2026-06-04
+
+- 完成接口设计文档补全：新增 `docs/architecture/api-design.md`，沉淀 Spring Boot `/api/*` 对外接口、FastAPI `/ai/*` 内部接口、统一响应包裹、核心请求 / 响应字段、前端调用映射和当前限制。
+- 明确后续 Agent 开发边界：前端只调用 Spring Boot `/api/*`，Spring Boot 负责业务 API 与 AI Service 调用，FastAPI 仅承担内部 AI / RAG 服务。
+- 本轮只做接口文档与交接契约，不新增业务接口、不运行 HTTP smoke、不修复 PDF 解析遗留问题。
+- 关键文档索引：
+  - API 设计：`docs/architecture/api-design.md`
+  - 计划文档：`docs/plans/2026-06-04-api-design-docs.md`
+  - Review 提示：`docs/reviews/2026-06-04-api-design-docs-review-prompt.md`
 
 ### 2026-05-31
 

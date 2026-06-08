@@ -24,6 +24,7 @@ target/
 .mvn/repository/
 backend-java/.mvn/repository/
 backend-java/maven-repo/
+maven-repo/
 .mvn/wrapper/maven-wrapper.jar
 
 # Python
@@ -38,6 +39,7 @@ venv/
 htmlcov/
 
 # IDE
+.opencode/
 .idea/
 .vscode/
 *.iml

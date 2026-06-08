@@ -1,65 +1,96 @@
-﻿# 当前交接状态
-更新时间：2026-05-29
+# 当前交接状态
+更新时间：2026-06-08
 
 ## 当前正在做什么
-本轮已完成知识库 CRUD 全四接口 + 文档删除 + 前端美化 + chunks bug 修复 + 全链路 smoke。等待 review。
 
-## 本轮已完成的接口/变更
+已完成 Phase 4 Advanced RAG 工程闭环第一版，并完成 OpenAI-compatible LLM / Embedding / Rerank 真实模型 adapter 接入。用户要求项目先完成到 Advanced RAG，后续 LangGraph、GraphRAG、复习/面试辅助暂不继续。
 
-### 1. Bug fix: chunks=[] 根因修复
-- `ai-service/app/core/config.py` — `_build_database_url()` 从 DB_URL 构造 PostgreSQL URL
-- 文档：`docs/plans/2026-05-29-fix-chunks-empty-bug.md`
+## 本轮已完成的变更
 
-### 2. 前端粒子背景 + 视觉美化升级
-- `frontend/src/components/ParticleBackground.vue` — Canvas 粒子动画
-- `frontend/src/styles.css` — 玻璃态 + 渐变 + 动画
-- `frontend/src/App.vue` + `WorkbenchLayout.vue` — 布局增强
+### Python AI 服务
 
-### 3. GET /api/knowledge-bases/{id} 知识库详情
-- `KnowledgeBaseResponse.java` 新增 `documentCount`/`chunkCount`
-- 文档：`docs/plans/2026-05-29-knowledge-base-detail.md`
+- `ai-service/app/rag/query_transformers/base.py`（新建）— 规则型 `RuleBasedQueryRewriter` 与 `RuleBasedMultiQueryExpander`，用于无真实 LLM 情况下验证 query rewrite / multi-query 工程链路。
+- `ai-service/app/rag/query_transformers/__init__.py`（新建）— query transformer 包入口。
+- `ai-service/app/rag/strategies/advanced.py`（新建）— `AdvancedRagStrategy`，支持 `hybrid-rerank`、`metadata-filter`、`parent-child`、`advanced-rag`。
+- `ai-service/app/services/rag_service.py`（修改）— 从固定 `BasicRagStrategy` 改为策略分发：`basic-rag` 走基础策略，其余 Phase 4 策略走 AdvancedRagStrategy。
+- `ai-service/app/db/repositories.py`（修改）— 增加 `hydrate_parent_context()`，PostgreSQL / InMemory 均支持邻近 chunk window fallback，metadata 写入 `parent_child_mode` 与 `context_source_chunk_ids`。
+- `ai-service/app/core/config.py`（修改）— 自动读取根目录 `.env`，新增 LLM / Embedding / Rerank adapter 配置，并支持 `MODEL_MAX_RETRIES`。
+- `ai-service/app/services/adapters/openai_compatible.py`（新建）— OpenAI-compatible LLM、Embedding、Rerank HTTP adapter；对网络异常、超时、429 与 5xx 做轻量指数退避重试。
+- `ai-service/app/services/adapters/registry.py`（修改）— 根据 `.env` 自动选择真实 adapter 或 fallback stub。
 
-### 4. PUT /api/knowledge-bases/{id} 知识库更新
-- `UpdateKnowledgeBaseRequest.java`（新增）— 全字段可选
-- 文档：`docs/plans/2026-05-29-knowledge-base-update.md`
+### Java 后端
 
-### 5. DELETE /api/knowledge-bases/{id} 知识库删除
-- `@Transactional delete()` + DB 级联
-- 文档：`docs/plans/2026-05-29-knowledge-base-delete.md`
+- `backend-java/src/main/java/.../dto/rag/RagQueryRequest.java`（修改）— 新增 `metadataFilters`，并要求 `knowledgeBaseId` 非空。
+- `backend-java/src/main/java/.../client/dto/AiRagQueryRequest.java`（确认）— 通过 `metadata_filters` 透传到 Python。
+- `backend-java/src/main/java/.../client/dto/AiTraceMetadata.java`（修改）— 新增 `attributes`，用于接收 Python trace attributes。
+- `backend-java/src/main/java/.../client/AiServiceClient.java`（修改）— mock trace 构造补齐 `attributes`。
+- `backend-java/src/main/java/.../service/RagService.java`（修改）— metadataFilters 空值安全透传；保存 Python trace attributes 中的 `rewritten_query` 到 `rag_runs.rewritten_query`；retrieval result rank 改为顺序计数。
 
-### 6. DELETE /api/documents/{id} 文档删除
-- `@Transactional delete()` + 前端 `deleteDocument`/`fetchDocumentById`
-- 文档：`docs/plans/2026-05-29-document-delete.md`
+### 前端
 
-### 7. documentType 小写修复
-- `DocumentService.create()` 中 `.toLowerCase()`
+- `frontend/src/types/index.ts`（修改）— `ChatRequest` 新增 `knowledgeBaseId`、`messageId`、`retrieverType`、`metadataFilters`、`topK`。
+- `frontend/src/api/chat.ts`（修改）— `sendChatMessage()` 透传 `knowledgeBaseId/sessionId/messageId/retrieverType/metadataFilters/topK` 到 `/api/rag/query`。
+- `frontend/src/utils/mock-data.ts`（修改）— 策略列表补齐并对齐 `basic-rag`、`hybrid-rerank`、`metadata-filter`、`parent-child`、`advanced-rag`。
+- `frontend/src/stores/workbench.ts`（修改）— 提问前校验默认/选中知识库，避免向 Python 发送空 knowledgeBaseId。
 
-### 8. 全链路 HTTP Smoke
-- 9 个接口全部通过，chunks=[1 items] 已验证
-- 文档：`docs/plans/2026-05-29-full-http-smoke.md`
+### 环境配置
+
+- `.env`（本地忽略文件）— 已配置用户提供的 DashScope OpenAI-compatible LLM / Embedding / Rerank 信息；真实密钥只保留在本地 `.env`。
+- `.env.example`（可提交示例）— 补充模型 adapter 占位变量，不包含真实密钥。
+- 根据阿里百炼文档修正：
+  - `text-embedding-v4` 使用 `compatible-mode/v1/embeddings`，维度 1536，批量大小 10。
+  - 文本 rerank 使用 `qwen3-rerank` 与 `compatible-api/v1/reranks`。
+  - `qwen3-vl-rerank` 不走 OpenAI-compatible 文本 rerank，本项目文本 RAG 暂不用。
+
+### 文档
+
+- `docs/plans/2026-06-08-advanced-rag-phase4.md`（新建）— Phase 4 实现计划。
+- `docs/plans/2026-06-08-openai-compatible-model-adapters.md`（新建）— 模型 adapter 接入计划。
+- `docs/experiments/eval-questions.md`（新建）— Advanced RAG 固定评估问题集。
+- `docs/testing/failures/2026-06-08-advanced-rag-phase4-notes.md`（新建）— pytest/pydantic 环境缺失与 PowerShell UTF-8 BOM 问题复盘。
+- `docs/reviews/2026-06-08-openai-compatible-model-adapters-review-prompt.md`（新建）— adapter review 提示。
+- `ai-service/README.md`、`backend-java/README.md`、`frontend/README.md`（修改）— 补充 Advanced RAG 与模型 adapter 当前能力、入口和限制。
+- `PROJECT_CONTEXT.md`（修改）— 更新阶段状态、当前待办与 2026-06-08 变更摘要。
 
 ## 已通过的验证
-- ✅ Java `mvn compile` + `mvn test`（所有接口）
-- ✅ 前端 `npm run build`
-- ✅ 全链路 HTTP smoke：CKUD + Upload + Detail + Delete 全部 200
-- ✅ chunks=[] bug 已修复，详情正确返回 chunks=[1]
-- ✅ 删除保护：重复删除返回 404
 
-## 已遇到并记录的问题
-- PowerShell UTF8 BOM → javac 编译失败
-- Maven 仓库 jar ACL 权限
-- AI 服务端口不匹配（8001 vs 8000）
-- documentType 枚举大小写（TECH_NOTE vs tech_note）
-- DB 凭据未注入 → Flyway 认证失败
-- .env 解析尾随空格 → 用户名错误
+- ✅ `python -m compileall ai-service/app`
+- ✅ `mvn compile -q -f backend-java/pom.xml`
+- ✅ `frontend npm run build`
+- ✅ adapter import smoke：registry 自动选择 `OpenAICompatibleLLMAdapter`、`OpenAICompatibleEmbeddingAdapter`、`OpenAICompatibleRerankAdapter`
+- ✅ 真实 adapter 小流量 smoke：embedding 返回 1536 维；rerank 返回 2 个分数且相关文档更高；LLM 接口可返回内容
+- ✅ retry 改造后再次执行 embedding / rerank 小流量 smoke，通过
+
+## 尚未验证
+
+- ❌ `python -m pytest ai-service/tests -q`：当前 shell Python 缺少 `pytest` 与 `pydantic`，已写入失败复盘。
+- ❌ 全链路 HTTP smoke：当前 Docker CLI 存在但 Docker Desktop daemon 未运行，无法启动 PostgreSQL / Redis；需启动 Docker Desktop 后再验证 `/api/rag/query` 多策略行为。
+- ❌ 浏览器端策略切换与真实引用展示。
 
 ## 当前重点 review 文件
-- `backend-java/.../service/DocumentService.java` — documentType lowercase
-- `backend-java/.../service/KnowledgeBaseService.java` — delete methods
-- `backend-java/.../controller/KnowledgeBaseController.java` — 完整 CRUD
-- `backend-java/.../controller/DocumentController.java` — delete endpoint
-- `docs/plans/2026-05-29-full-http-smoke.md`
+
+1. `ai-service/app/services/adapters/openai_compatible.py` — 真实模型 adapter、响应解析、错误处理与重试。
+2. `ai-service/app/services/adapters/registry.py` — adapter 自动选择与 fallback。
+3. `ai-service/app/core/config.py` — `.env` 读取与模型配置。
+4. `ai-service/app/rag/strategies/advanced.py` — Advanced RAG 主策略链路。
+5. `ai-service/app/rag/query_transformers/base.py` — 规则型 query rewrite / multi-query。
+6. `ai-service/app/db/repositories.py` — hybrid search 与 parent-child fallback。
+7. `ai-service/app/services/rag_service.py` — 策略分发与生成上下文。
+8. `backend-java/src/main/java/.../service/RagService.java` — metadataFilters 透传、rewritten_query 入库、rank 修复。
+9. `frontend/src/api/chat.ts` / `frontend/src/utils/mock-data.ts` — 前端策略与参数透传。
+10. `docs/experiments/eval-questions.md` — Phase 4 评估问题。
+
+## 当前仍是占位或限制
+
+- 如果 `.env` 中模型配置缺失，会 fallback 到 stub embedding / LLM / reranker。
+- 当前真实 adapter 已有轻量重试，但尚未实现限流、熔断、成本统计。
+- query rewrite / multi-query 当前是规则型 fallback，不是真实 LLM 改写。
+- parent-child 本轮是邻近 chunk fallback，尚未基于真实 parent_chunk_id 切分策略构建父块。
+- DashScope-native 高级 embedding 参数（text_type、instruct、sparse vector）尚未接入。
 
 ## 下一步建议
-1. 请 review 本轮全部变更
-2. 确认后继续 Phase 2 剩余目标（Word/PDF/Excel 解析、文本清洗、metadata 查询）
+
+1. 按用户要求，Advanced RAG 之后能力暂不继续开发。
+2. 若继续增强，优先做全链路 HTTP smoke：PostgreSQL + FastAPI + Spring Boot + 浏览器端策略切换。
+3. 若继续增强模型侧，补限流、熔断、成本统计，并在 `docs/experiments/eval-questions.md` 固定问题集上做对比评估。
+4. 在依赖环境就绪后运行 Python pytest。
