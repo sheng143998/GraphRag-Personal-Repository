@@ -556,6 +556,11 @@ a {
   box-shadow: var(--shadow);
 }
 
+.item-card-active {
+  border-color: rgba(79, 120, 235, 0.5);
+  background: rgba(79, 120, 235, 0.08);
+}
+
 .source-title, .item-title {
   margin: 0 0 6px;
   font-size: 14px;

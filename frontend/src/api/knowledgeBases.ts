@@ -5,6 +5,18 @@ export function fetchKnowledgeBases(): Promise<KnowledgeBaseSummary[]> {
   return apiRequest<KnowledgeBaseSummary[]>("/knowledge-bases");
 }
 
+export function createKnowledgeBase(payload: {
+  name: string;
+  description?: string;
+  ownerId?: string;
+  defaultRagStrategy?: string;
+}): Promise<KnowledgeBaseSummary> {
+  return apiRequest<KnowledgeBaseSummary>("/knowledge-bases", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function fetchKnowledgeBaseById(id: string): Promise<KnowledgeBaseSummary> {
   return apiRequest<KnowledgeBaseSummary>(`/knowledge-bases/${id}`);
 }

@@ -10,19 +10,29 @@ import type {
 
 export const ragStrategyOptions: RagStrategyOption[] = [
   {
-    value: "hybrid-rerank",
-    label: "Hybrid + Rerank",
-    description: "适合技术笔记与开发经验，兼顾语义召回和关键词精度。"
+    value: "basic-rag",
+    label: "Basic RAG",
+    description: "基础向量检索与回答生成链路，适合作为策略对比基线。"
   },
   {
-    value: "parent-child",
-    label: "Parent-Child",
-    description: "先用小块精准召回，再回填大块上下文，适合项目总结。"
+    value: "hybrid-rerank",
+    label: "Hybrid + Rerank",
+    description: "混合语义与关键词召回后重排，适合技术笔记和开发经验。"
   },
   {
     value: "metadata-filter",
     label: "Metadata Filter",
-    description: "按技术栈、标签和时间过滤，适合代码片段和招聘 JD。"
+    description: "按文档类型、技术栈、标签等元数据限制检索范围，适合代码片段和招聘 JD。"
+  },
+  {
+    value: "parent-child",
+    label: "Parent-Child",
+    description: "先用小块精准召回，再补充父级或邻近上下文，适合项目总结。"
+  },
+  {
+    value: "advanced-rag",
+    label: "Advanced RAG",
+    description: "组合查询改写、多查询、metadata filter、混合召回、重排和上下文增强。"
   }
 ];
 
@@ -136,6 +146,7 @@ export const mockExperiments: ExperimentRecord[] = [
     strategy: "Hybrid + Rerank",
     precision: "0.78",
     recall: "0.84",
+    createdAt: "2026-05-25T17:20:00",
     updatedAt: "2026-05-25 17:20"
   },
   {
@@ -144,12 +155,14 @@ export const mockExperiments: ExperimentRecord[] = [
     strategy: "Parent-Child",
     precision: "0.74",
     recall: "0.89",
+    createdAt: "2026-05-24T22:15:00",
     updatedAt: "2026-05-24 22:15"
   }
 ];
 
 export const mockSettings: AppSettings = {
   apiBaseUrl: "/api",
+  aiServiceBaseUrl: "http://localhost:8001",
   defaultKnowledgeBaseId: "kb-engineering",
   timeoutMs: 15000,
   includeTraceHeader: true

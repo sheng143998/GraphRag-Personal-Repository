@@ -22,6 +22,7 @@
               {{ document.fileName }} · {{ document.chunkCount ?? 0 }} chunks · {{ parserLabel(document) }}
             </p>
             <span class="status-pill" :class="statusClassMap[document.status]">
+              <span v-if="document.status === 'PROCESSING'" class="processing-spinner"></span>
               {{ statusLabelMap[document.status] ?? document.status }}
             </span>
           </article>
@@ -68,3 +69,23 @@ function formatDate(value: string): string {
   return value.replace("T", " ").slice(0, 19);
 }
 </script>
+
+<style scoped>
+.processing-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--bg-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+</style>

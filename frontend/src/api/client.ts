@@ -63,19 +63,16 @@ function extractTraceId<T>(payload: unknown, response: Response): string | undef
   return undefined;
 }
 
-function extractErrorMessage<T>(payload: unknown, fallback: string): string {
+function extractErrorMessage(payload: unknown, fallback: string): string {
   if (typeof payload !== "object" || payload === null) {
     return fallback;
   }
 
-  if ("message" in payload && typeof (payload as ApiEnvelope<T>).message === "string") {
-    return (payload as ApiEnvelope<T>).message ?? fallback;
-  }
-
+  // Spring Boot ApiResponse: { error: { code, message } }
   if ("error" in payload) {
-    const error = (payload as { error?: { message?: string } }).error;
+    const error = (payload as { error?: { code?: string; message?: string } }).error;
     if (error?.message) {
-      return error.message;
+      return error.code ? `[${error.code}] ${error.message}` : error.message;
     }
   }
 
@@ -95,7 +92,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const traceId = extractTraceId<T>(payload, response);
 
   if (!response.ok) {
-    const message = extractErrorMessage<T>(payload, `请求失败，状态码 ${response.status}`);
+    const message = extractErrorMessage(payload, `请求失败，状态码 ${response.status}`);
     throw new ApiError(message, response.status, traceId);
   }
 

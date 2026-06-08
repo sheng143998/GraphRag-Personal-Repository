@@ -79,9 +79,14 @@ export interface RagSessionSummary {
 }
 
 export interface ChatRequest {
+  knowledgeBaseId?: string;
   sessionId?: string;
+  messageId?: string;
   question: string;
   strategy: string;
+  retrieverType?: string;
+  metadataFilters?: Record<string, unknown>;
+  topK?: number;
 }
 
 export interface ChatResponse {
@@ -119,22 +124,149 @@ export interface UploadResponse {
 
 export interface ExperimentRecord {
   id: string;
+  knowledgeBaseId?: string;
   name: string;
+  description?: string;
   strategy: string;
-  precision: string;
-  recall: string;
+  datasetName?: string;
+  sampleCount?: number;
+  precisionScore?: number;
+  recallScore?: number;
+  precision?: string;
+  recall?: string;
+  status?: string;
+  notes?: string;
+  createdAt: string;
   updatedAt: string;
 }
 
 export interface AppSettings {
   apiBaseUrl: string;
+  aiServiceBaseUrl: string;
   defaultKnowledgeBaseId: string;
   timeoutMs: number;
   includeTraceHeader: boolean;
 }
 
 export interface ApiEnvelope<T> {
+  success: boolean;
   data: T;
+  error?: { code: string; message: string } | null;
   traceId?: string;
-  message?: string;
+}
+
+// --- Chat Session Types ---
+
+export interface ChatSession {
+  id: string;
+  knowledgeBaseId: string;
+  title: string;
+  sessionStatus: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatSessionRequest {
+  knowledgeBaseId: string;
+  title: string;
+}
+
+export interface ChatMessageRecord {
+  id: string;
+  sessionId: string;
+  role: string;
+  content: string;
+  citations?: string | null;
+  traceId?: string;
+  createdAt: string;
+}
+
+export interface ChatMessageRequest {
+  role: string;
+  content: string;
+  citations?: string;
+}
+
+// --- Feedback Types ---
+
+export interface FeedbackRecord {
+  id: string;
+  runId: string;
+  sessionId: string;
+  messageId: string;
+  rating: number;
+  feedbackType: string;
+  comment?: string;
+  createdAt: string;
+}
+
+export interface FeedbackRequest {
+  runId: string;
+  sessionId: string;
+  messageId: string;
+  rating: number;
+  feedbackType: string;
+  comment?: string;
+}
+
+// --- RAG Run Detail Types ---
+
+export interface RetrievalResult {
+  id: string;
+  chunkId: string;
+  documentId: string;
+  rank: number;
+  score: number;
+  rerankScore?: number | null;
+  retrieverType: string;
+  source: string;
+  metadata: Record<string, unknown>;
+  selectedForContext: boolean;
+}
+
+export interface RagRunDetail {
+  id: string;
+  traceId: string;
+  sessionId: string;
+  messageId: string;
+  knowledgeBaseId: string;
+  question: string;
+  rewrittenQuery?: string | null;
+  strategyName: string;
+  retrieverType: string;
+  finalContext: string;
+  answer: string;
+  modelName: string;
+  promptName: string;
+  promptVersion: string;
+  latencyMs: number;
+  status: string;
+  errorMessage?: string | null;
+  createdAt: string;
+  retrievalResults: RetrievalResult[];
+}
+
+// --- Experiment Request Types ---
+
+export interface ExperimentRequest {
+  knowledgeBaseId?: string;
+  name: string;
+  description?: string;
+  strategy: string;
+  datasetName?: string;
+  sampleCount?: number;
+  precisionScore?: number;
+  recallScore?: number;
+  status?: string;
+  notes?: string;
+}
+
+export type ExperimentUpdateRequest = Partial<ExperimentRequest>;
+
+// --- Health ---
+
+export interface HealthResponse {
+  status: string;
+  service: string;
+  timestamp: string;
 }

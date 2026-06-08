@@ -44,6 +44,15 @@ const router = createRouter({
       }
     },
     {
+      path: "/feedback",
+      name: "feedback",
+      component: () => import("../pages/feedback/FeedbackPage.vue"),
+      meta: {
+        title: "用户反馈",
+        subtitle: "提交 RAG 回答质量反馈，帮助持续优化检索策略。"
+      }
+    },
+    {
       path: "/settings",
       name: "settings",
       component: () => import("../pages/settings/SettingsPage.vue"),

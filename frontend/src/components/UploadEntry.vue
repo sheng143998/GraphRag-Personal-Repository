@@ -137,5 +137,10 @@ async function handleSubmit(): Promise<void> {
       source: selectedFile.value ? "frontend-multipart" : "frontend-demo"
     }
   });
+
+  if (!store.lastError) {
+    selectedFile.value = null;
+    content.value = "";
+  }
 }
 </script>
