@@ -2,82 +2,82 @@
   <div class="page-grid">
     <section class="panel">
       <div class="panel-header">
-        <h2 class="panel-title">RAG Evaluation Comparison</h2>
-        <p class="panel-subtitle">Rank recent evaluation results by strategy, quality, and run context.</p>
+        <h2 class="panel-title">RAG 评估对比</h2>
+        <p class="panel-subtitle">按策略、质量和运行上下文对最近的评估结果排序。</p>
       </div>
 
       <div class="panel-body stack">
         <div class="evaluation-dashboard">
           <div class="dashboard-metric">
-            <span class="metric-label">Evaluations</span>
+            <span class="metric-label">评估次数</span>
             <strong>{{ summary.evaluationCount }}</strong>
           </div>
           <div class="dashboard-metric">
-            <span class="metric-label">Avg grounded</span>
+            <span class="metric-label">平均可信度</span>
             <strong>{{ formatScore(summary.averageGrounded) }}</strong>
           </div>
           <div class="dashboard-metric">
-            <span class="metric-label">Avg retrieval</span>
+            <span class="metric-label">平均检索分</span>
             <strong>{{ formatScore(summary.averageRetrieval) }}</strong>
           </div>
           <div class="dashboard-metric">
-            <span class="metric-label">Best experiment</span>
-            <strong>{{ summary.bestExperimentName ?? "pending" }}</strong>
+            <span class="metric-label">最佳实验</span>
+            <strong>{{ summary.bestExperimentName ?? "待评估" }}</strong>
           </div>
         </div>
 
         <div v-if="store.lastError" class="empty-state">{{ store.lastError }}</div>
         <div v-if="summary.evaluationCount === 0" class="empty-state">
-          No persisted RAG evaluations yet. Run an experiment evaluation first.
+          暂无已持久化的 RAG 评估记录。请先运行一次实验评估。
         </div>
 
         <div v-if="summary.evaluationCount > 0" class="comparison-filter-bar">
           <label class="form-row">
-            <span class="form-label">Strategy</span>
+            <span class="form-label">策略</span>
             <select v-model="selectedStrategy" class="input">
-              <option value="">All strategies</option>
+              <option value="">全部策略</option>
               <option v-for="strategy in strategyOptions" :key="strategy" :value="strategy">
-                {{ strategy }}
+                {{ strategyLabel(strategy) }}
               </option>
             </select>
           </label>
           <label class="form-row">
-            <span class="form-label">Experiment</span>
+            <span class="form-label">实验</span>
             <select v-model="selectedExperimentId" class="input">
-              <option value="">All experiments</option>
+              <option value="">全部实验</option>
               <option v-for="experiment in experimentOptions" :key="experiment.id" :value="experiment.id">
                 {{ experiment.name }}
               </option>
             </select>
           </label>
           <button class="button button-secondary" type="button" :disabled="!hasActiveFilters" @click="clearFilters">
-            Clear filters
+            清除筛选
           </button>
         </div>
 
         <div v-if="summary.evaluationCount > 0 && filteredRows.length === 0" class="empty-state">
-          No evaluations match the current filters.
+          当前筛选条件下没有匹配的评估记录。
         </div>
 
         <div v-if="summary.evaluationCount > 0 && filteredRows.length > 0" class="split-columns comparison-columns">
           <section class="comparison-section">
-            <h3 class="section-title">Strategy Ranking</h3>
+            <h3 class="section-title">策略排行</h3>
             <div class="comparison-list">
               <article v-for="row in strategyRows" :key="row.strategy" class="comparison-row">
                 <div class="comparison-row-main">
-                  <strong>{{ row.strategy }}</strong>
-                  <span>{{ row.count }} evals</span>
+                  <strong>{{ strategyLabel(row.strategy) }}</strong>
+                  <span>{{ row.count }} 次评估</span>
                 </div>
                 <div class="score-bars">
                   <div class="score-bar">
-                    <span>Grounded</span>
+                    <span>可信度</span>
                     <div class="score-track">
                       <div class="score-fill" :style="{ width: scoreWidth(row.averageGrounded) }" />
                     </div>
                     <strong>{{ formatScore(row.averageGrounded) }}</strong>
                   </div>
                   <div class="score-bar">
-                    <span>Retrieval</span>
+                    <span>检索分</span>
                     <div class="score-track">
                       <div class="score-fill score-fill-alt" :style="{ width: scoreWidth(row.averageRetrieval) }" />
                     </div>
@@ -85,34 +85,34 @@
                   </div>
                 </div>
                 <p class="item-meta">
-                  Latest {{ formatDate(row.latestAt) }}
-                  <span v-if="row.averageLatencyMs != null"> | avg latency {{ Math.round(row.averageLatencyMs) }}ms</span>
-                  <span v-if="row.graphMetricCount"> | graph metrics {{ row.graphMetricCount }}</span>
+                  最近 {{ formatDate(row.latestAt) }}
+                  <span v-if="row.averageLatencyMs != null"> | 平均延迟 {{ Math.round(row.averageLatencyMs) }}ms</span>
+                  <span v-if="row.graphMetricCount"> | 图谱指标 {{ row.graphMetricCount }}</span>
                 </p>
               </article>
             </div>
           </section>
 
           <section class="comparison-section">
-            <h3 class="section-title">Experiment Ranking</h3>
+            <h3 class="section-title">实验排行</h3>
             <div class="comparison-list">
               <article v-for="row in experimentRows" :key="row.experimentId" class="comparison-row">
                 <div class="comparison-row-main">
                   <strong>{{ row.experimentName }}</strong>
-                  <span>{{ row.count }} evals</span>
+                  <span>{{ row.count }} 次评估</span>
                 </div>
                 <div class="metric-list compact-metrics">
                   <div class="metric-row">
-                    <span class="metric-label">Quality</span>
+                    <span class="metric-label">质量</span>
                     <span class="metric-value">{{ formatScore(row.quality) }}</span>
                   </div>
                   <div class="metric-row">
-                    <span class="metric-label">Grounded / Retrieval</span>
+                    <span class="metric-label">可信度 / 检索分</span>
                     <span class="metric-value">{{ formatScore(row.averageGrounded) }} / {{ formatScore(row.averageRetrieval) }}</span>
                   </div>
                   <div class="metric-row">
-                    <span class="metric-label">Latest run</span>
-                    <span class="metric-value">{{ row.latestStrategy }}</span>
+                    <span class="metric-label">最近运行</span>
+                    <span class="metric-value">{{ strategyLabel(row.latestStrategy) }}</span>
                   </div>
                 </div>
               </article>
@@ -121,15 +121,15 @@
         </div>
 
         <section v-if="filteredRows.length" class="comparison-section">
-          <h3 class="section-title">Recent Evaluations</h3>
+          <h3 class="section-title">最近评估</h3>
           <div class="comparison-table">
             <div class="comparison-table-head">
-              <span>Experiment</span>
-              <span>Strategy</span>
-              <span>Question</span>
-              <span>Scores</span>
-              <span>Graph metrics</span>
-              <span>Run</span>
+              <span>实验</span>
+              <span>策略</span>
+              <span>问题</span>
+              <span>分数</span>
+              <span>图谱指标</span>
+              <span>运行</span>
             </div>
             <div v-for="evaluation in filteredRows" :key="evaluation.id" class="comparison-table-row">
               <span>
@@ -137,8 +137,8 @@
                 <small>{{ formatDate(evaluation.createdAt) }}</small>
               </span>
               <span>
-                {{ evaluation.runStrategyName ?? "unknown" }}
-                <small>{{ evaluation.runRetrieverType ?? "retriever pending" }}</small>
+                {{ strategyLabel(evaluation.runStrategyName) }}
+                <small>{{ evaluation.runRetrieverType ?? "检索器待记录" }}</small>
               </span>
               <span>{{ summarize(evaluation.runQuestion, 110) }}</span>
               <span>
@@ -150,11 +150,11 @@
                 <template v-if="graphMetricSummary(evaluation)">
                   {{ graphMetricSummary(evaluation) }}
                 </template>
-                <template v-else>None</template>
+                <template v-else>无</template>
               </span>
               <span>
                 {{ shortId(evaluation.runId) }}
-                <small>{{ evaluation.runModelName ?? "model pending" }}</small>
+                <small>{{ evaluation.runModelName ?? "模型待记录" }}</small>
               </span>
             </div>
           </div>
@@ -192,7 +192,7 @@ const summary = computed(() => store.experimentEvaluationSummary);
 const recentRows = computed(() => summary.value.recentEvaluations ?? []);
 const filteredRows = computed(() =>
   recentRows.value.filter((evaluation) =>
-    (!selectedStrategy.value || (evaluation.runStrategyName ?? "unknown") === selectedStrategy.value)
+    (!selectedStrategy.value || (evaluation.runStrategyName ?? "未知策略") === selectedStrategy.value)
     && (!selectedExperimentId.value || evaluation.experimentId === selectedExperimentId.value)
   )
 );
@@ -200,7 +200,7 @@ const filteredRows = computed(() =>
 const hasActiveFilters = computed(() => Boolean(selectedStrategy.value || selectedExperimentId.value));
 
 const strategyOptions = computed(() =>
-  [...new Set(recentRows.value.map((evaluation) => evaluation.runStrategyName ?? "unknown"))]
+  [...new Set(recentRows.value.map((evaluation) => evaluation.runStrategyName ?? "未知策略"))]
     .sort((left, right) => left.localeCompare(right))
 );
 
@@ -215,7 +215,7 @@ const experimentOptions = computed(() => {
 });
 
 const strategyRows = computed(() =>
-  aggregateRows(filteredRows.value, (evaluation) => evaluation.runStrategyName ?? "unknown")
+  aggregateRows(filteredRows.value, (evaluation) => evaluation.runStrategyName ?? "未知策略")
     .sort((left, right) => (right.quality ?? 0) - (left.quality ?? 0))
 );
 
@@ -251,7 +251,7 @@ function aggregateRows(
       averageLatencyMs: averageScore(items.map((item) => item.runLatencyMs)),
       graphMetricCount: items.filter(hasGraphRagMetricNote).length,
       latestAt: latest.createdAt,
-      latestStrategy: latest.runStrategyName ?? "unknown"
+      latestStrategy: latest.runStrategyName ?? "未知策略"
     };
   });
 }
@@ -267,8 +267,13 @@ function experimentName(id: string): string {
 }
 
 function formatScore(value?: number | null): string {
-  if (value == null) return "pending";
+  if (value == null) return "待评估";
   return `${Math.round(value * 100)}%`;
+}
+
+function strategyLabel(value?: string | null): string {
+  if (!value) return "未知策略";
+  return store.ragStrategyOptions.find((option) => option.value === value)?.label ?? value;
 }
 
 function scoreWidth(value?: number): string {
@@ -277,7 +282,7 @@ function scoreWidth(value?: number): string {
 }
 
 function summarize(value?: string | null, maxLength = 92): string {
-  if (!value) return "No question snapshot";
+  if (!value) return "无问题快照";
   return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 }
 

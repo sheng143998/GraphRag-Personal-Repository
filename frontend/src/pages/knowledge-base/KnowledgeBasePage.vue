@@ -2,20 +2,20 @@
   <div class="page-grid">
     <section class="panel">
       <div class="panel-header">
-        <h2 class="panel-title">Knowledge Bases</h2>
-        <p class="panel-subtitle">Create, inspect, update, and remove knowledge base records through the Spring API.</p>
+        <h2 class="panel-title">知识库管理</h2>
+        <p class="panel-subtitle">通过 Spring API 创建、查看、更新和删除知识库记录。</p>
       </div>
       <div class="panel-body stack">
         <form class="form-grid" @submit.prevent="saveKnowledgeBase">
           <div class="split-columns">
             <label class="form-row">
-              <span class="form-label">Name</span>
-              <input v-model="form.name" class="input" placeholder="Engineering notes" />
+              <span class="form-label">名称</span>
+              <input v-model="form.name" class="input" placeholder="工程笔记" />
             </label>
             <label class="form-row">
-              <span class="form-label">Default strategy</span>
+              <span class="form-label">默认策略</span>
               <select v-model="form.defaultRagStrategy" class="select">
-                <option value="">Use backend default</option>
+                <option value="">使用后端默认值</option>
                 <option v-for="option in store.ragStrategyOptions" :key="option.value" :value="option.value">
                   {{ option.label }}
                 </option>
@@ -24,16 +24,16 @@
           </div>
 
           <label class="form-row">
-            <span class="form-label">Description</span>
-            <textarea v-model="form.description" class="textarea" placeholder="What this knowledge base contains" />
+            <span class="form-label">描述</span>
+            <textarea v-model="form.description" class="textarea" placeholder="说明这个知识库收录的内容" />
           </label>
 
           <div class="button-row">
             <button class="button button-primary" type="submit" :disabled="!form.name.trim()">
-              {{ editingId ? "Save changes" : "Create knowledge base" }}
+              {{ editingId ? "保存修改" : "创建知识库" }}
             </button>
             <button v-if="editingId" class="button button-secondary" type="button" @click="resetForm">
-              Cancel edit
+              取消编辑
             </button>
           </div>
 
@@ -44,12 +44,12 @@
 
     <section class="panel">
       <div class="panel-header">
-        <h2 class="panel-title">Knowledge Base List</h2>
-        <p class="panel-subtitle">Detail refresh uses GET /api/knowledge-bases/{id}; edit and delete use the matching write APIs.</p>
+        <h2 class="panel-title">知识库列表</h2>
+        <p class="panel-subtitle">详情刷新使用 GET /api/knowledge-bases/{id}，编辑和删除使用对应写接口。</p>
       </div>
       <div class="panel-body">
         <div v-if="store.knowledgeBases.length === 0" class="empty-state">
-          No knowledge bases yet.
+          暂无知识库。
         </div>
 
         <div v-else class="item-list">
@@ -61,19 +61,19 @@
           >
             <h3 class="item-title">{{ knowledgeBase.name }}</h3>
             <div class="item-meta">
-              {{ knowledgeBase.documentCount }} documents · {{ knowledgeBase.chunkCount }} chunks · {{ formatDate(knowledgeBase.updatedAt) }}
+              {{ knowledgeBase.documentCount }} 个文档 · {{ knowledgeBase.chunkCount }} 个片段 · {{ formatDate(knowledgeBase.updatedAt) }}
             </div>
-            <p class="item-description">{{ knowledgeBase.description || "No description" }}</p>
+            <p class="item-description">{{ knowledgeBase.description || "暂无描述" }}</p>
 
             <div class="button-row" style="margin-top: 0.75rem;">
               <button class="button button-secondary" type="button" @click="selectDetail(knowledgeBase.id)">
-                Detail
+                详情
               </button>
               <button class="button button-secondary" type="button" @click="startEdit(knowledgeBase)">
-                Edit
+                编辑
               </button>
               <button class="button button-secondary" type="button" @click="removeKnowledgeBase(knowledgeBase.id)">
-                Delete
+                删除
               </button>
             </div>
           </article>
@@ -142,7 +142,7 @@ function startEdit(knowledgeBase: KnowledgeBaseSummary): void {
 }
 
 async function removeKnowledgeBase(id: string): Promise<void> {
-  const confirmed = window.confirm("Delete this knowledge base and its related records?");
+  const confirmed = window.confirm("确定删除这个知识库及其关联记录吗？");
   if (!confirmed) {
     return;
   }
@@ -158,7 +158,7 @@ async function removeKnowledgeBase(id: string): Promise<void> {
 
 function formatDate(value: string): string {
   if (!value) {
-    return "not recorded";
+    return "未记录";
   }
 
   return value.replace("T", " ").slice(0, 19);

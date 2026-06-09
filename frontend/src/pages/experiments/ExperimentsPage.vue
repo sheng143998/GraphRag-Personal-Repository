@@ -2,25 +2,25 @@
   <div class="page-grid">
     <section class="panel">
       <div class="panel-header">
-        <h2 class="panel-title">RAG Experiments</h2>
-        <p class="panel-subtitle">Create, compare, and evaluate RAG strategy runs.</p>
+        <h2 class="panel-title">RAG 实验</h2>
+        <p class="panel-subtitle">创建、对比并评估不同 RAG 策略的运行效果。</p>
         <button class="button button-primary" type="button" @click="openCreate">
-          {{ showForm && !editingId ? "Close form" : "Create experiment" }}
+          {{ showForm && !editingId ? "关闭表单" : "创建实验" }}
         </button>
       </div>
 
       <div class="panel-body stack">
         <div v-if="showForm" class="form-grid">
           <label class="form-row">
-            <span class="form-label">Name</span>
-            <input v-model="formName" class="input" placeholder="Hybrid + rerank comparison" />
+            <span class="form-label">名称</span>
+            <input v-model="formName" class="input" placeholder="混合检索与重排对比" />
           </label>
           <label class="form-row">
-            <span class="form-label">Description</span>
-            <textarea v-model="formDescription" class="textarea" placeholder="Experiment goal and observation notes" />
+            <span class="form-label">描述</span>
+            <textarea v-model="formDescription" class="textarea" placeholder="实验目标和观察记录" />
           </label>
           <label class="form-row">
-            <span class="form-label">Strategy</span>
+            <span class="form-label">策略</span>
             <select v-model="formStrategy" class="input">
               <option v-for="opt in store.ragStrategyOptions" :key="opt.value" :value="opt.value">
                 {{ opt.label }}
@@ -28,34 +28,34 @@
             </select>
           </label>
           <label class="form-row">
-            <span class="form-label">Dataset</span>
+            <span class="form-label">数据集</span>
             <input v-model="formDatasetName" class="input" placeholder="engineering-smoke" />
           </label>
           <label class="form-row">
-            <span class="form-label">Samples</span>
+            <span class="form-label">样本数</span>
             <input v-model.number="formSampleCount" class="input" type="number" min="0" />
           </label>
           <div class="form-row" style="display: flex; gap: 1rem;">
             <label style="flex: 1;">
-              <span class="form-label">Precision</span>
+              <span class="form-label">精确率</span>
               <input v-model.number="formPrecisionScore" class="input" type="number" min="0" max="1" step="0.01" />
             </label>
             <label style="flex: 1;">
-              <span class="form-label">Recall</span>
+              <span class="form-label">召回率</span>
               <input v-model.number="formRecallScore" class="input" type="number" min="0" max="1" step="0.01" />
             </label>
           </div>
           <label class="form-row">
-            <span class="form-label">Status</span>
+            <span class="form-label">状态</span>
             <select v-model="formStatus" class="input">
-              <option value="PLANNED">PLANNED</option>
-              <option value="RUNNING">RUNNING</option>
-              <option value="COMPLETED">COMPLETED</option>
+              <option value="PLANNED">计划中</option>
+              <option value="RUNNING">运行中</option>
+              <option value="COMPLETED">已完成</option>
             </select>
           </label>
           <label class="form-row">
-            <span class="form-label">Notes</span>
-            <textarea v-model="formNotes" class="textarea" placeholder="Experiment notes" />
+            <span class="form-label">备注</span>
+            <textarea v-model="formNotes" class="textarea" placeholder="实验备注" />
           </label>
           <div class="button-row">
             <button
@@ -64,31 +64,31 @@
               :disabled="store.experimentFormPending || !formName.trim()"
               @click="submitForm"
             >
-              {{ store.experimentFormPending ? "Saving..." : editingId ? "Update experiment" : "Create experiment" }}
+              {{ store.experimentFormPending ? "保存中..." : editingId ? "更新实验" : "创建实验" }}
             </button>
-            <button class="button button-secondary" type="button" @click="closeForm">Cancel</button>
+            <button class="button button-secondary" type="button" @click="closeForm">取消</button>
           </div>
           <div v-if="store.lastError" class="empty-state">{{ store.lastError }}</div>
         </div>
 
         <div v-if="store.experiments.length === 0" class="empty-state">
-          No experiment records yet.
+          暂无实验记录。
         </div>
         <div v-else class="evaluation-dashboard">
           <div class="dashboard-metric">
-            <span class="metric-label">Evaluations</span>
+            <span class="metric-label">评估次数</span>
             <strong>{{ evaluationDashboard.evaluationCount }}</strong>
           </div>
           <div class="dashboard-metric">
-            <span class="metric-label">Avg grounded</span>
+            <span class="metric-label">平均可信度</span>
             <strong>{{ formatScore(evaluationDashboard.averageGrounded) }}</strong>
           </div>
           <div class="dashboard-metric">
-            <span class="metric-label">Avg retrieval</span>
+            <span class="metric-label">平均检索分</span>
             <strong>{{ formatScore(evaluationDashboard.averageRetrieval) }}</strong>
           </div>
           <div class="dashboard-metric">
-            <span class="metric-label">Best latest</span>
+            <span class="metric-label">最新最佳</span>
             <strong>{{ evaluationDashboard.bestExperimentName }}</strong>
           </div>
         </div>
@@ -98,34 +98,34 @@
             <h3 class="item-title">{{ experiment.name }}</h3>
             <div v-if="experiment.description" class="item-meta">{{ experiment.description }}</div>
             <div class="item-meta">
-              {{ experiment.strategy }}
-              <span v-if="experiment.status"> | {{ experiment.status }}</span>
+              {{ strategyLabel(experiment.strategy) }}
+              <span v-if="experiment.status"> | {{ statusLabel(experiment.status) }}</span>
               <span v-if="experiment.datasetName"> | {{ experiment.datasetName }}</span>
-              | updated {{ experiment.updatedAt }}
+              | 更新于 {{ experiment.updatedAt }}
             </div>
 
             <div class="metric-list">
               <div class="metric-row">
-                <span class="metric-label">Precision</span>
+                <span class="metric-label">精确率</span>
                 <span class="metric-value">{{ experiment.precision ?? formatScore(experiment.precisionScore) }}</span>
               </div>
               <div class="metric-row">
-                <span class="metric-label">Recall</span>
+                <span class="metric-label">召回率</span>
                 <span class="metric-value">{{ experiment.recall ?? formatScore(experiment.recallScore) }}</span>
               </div>
               <div v-if="experiment.sampleCount != null" class="metric-row">
-                <span class="metric-label">Samples</span>
+                <span class="metric-label">样本数</span>
                 <span class="metric-value">{{ experiment.sampleCount }}</span>
               </div>
               <div v-if="experimentHistorySummary(experiment).count > 0" class="metric-row">
-                <span class="metric-label">History avg</span>
+                <span class="metric-label">历史均值</span>
                 <span class="metric-value">
                   {{ formatScore(experimentHistorySummary(experiment).averageGrounded) }}
                   / {{ formatScore(experimentHistorySummary(experiment).averageRetrieval) }}
                 </span>
               </div>
               <div v-if="experimentHistorySummary(experiment).trendLabel" class="metric-row">
-                <span class="metric-label">Latest trend</span>
+                <span class="metric-label">最新趋势</span>
                 <span class="metric-value">{{ experimentHistorySummary(experiment).trendLabel }}</span>
               </div>
             </div>
@@ -139,20 +139,20 @@
                 class="history-row"
               >
                 <div class="history-main">
-                  <span class="history-run">{{ evaluation.runStrategyName ?? experiment.strategy }}</span>
+                  <span class="history-run">{{ strategyLabel(evaluation.runStrategyName ?? experiment.strategy) }}</span>
                   <span class="item-meta">{{ formatDate(evaluation.createdAt) }}</span>
                 </div>
                 <div class="history-question">{{ summarize(evaluation.runQuestion) }}</div>
                 <div class="item-meta">
-                  grounded {{ formatScore(evaluation.groundedScore ?? undefined) }}
-                  | retrieval {{ formatScore(evaluation.retrievalScore ?? undefined) }}
+                  可信度 {{ formatScore(evaluation.groundedScore ?? undefined) }}
+                  | 检索分 {{ formatScore(evaluation.retrievalScore ?? undefined) }}
                   <span v-if="evaluationDeltaLabel(experiment, evaluation)">
                     | {{ evaluationDeltaLabel(experiment, evaluation) }}
                   </span>
                   <span v-if="evaluation.runLatencyMs != null"> | {{ evaluation.runLatencyMs }}ms</span>
                 </div>
                 <div class="item-meta">
-                  Run {{ shortId(evaluation.runId) }}
+                  运行 {{ shortId(evaluation.runId) }}
                   <span v-if="evaluation.runRetrieverType"> | {{ evaluation.runRetrieverType }}</span>
                   <span v-if="evaluation.runModelName"> | {{ evaluation.runModelName }}</span>
                 </div>
@@ -168,25 +168,25 @@
 
             <div class="form-grid" style="margin-top: 0.75rem;">
               <label class="form-row">
-                <span class="form-label">RAG run</span>
+                <span class="form-label">RAG 运行</span>
                 <select v-model="selectedRunIds[experiment.id]" class="input">
-                  <option value="">Select recent run</option>
+                  <option value="">选择最近一次运行</option>
                   <option v-for="run in store.ragRuns" :key="run.id" :value="run.id">
                     {{ runLabel(run) }}
                   </option>
                 </select>
               </label>
               <label class="form-row">
-                <span class="form-label">Expected answer</span>
+                <span class="form-label">期望答案</span>
                 <textarea
                   v-model="expectedAnswers[experiment.id]"
                   class="textarea"
-                  placeholder="Optional reference answer for evaluator"
+                  placeholder="可选：提供给评估器的参考答案"
                 />
               </label>
               <div class="structured-eval-box">
                 <div>
-                  <span class="form-label">Structured retrieval case</span>
+                  <span class="form-label">结构化检索用例</span>
                   <p class="item-meta">
                     {{ structuredCaseLabel(experiment.id) }}
                   </p>
@@ -198,7 +198,7 @@
                     :disabled="store.experimentFormPending || !selectedRunIds[experiment.id]"
                     @click="handleUseStructuredCase(experiment.id)"
                   >
-                    Use top retrieval
+                    使用首条检索结果
                   </button>
                   <button
                     class="button button-ghost"
@@ -206,7 +206,7 @@
                     :disabled="!structuredCaseFor(experiment.id)"
                     @click="clearStructuredCase(experiment.id)"
                   >
-                    Clear case
+                    清除用例
                   </button>
                 </div>
               </div>
@@ -219,10 +219,10 @@
                 :disabled="store.experimentFormPending || !selectedRunIds[experiment.id]"
                 @click="handleEvaluate(experiment.id)"
               >
-                Evaluate
+                评估
               </button>
-              <button class="button button-secondary" type="button" @click="openEdit(experiment)">Edit</button>
-              <button class="button button-ghost" type="button" @click="handleDelete(experiment.id)">Delete</button>
+              <button class="button button-secondary" type="button" @click="openEdit(experiment)">编辑</button>
+              <button class="button button-ghost" type="button" @click="handleDelete(experiment.id)">删除</button>
             </div>
           </article>
         </div>
@@ -285,7 +285,7 @@ const evaluationDashboard = computed<EvaluationDashboard>(() => {
       evaluationCount: summary.evaluationCount,
       averageGrounded: summary.averageGrounded ?? undefined,
       averageRetrieval: summary.averageRetrieval ?? undefined,
-      bestExperimentName: summary.bestExperimentName ?? "pending"
+      bestExperimentName: summary.bestExperimentName ?? "待评估"
     };
   }
 
@@ -296,7 +296,7 @@ const evaluationDashboard = computed<EvaluationDashboard>(() => {
   if (evaluations.length === 0) {
     return {
       evaluationCount: 0,
-      bestExperimentName: "pending"
+      bestExperimentName: "待评估"
     };
   }
 
@@ -314,12 +314,12 @@ const evaluationDashboard = computed<EvaluationDashboard>(() => {
     evaluationCount: evaluations.length,
     averageGrounded: averageScore(evaluations.map(({ evaluation }) => evaluation.groundedScore)),
     averageRetrieval: averageScore(evaluations.map(({ evaluation }) => evaluation.retrievalScore)),
-    bestExperimentName: best?.experiment.name ?? "pending"
+    bestExperimentName: best?.experiment.name ?? "待评估"
   };
 });
 
 function formatScore(value?: number): string {
-  if (value == null) return "pending";
+  if (value == null) return "待评估";
   return `${Math.round(value * 100)}%`;
 }
 
@@ -364,25 +364,25 @@ function graphMetricItems(evaluation: ExperimentEvaluationHistory): Array<{ labe
   const metrics = parseGraphRagMetricNote(evaluation.notes);
   if (!metrics) return [];
   return [
-    { label: "Entity", value: formatMetricPercent(metrics.entityCoverage) },
-    { label: "Relation", value: formatMetricPercent(metrics.relationshipHit) },
-    { label: "Expansion", value: formatMetricPercent(metrics.expansionTermHit) }
+    { label: "实体", value: formatMetricPercent(metrics.entityCoverage) },
+    { label: "关系", value: formatMetricPercent(metrics.relationshipHit) },
+    { label: "扩展", value: formatMetricPercent(metrics.expansionTermHit) }
   ];
 }
 
 function formatTrend(value?: number): string | undefined {
   if (value == null) return undefined;
   const sign = value >= 0 ? "+" : "";
-  return `${sign}${Math.round(value * 100)} pts`;
+  return `${sign}${Math.round(value * 100)} 点`;
 }
 
 function runLabel(run: RagRunSummary): string {
   const question = run.question.length > 64 ? `${run.question.slice(0, 64)}...` : run.question;
-  return `${run.strategyName} | ${run.status} | ${question}`;
+  return `${strategyLabel(run.strategyName)} | ${statusLabel(run.status)} | ${question}`;
 }
 
 function summarize(value?: string | null, maxLength = 92): string {
-  if (!value) return "No question snapshot";
+  if (!value) return "无问题快照";
   return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 }
 
@@ -406,10 +406,27 @@ function structuredCaseFor(experimentId: string): StructuredEvaluationCase | und
 function structuredCaseLabel(experimentId: string): string {
   const evaluationCase = structuredCaseFor(experimentId);
   if (!evaluationCase) {
-    return "Simple evaluator path. Add a case to score retrieval with recall, precision, MRR, and citation hit.";
+    return "当前使用简单评估路径。添加用例后可按召回率、精确率、MRR 和引用命中率评估检索结果。";
   }
-  const chunkId = evaluationCase.relevantChunkIds[0] ?? "pending";
-  return `${evaluationCase.evaluationCaseId} | topK=${evaluationCase.evaluationTopK} | chunk ${shortId(chunkId)}`;
+  const chunkId = evaluationCase.relevantChunkIds[0] ?? "待选择";
+  return `${evaluationCase.evaluationCaseId} | topK=${evaluationCase.evaluationTopK} | 片段 ${shortId(chunkId)}`;
+}
+
+function strategyLabel(value?: string | null): string {
+  if (!value) return "未知策略";
+  return store.ragStrategyOptions.find((option) => option.value === value)?.label ?? value;
+}
+
+function statusLabel(value?: string | null): string {
+  const labels: Record<string, string> = {
+    PLANNED: "计划中",
+    RUNNING: "运行中",
+    COMPLETED: "已完成",
+    FAILED: "失败",
+    SUCCESS: "成功",
+    ERROR: "错误"
+  };
+  return value ? labels[value] ?? value : "未知状态";
 }
 
 function resetForm(): void {
@@ -495,7 +512,7 @@ async function handleUseStructuredCase(id: string): Promise<void> {
   const detail = await store.loadRagRunDetail(runId);
   const topResult = detail?.retrievalResults?.[0];
   if (!topResult?.chunkId) {
-    store.lastError = "Selected RAG run has no retrieval result chunk for a structured evaluation case.";
+    store.lastError = "所选 RAG 运行没有可用于结构化评估用例的检索片段。";
     return;
   }
   structuredCases[id] = {
@@ -514,7 +531,7 @@ function clearStructuredCase(id: string): void {
 }
 
 async function handleDelete(id: string): Promise<void> {
-  if (!confirm("Delete this experiment?")) return;
+  if (!confirm("确定删除这个实验吗？")) return;
   await store.deleteExp(id);
 }
 

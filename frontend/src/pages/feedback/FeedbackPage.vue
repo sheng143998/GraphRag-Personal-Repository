@@ -8,15 +8,15 @@
       <div class="panel-body">
         <div class="form-grid">
           <label class="form-row">
-            <span class="form-label">关联 Run ID</span>
+            <span class="form-label">关联运行 ID</span>
             <input v-model="form.runId" class="input" placeholder="RAG 运行 UUID，可为空" />
           </label>
           <label class="form-row">
-            <span class="form-label">关联 Session ID</span>
+            <span class="form-label">关联会话 ID</span>
             <input v-model="form.sessionId" class="input" placeholder="会话 UUID，可为空" />
           </label>
           <label class="form-row">
-            <span class="form-label">关联 Message ID</span>
+            <span class="form-label">关联消息 ID</span>
             <input v-model="form.messageId" class="input" placeholder="消息 UUID，可为空" />
           </label>
           <label class="form-row">

@@ -63,10 +63,10 @@
             <h3 class="item-title">{{ entity.name }}</h3>
             <div class="item-meta">{{ entity.entityType }} · {{ entity.normalizedName }}</div>
             <div class="item-meta">
-              文档 {{ shortId(entity.documentId) }} · Chunk {{ shortId(entity.chunkId) }}
+              文档 {{ shortId(entity.documentId) }} · 片段 {{ shortId(entity.chunkId) }}
             </div>
             <div v-if="formatAliases(entity.aliases)" class="item-meta">
-              aliases: {{ formatAliases(entity.aliases) }}
+              别名：{{ formatAliases(entity.aliases) }}
             </div>
           </article>
         </div>
@@ -85,9 +85,9 @@
         <div v-else class="item-list">
           <article v-for="relationship in facts.relationships" :key="relationship.id" class="item-card">
             <h3 class="item-title">{{ relationship.sourceName }} → {{ relationship.targetName }}</h3>
-            <div class="item-meta">{{ relationship.relationType }} · confidence {{ formatConfidence(relationship.confidence) }}</div>
+            <div class="item-meta">{{ relationship.relationType }} · 置信度 {{ formatConfidence(relationship.confidence) }}</div>
             <div class="item-meta">
-              文档 {{ shortId(relationship.documentId) }} · Chunk {{ shortId(relationship.chunkId) }}
+              文档 {{ shortId(relationship.documentId) }} · 片段 {{ shortId(relationship.chunkId) }}
             </div>
           </article>
         </div>

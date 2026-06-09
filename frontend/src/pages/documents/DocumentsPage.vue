@@ -4,12 +4,12 @@
 
     <section class="panel">
       <div class="panel-header">
-        <h2 class="panel-title">Documents</h2>
-        <p class="panel-subtitle">Track processing state, inspect document detail, and remove stale uploads.</p>
+        <h2 class="panel-title">文档列表</h2>
+        <p class="panel-subtitle">跟踪处理状态、查看文档详情，并清理不再需要的上传记录。</p>
       </div>
       <div class="panel-body">
         <div v-if="store.documents.length === 0" class="empty-state">
-          No documents yet.
+          暂无文档。
         </div>
 
         <div v-else class="item-list">
@@ -21,10 +21,10 @@
           >
             <h3 class="item-title">{{ document.title }}</h3>
             <div class="item-meta">
-              {{ document.documentType }} · {{ document.fileType || "unknown" }} · {{ document.knowledgeBaseName }} · {{ formatDate(document.updatedAt) }}
+              {{ document.documentType }} · {{ document.fileType || "未知类型" }} · {{ document.knowledgeBaseName }} · {{ formatDate(document.updatedAt) }}
             </div>
             <p class="item-description">
-              {{ document.fileName }} · {{ document.chunkCount ?? 0 }} chunks · {{ parserLabel(document) }}
+              {{ document.fileName }} · {{ document.chunkCount ?? 0 }} 个片段 · {{ parserLabel(document) }}
             </p>
             <span class="status-pill" :class="statusClass(document.status)">
               <span v-if="document.status === 'PROCESSING'" class="processing-spinner"></span>
@@ -33,10 +33,10 @@
 
             <div class="button-row" style="margin-top: 0.75rem;">
               <button class="button button-secondary" type="button" @click="loadDetail(document.id)">
-                Detail
+                详情
               </button>
               <button class="button button-secondary" type="button" @click="deleteSelected(document.id)">
-                Delete
+                删除
               </button>
             </div>
           </article>
@@ -46,24 +46,24 @@
 
     <section v-if="selectedDocument" class="panel">
       <div class="panel-header">
-        <h2 class="panel-title">Document Detail</h2>
+        <h2 class="panel-title">文档详情</h2>
         <p class="panel-subtitle">{{ selectedDocument.title }}</p>
       </div>
       <div class="panel-body stack">
         <div class="summary-grid">
           <div class="summary-card">
-            <span class="summary-label">Status</span>
-            <span class="summary-value">{{ selectedDocument.status }}</span>
+            <span class="summary-label">状态</span>
+            <span class="summary-value">{{ statusLabel(selectedDocument.status) }}</span>
             <span class="summary-hint">{{ formatDate(selectedDocument.updatedAt) }}</span>
           </div>
           <div class="summary-card">
-            <span class="summary-label">Chunks</span>
+            <span class="summary-label">片段</span>
             <span class="summary-value">{{ selectedDocument.chunkCount ?? selectedDocument.chunks?.length ?? 0 }}</span>
             <span class="summary-hint">{{ parserLabel(selectedDocument) }}</span>
           </div>
           <div class="summary-card">
-            <span class="summary-label">Source</span>
-            <span class="summary-value">{{ selectedDocument.sourceType || "unknown" }}</span>
+            <span class="summary-label">来源</span>
+            <span class="summary-value">{{ selectedDocument.sourceType || "未知来源" }}</span>
             <span class="summary-hint">{{ selectedDocument.sourcePath || selectedDocument.fileName }}</span>
           </div>
         </div>
@@ -72,17 +72,17 @@
         <pre v-if="selectedDocument.metadata" class="metadata-block">{{ selectedDocument.metadata }}</pre>
 
         <div v-if="!selectedDocument.chunks?.length" class="empty-state">
-          No chunk detail returned for this document.
+          当前文档暂无片段详情。
         </div>
 
         <div v-else class="item-list">
           <article v-for="chunk in selectedDocument.chunks" :key="chunk.id" class="item-card">
-            <h3 class="item-title">Chunk {{ chunk.chunkIndex }}{{ chunk.title ? ` · ${chunk.title}` : "" }}</h3>
+            <h3 class="item-title">片段 {{ chunk.chunkIndex }}{{ chunk.title ? ` · ${chunk.title}` : "" }}</h3>
             <div class="item-meta">
-              {{ chunk.chunkStrategy || "strategy unknown" }}
-              <span v-if="chunk.pageNumber"> · page {{ chunk.pageNumber }}</span>
-              <span v-if="chunk.sheetName"> · sheet {{ chunk.sheetName }}</span>
-              <span v-if="chunk.rowRange"> · rows {{ chunk.rowRange }}</span>
+              {{ chunk.chunkStrategy || "未知策略" }}
+              <span v-if="chunk.pageNumber"> · 第 {{ chunk.pageNumber }} 页</span>
+              <span v-if="chunk.sheetName"> · 工作表 {{ chunk.sheetName }}</span>
+              <span v-if="chunk.rowRange"> · 行 {{ chunk.rowRange }}</span>
             </div>
             <p class="item-description">{{ chunk.contentPreview }}</p>
             <pre v-if="chunk.metadata" class="metadata-block">{{ chunk.metadata }}</pre>
@@ -110,10 +110,10 @@ const statusClassMap = {
 } as const;
 
 const statusLabelMap = {
-  INDEXED: "Indexed",
-  UPLOADED: "Uploaded",
-  PROCESSING: "Processing",
-  FAILED: "Failed"
+  INDEXED: "已索引",
+  UPLOADED: "已上传",
+  PROCESSING: "处理中",
+  FAILED: "失败"
 } as const;
 
 type StatusKey = keyof typeof statusClassMap;
@@ -135,7 +135,7 @@ async function loadDetail(id: string): Promise<void> {
 }
 
 async function deleteSelected(id: string): Promise<void> {
-  const confirmed = window.confirm("Delete this document and its chunks?");
+  const confirmed = window.confirm("确定删除这个文档及其片段吗？");
   if (!confirmed) {
     return;
   }
@@ -148,7 +148,7 @@ async function deleteSelected(id: string): Promise<void> {
 
 function parserLabel(document: DocumentRecord): string {
   if (!document.parserName) {
-    return "parser not recorded";
+    return "未记录解析器";
   }
 
   return document.parserVersion ? `${document.parserName} ${document.parserVersion}` : document.parserName;
@@ -156,7 +156,7 @@ function parserLabel(document: DocumentRecord): string {
 
 function formatDate(value: string): string {
   if (!value) {
-    return "not recorded";
+    return "未记录";
   }
 
   return value.replace("T", " ").slice(0, 19);

@@ -1,9 +1,9 @@
 # 当前交接状态
-更新时间：2026-06-08
+更新时间：2026-06-09
 
 ## 当前正在做什么
 
-当前正在按用户要求执行两条主线：历史英文文档全文中文化已完成并已形成 docs-only 提交；RAG 检索选项 UI / assistant-turn `retrievalOptions` 透传改动已完成分层验证和非 Docker 全链路验证，准备单独提交。
+当前正在按用户要求补齐后端接口调用可观测性：Spring Boot 已新增统一接口调用完成日志，并补充知识库创建 / 更新 / 删除操作成功日志，便于确认前端请求是否真正进入 Java 后端。
 
 ## 当前项目完成度
 
@@ -16,15 +16,14 @@
 
 ## 当前未提交工作
 
-- 文档：历史 `docs/plans/`、`docs/reviews/`、`docs/experiments/`、`docs/testing/failures/` 已完成全文中文化；`PROJECT_CONTEXT.md`、`docs/handoff/CURRENT_STATE.md`、`docs/testing/strategy.md` 已同步为中文当前状态。
-- AI 服务：Agent 工作流在 `retrieve_and_generate` 步骤暴露 `retrieval_options_enabled` 与 `retrieval_option_keys`。
-- Spring Boot：assistant-turn / Agent bridge 新增 `retrievalOptions` 透传，仍不实现 RAG 逻辑。
-- 前端：聊天页新增混合检索预设与 LLM 查询转换开关，Pinia 状态层生成 `retrievalOptions`。
-- smoke：assistant-turn 请求新增 `retrievalOptions` 并断言 Agent 工作流收到该配置。
+- Spring Boot：`TraceIdFilter` 已记录每次接口调用完成日志，包括 method、path、status、durationMs 与 traceId。
+- Spring Boot：`KnowledgeBaseService` 已记录知识库创建、更新、删除成功日志，方便观察 CRUD 操作是否落库。
+- 文档：`PROJECT_CONTEXT.md`、`docs/handoff/CURRENT_STATE.md` 已同步到 2026-06-09 状态；新增接口调用日志计划与 review 提示文档。
 - `opencode.json` 是未跟踪文件，不纳入暂存、提交或推送。
 
 ## 已通过的近期验证
 
+- Spring Boot 编译：`mvn.cmd -q -DskipTests compile` 已通过。
 - AI 定向测试：`.\.venv\bin\python.exe -m pytest tests/test_agent_workflow.py tests/test_advanced_rag_strategy.py -q`，15 个测试通过。
 - Spring 定向测试：`mvn.cmd test "-Dtest=AgentServiceTest,AssistantTurnServiceTest"`，2 个测试通过；沙箱内 Maven 访问本地 `maven-repo` jar 可能被拒，必要时使用非沙箱运行。
 - 前端：`npm.cmd --prefix frontend run typecheck` 与 `npm.cmd --prefix frontend run build` 已通过。

@@ -12,33 +12,33 @@ import type {
 export const ragStrategyOptions: RagStrategyOption[] = [
   {
     value: "basic-rag",
-    label: "Basic RAG",
+    label: "基础 RAG",
     description: "基础向量检索与回答生成链路，适合作为策略对比基线。"
   },
   {
     value: "hybrid-rerank",
-    label: "Hybrid + Rerank",
+    label: "混合检索 + 重排",
     description: "混合语义与关键词召回后重排，适合技术笔记和开发经验。"
   },
   {
     value: "metadata-filter",
-    label: "Metadata Filter",
+    label: "元数据过滤",
     description: "按文档类型、技术栈、标签等元数据限制检索范围，适合代码片段和招聘 JD。"
   },
   {
     value: "parent-child",
-    label: "Parent-Child",
+    label: "父子片段",
     description: "先用小块精准召回，再补充父级或邻近上下文，适合项目总结。"
   },
   {
     value: "advanced-rag",
-    label: "Advanced RAG",
+    label: "进阶 RAG",
     description: "组合查询改写、多查询、metadata filter、混合召回、重排和上下文增强。"
   },
   {
     value: "graph-rag",
     label: "GraphRAG",
-    description: "Graph-enhanced retrieval with entity and relationship extraction for traceable graph context."
+    description: "通过实体和关系抽取增强检索，并提供可追踪的图谱上下文。"
   }
 ];
 
@@ -113,16 +113,16 @@ const demoSources: CitationSource[] = [
   {
     id: "src-1",
     title: "Spring 事务与隔离级别.md",
-    location: "chunk 12 · section 事务传播行为",
-    strategy: "Hybrid + Rerank",
+    location: "片段 12 · 小节 事务传播行为",
+    strategy: "混合检索 + 重排",
     score: 0.93,
     snippet: "REQUIRED 会加入已有事务；REQUIRES_NEW 会挂起外部事务并创建新事务。"
   },
   {
     id: "src-2",
     title: "RAG 实验复盘-召回失败案例.docx",
-    location: "page 3 · lesson learned",
-    strategy: "graph-rag",
+    location: "第 3 页 · 经验复盘",
+    strategy: "GraphRAG",
     score: 0.87,
     snippet: "多轮追问场景建议保留上一轮 rewritten query 与检索过滤条件。"
   }
@@ -149,7 +149,7 @@ export const mockExperiments: ExperimentRecord[] = [
   {
     id: "exp-1",
     name: "技术笔记混合检索基线",
-    strategy: "Hybrid + Rerank",
+    strategy: "混合检索 + 重排",
     precision: "0.78",
     recall: "0.84",
     createdAt: "2026-05-25T17:20:00",
@@ -159,7 +159,7 @@ export const mockExperiments: ExperimentRecord[] = [
         id: "eval-1-latest",
         experimentId: "exp-1",
         runId: "run-advanced-2",
-        runQuestion: "How does advanced RAG use metadata filters and rerank?",
+        runQuestion: "进阶 RAG 如何使用元数据过滤和重排？",
         runStrategyName: "advanced-rag",
         runRetrieverType: "hybrid",
         runModelName: "stub-llm",
@@ -167,16 +167,16 @@ export const mockExperiments: ExperimentRecord[] = [
         runCreatedAt: "2026-06-08T16:39:00",
         groundedScore: 0.86,
         retrievalScore: 0.81,
-        expectedAnswer: "Hybrid retrieval should cite rerank evidence.",
-        generatedAnswer: "Hybrid retrieval cites rerank evidence and metadata filters.",
-        notes: "Improved after metadata filter tuning.",
+        expectedAnswer: "混合检索应引用重排后的证据。",
+        generatedAnswer: "混合检索引用了重排证据和元数据过滤结果。",
+        notes: "元数据过滤调优后效果提升。",
         createdAt: "2026-06-08T16:40:00"
       },
       {
         id: "eval-1-previous",
         experimentId: "exp-1",
         runId: "run-advanced-1",
-        runQuestion: "How should hybrid rerank cite retrieval evidence?",
+        runQuestion: "混合检索重排应如何引用检索证据？",
         runStrategyName: "hybrid-rerank",
         runRetrieverType: "hybrid",
         runModelName: "stub-llm",
@@ -184,17 +184,17 @@ export const mockExperiments: ExperimentRecord[] = [
         runCreatedAt: "2026-06-08T15:39:00",
         groundedScore: 0.78,
         retrievalScore: 0.75,
-        expectedAnswer: "Hybrid retrieval should cite rerank evidence.",
-        generatedAnswer: "Hybrid retrieval cites one source.",
-        notes: "Baseline evaluation.",
+        expectedAnswer: "混合检索应引用重排后的证据。",
+        generatedAnswer: "混合检索引用了一个来源。",
+        notes: "基线评估。",
         createdAt: "2026-06-08T15:40:00"
       }
     ]
   },
   {
     id: "exp-2",
-    name: "Parent-Child 在项目复盘中的效果",
-    strategy: "Parent-Child",
+    name: "父子片段在项目复盘中的效果",
+    strategy: "父子片段",
     precision: "0.74",
     recall: "0.89",
     createdAt: "2026-05-24T22:15:00",
@@ -204,7 +204,7 @@ export const mockExperiments: ExperimentRecord[] = [
         id: "eval-2-latest",
         experimentId: "exp-2",
         runId: "run-graph-rag-1",
-        runQuestion: "How does GraphRAG use entities and relationships?",
+        runQuestion: "GraphRAG 如何使用实体和关系？",
         runStrategyName: "graph-rag",
         runRetrieverType: "hybrid",
         runModelName: "stub-llm",
@@ -212,7 +212,7 @@ export const mockExperiments: ExperimentRecord[] = [
         runCreatedAt: "2026-06-08T14:19:00",
         groundedScore: 0.74,
         retrievalScore: 0.88,
-        notes: "GraphRAG metadata scored entity_coverage=1.00, relationship_hit=1.00, expansion_term_hit=0.75.",
+        notes: "GraphRAG 元数据指标：entity_coverage=1.00, relationship_hit=1.00, expansion_term_hit=0.75。",
         createdAt: "2026-06-08T14:20:00"
       }
     ]

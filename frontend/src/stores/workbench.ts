@@ -464,7 +464,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       weakPoints.value = await fetchWeakPoints(currentSessionId.value);
       weakPointSummary.value = await fetchWeakPointSummary(currentSessionId.value);
     } catch (error) {
-      lastError.value = error instanceof Error ? error.message : "Unable to start weak point practice.";
+      lastError.value = error instanceof Error ? error.message : "无法开始薄弱点练习。";
     } finally {
       pending.value = false;
     }
@@ -627,7 +627,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     try {
       experimentEvaluationSummary.value = await fetchExperimentEvaluationSummary(limit);
     } catch (error) {
-      lastError.value = error instanceof Error ? error.message : "Unable to load experiment evaluation summary.";
+      lastError.value = error instanceof Error ? error.message : "无法加载实验评估汇总。";
     }
   }
 
@@ -636,7 +636,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     try {
       ragRuns.value = await fetchRagRuns(limit);
     } catch (error) {
-      lastError.value = error instanceof Error ? error.message : "Unable to load RAG runs.";
+      lastError.value = error instanceof Error ? error.message : "无法加载 RAG 运行记录。";
     }
   }
 
@@ -650,7 +650,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       };
       return detail;
     } catch (error) {
-      lastError.value = error instanceof Error ? error.message : "Unable to load RAG run detail.";
+      lastError.value = error instanceof Error ? error.message : "无法加载 RAG 运行详情。";
       return null;
     }
   }
@@ -681,7 +681,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       }
       await loadExperimentEvaluationSummary();
     } catch (error) {
-      lastError.value = error instanceof Error ? error.message : "Unable to evaluate experiment.";
+      lastError.value = error instanceof Error ? error.message : "无法评估实验。";
     } finally {
       experimentFormPending.value = false;
     }

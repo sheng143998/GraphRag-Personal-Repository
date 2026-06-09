@@ -144,31 +144,31 @@ function validateUpload(): string {
   const fileType = inferFileType(resolvedFileName);
 
   if (!knowledgeBaseId.value) {
-    return "Select a target knowledge base before uploading.";
+    return "上传前请选择目标知识库。";
   }
 
   if (!documentType.value) {
-    return "Select a document type.";
+    return "请选择文档类型。";
   }
 
   if (!title.value.trim()) {
-    return "Enter a document title.";
+    return "请输入文档标题。";
   }
 
   if (!resolvedFileName) {
-    return "Choose a file or enter a file name for pasted content.";
+    return "请选择文件，或为粘贴内容填写文件名。";
   }
 
   if (!ALLOWED_FILE_TYPES.has(fileType)) {
-    return `Unsupported file type: .${fileType}`;
+    return `不支持的文件类型：.${fileType}`;
   }
 
   if (selectedFile.value && selectedFile.value.size > MAX_FILE_SIZE_BYTES) {
-    return "File size must be 10 MB or less.";
+    return "文件大小不能超过 10 MB。";
   }
 
   if (!selectedFile.value && !content.value.trim()) {
-    return "Paste content when no file is selected.";
+    return "未选择文件时，请粘贴正文内容。";
   }
 
   return "";

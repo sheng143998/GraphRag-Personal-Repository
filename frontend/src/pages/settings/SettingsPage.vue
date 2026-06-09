@@ -8,11 +8,11 @@
       <div class="panel-body">
         <div class="form-grid">
           <label class="form-row">
-            <span class="form-label">API Base URL</span>
+            <span class="form-label">API 基础地址</span>
             <input v-model="local.apiBaseUrl" class="input" placeholder="/api" />
           </label>
           <label class="form-row">
-            <span class="form-label">AI Service Base URL</span>
+            <span class="form-label">AI 服务基础地址</span>
             <input v-model="local.aiServiceBaseUrl" class="input" placeholder="http://localhost:8001" />
           </label>
           <label class="form-row">
@@ -33,8 +33,8 @@
             <span class="form-label">附带 X-Trace-Id 请求头</span>
           </label>
           <div class="tag-row">
-            <span class="tag">统一 API Client</span>
-            <span class="tag">Trace Header</span>
+            <span class="tag">统一 API 客户端</span>
+            <span class="tag">追踪请求头</span>
             <span class="tag">本地持久化</span>
           </div>
           <div class="button-row">

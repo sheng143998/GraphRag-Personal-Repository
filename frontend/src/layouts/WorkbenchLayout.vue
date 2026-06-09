@@ -3,7 +3,7 @@
     <aside class="sidebar">
       <div class="brand-block">
         <div class="brand-logo">K</div>
-        <div class="brand-title">Knowledge Base</div>
+        <div class="brand-title">知识库工作台</div>
         <div class="brand-subtitle">Vue 3 + Spring Boot + FastAPI</div>
       </div>
 
@@ -31,8 +31,8 @@
           <p class="page-subtitle">{{ currentSubtitle }}</p>
         </div>
         <div class="topbar-actions">
-          <span class="status-pill status-muted">Trace {{ store.traceId }}</span>
-          <span class="status-pill status-success">{{ store.selectedStrategy }}</span>
+          <span class="status-pill status-muted">追踪 {{ store.traceId }}</span>
+          <span class="status-pill status-success">{{ selectedStrategyLabel }}</span>
         </div>
       </header>
 
@@ -65,6 +65,10 @@ const navigation: NavigationItem[] = [
 
 const currentTitle = computed(() => String(route.meta.title ?? "工作台"));
 const currentSubtitle = computed(() => String(route.meta.subtitle ?? "本地知识库问答与文档管理"));
+const selectedStrategyLabel = computed(() => {
+  const option = store.ragStrategyOptions.find((item) => item.value === store.selectedStrategy);
+  return option?.label ?? store.selectedStrategy;
+});
 
 onMounted(() => {
   void store.hydrate();

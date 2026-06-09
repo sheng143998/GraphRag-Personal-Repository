@@ -1,7 +1,7 @@
 ﻿# 本地知识库 Agent 项目上下文
 
-更新时间：2026-06-08
-项目状态：Phase 2 知识库 CRUD、文档上传 / 列表 / 详情 / 删除、Word `.docx` 解析与 MinerU PDF 解析已形成工程闭环；Phase 3 基础 RAG 已完成 Spring Boot -> FastAPI -> PostgreSQL 的本地链路；Phase 4 Advanced RAG 已覆盖 hybrid-rerank、metadata-filter、parent-child、query rewrite、multi-query、rerank、query-aware context compression、可配置混合检索权重、LLM 查询转换回退与 trace / 引用元数据；Phase 5 Agent 已完成问题分类、策略选择、assistant-turn、追问、学习计划、复习卡片与薄弱点学习闭环；Phase 6 GraphRAG 已完成确定性实体 / 关系抽取、图谱事实持久化、遍历检索、图谱指标评估与前端查看入口；Phase 7 RAG 实验评估已完成实验 CRUD、持久化 run 评估、评估历史、汇总接口、对比页、结构化评估用例与本地非 Docker 全链路 smoke；前端已保持浏览器只调用 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑；最新完成历史文档中文化 docs-only 提交，并完成 assistant-turn `retrievalOptions` 透传、聊天页混合检索预设与 LLM 查询转换开关，本地非 Docker 全链路验证 147/147 通过。
+更新时间：2026-06-09
+项目状态：Phase 2 知识库 CRUD、文档上传 / 列表 / 详情 / 删除、Word `.docx` 解析与 MinerU PDF 解析已形成工程闭环；Phase 3 基础 RAG 已完成 Spring Boot -> FastAPI -> PostgreSQL 的本地链路；Phase 4 Advanced RAG 已覆盖 hybrid-rerank、metadata-filter、parent-child、query rewrite、multi-query、rerank、query-aware context compression、可配置混合检索权重、LLM 查询转换回退与 trace / 引用元数据；Phase 5 Agent 已完成问题分类、策略选择、assistant-turn、追问、学习计划、复习卡片与薄弱点学习闭环；Phase 6 GraphRAG 已完成确定性实体 / 关系抽取、图谱事实持久化、遍历检索、图谱指标评估与前端查看入口；Phase 7 RAG 实验评估已完成实验 CRUD、持久化 run 评估、评估历史、汇总接口、对比页、结构化评估用例与本地非 Docker 全链路 smoke；前端已保持浏览器只调用 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑；最新补齐 Spring Boot 统一接口调用日志与知识库创建 / 更新 / 删除操作日志，并完成后端编译验证。
 维护规则：每次开启新的开发对话时，优先提供本文件；每完成一个阶段目标或关键任务后，必须同步更新本文件。本文件只保留项目状态、关键架构决策、当前待办和阶段级变更摘要；接口级实现细节、验证命令和失败复盘放入 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 与 `docs/handoff/`。
 
 ## 1. 项目目标
@@ -1120,6 +1120,7 @@ README 更新规则：
 - [x] 前端页面补齐：ExperimentsPage 增删改 UI、SettingsPage 可编辑+localStorage、FeedbackPage 新建、ChatPage 会话管理面板
 - [x] 前端路由补齐：/feedback 路由 + 侧边栏导航入口
 - [x] 为文档解析引入异步任务模型（上传先返回 PROCESSING，前端轮询或新增任务状态接口）
+- [x] 为 Spring Boot `/api/*` 请求补齐统一接口调用日志，并补充知识库创建 / 更新 / 删除操作日志
 - [ ] 为 Chat 问答建立单一业务接口（创建 user message → 调用 RAG → 保存 assistant message → 返回完整对话状态）
 - [x] 将 LLM / embedding / reranker adapter 从 stub 升级为真实模型调用（OpenAI-compatible adapter，已按 DashScope 文档完成小流量 smoke）
 - [x] 实现 Advanced RAG 策略（Hybrid Search、Rerank、Query Rewrite、Multi-query、Parent-Child 等；当前为工程闭环第一版）
@@ -1147,6 +1148,13 @@ README 更新规则：
 - 必要时更新目录结构、接口规划、数据库规划、迁移规范、测试策略、可观测性规范、RAG 策略规划和模块 README
 
 ## 13. 变更记录
+
+### 2026-06-09
+
+- Spring Boot `TraceIdFilter` 新增统一接口调用完成日志，覆盖 `/api/*` 请求的 method、path、status、durationMs 与 traceId，便于定位前端调用是否进入后端。
+- `KnowledgeBaseService` 新增知识库创建、更新、删除成功日志，记录 knowledgeBaseId、name、status 与 defaultRagStrategy 等关键业务字段。
+- 验证：`mvn.cmd -q -DskipTests compile` 通过。
+- 关键文档索引：`docs/plans/2026-06-09-backend-api-call-logging.md`、`docs/reviews/2026-06-09-backend-api-call-logging-review-prompt.md`、`docs/handoff/CURRENT_STATE.md`。
 
 ### 2026-06-08
 

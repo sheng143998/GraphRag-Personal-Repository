@@ -7,7 +7,7 @@ export interface GraphRagMetricNote {
 }
 
 const GRAPH_NOTE_PATTERN =
-  /GraphRAG metadata scored entity_coverage=([0-9.]+), relationship_hit=([0-9.]+), expansion_term_hit=([0-9.]+)\./;
+  /GraphRAG (?:metadata scored|元数据指标：)entity_coverage=([0-9.]+), relationship_hit=([0-9.]+), expansion_term_hit=([0-9.]+)[.。]/;
 
 export function parseGraphRagMetricNote(notes?: string | null): GraphRagMetricNote | null {
   if (!notes) return null;

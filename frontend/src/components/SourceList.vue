@@ -12,7 +12,7 @@
           class="source-item"
         >
           <h3 class="source-title">{{ source.title }}</h3>
-          <div class="source-meta">{{ source.location }} · {{ source.strategy }} · score {{ source.score }}</div>
+          <div class="source-meta">{{ source.location }} · {{ source.strategy }} · 得分 {{ source.score }}</div>
           <p class="source-snippet">{{ source.snippet }}</p>
         </article>
       </div>

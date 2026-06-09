@@ -11,10 +11,14 @@ import com.example.agentknowledge.repository.KnowledgeDocumentRepository;
 import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class KnowledgeBaseService {
+
+    private static final Logger log = LoggerFactory.getLogger(KnowledgeBaseService.class);
 
     private final KnowledgeBaseRepository knowledgeBaseRepository;
     private final KnowledgeDocumentRepository knowledgeDocumentRepository;
@@ -36,7 +40,10 @@ public class KnowledgeBaseService {
         knowledgeBase.setDescription(request.description());
         knowledgeBase.setOwnerId(request.ownerId());
         knowledgeBase.setDefaultRagStrategy(request.defaultRagStrategy());
-        return toResponse(knowledgeBaseRepository.save(knowledgeBase), 0, 0);
+        KnowledgeBase saved = knowledgeBaseRepository.save(knowledgeBase);
+        log.info("知识库创建成功: knowledgeBaseId={}, name={}, defaultRagStrategy={}",
+                saved.getId(), saved.getName(), saved.getDefaultRagStrategy());
+        return toResponse(saved, 0, 0);
     }
 
     public List<KnowledgeBaseResponse> list() {
@@ -76,6 +83,8 @@ public class KnowledgeBaseService {
         knowledgeBase = knowledgeBaseRepository.save(knowledgeBase);
         long docCount = knowledgeDocumentRepository.countByKnowledgeBase_Id(id);
         long chunkCount = documentChunkRepository.countByKnowledgeBase_Id(id);
+        log.info("知识库更新成功: knowledgeBaseId={}, name={}, status={}, defaultRagStrategy={}",
+                knowledgeBase.getId(), knowledgeBase.getName(), knowledgeBase.getStatus(), knowledgeBase.getDefaultRagStrategy());
         return toResponse(knowledgeBase, (int) docCount, (int) chunkCount);
     }
 
@@ -83,6 +92,7 @@ public class KnowledgeBaseService {
     public void delete(UUID id) {
         KnowledgeBase knowledgeBase = getReference(id);
         knowledgeBaseRepository.delete(knowledgeBase);
+        log.info("知识库删除成功: knowledgeBaseId={}, name={}", id, knowledgeBase.getName());
     }
 
     public KnowledgeBase getReference(UUID id) {
