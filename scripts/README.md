@@ -53,7 +53,9 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 - `POSTGRES_USER`
 - `POSTGRES_PASSWORD`
 - `SPRING_DATASOURCE_URL`
-- `AI_DATABASE_URL`
+- `DB_URL`
+- `DB_USERNAME`
+- `DB_PASSWORD`
 
 ## 关键脚本说明
 

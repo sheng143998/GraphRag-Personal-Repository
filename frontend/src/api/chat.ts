@@ -13,11 +13,14 @@ import type {
 } from "../types";
 import { apiRequest } from "./client";
 
+const CHAT_TIMEOUT_MS = 180000;
+
 // --- Chat Session API ---
 
-export function createChatSession(payload: ChatSessionRequest): Promise<ChatSession> {
+export function createChatSession(payload: ChatSessionRequest, traceId?: string): Promise<ChatSession> {
   return apiRequest<ChatSession>("/chat/sessions", {
     method: "POST",
+    traceId,
     body: JSON.stringify(payload),
   });
 }
@@ -35,8 +38,8 @@ export function addChatMessage(sessionId: string, payload: ChatMessageRequest): 
   });
 }
 
-export function fetchChatMessages(sessionId: string): Promise<ChatMessageRecord[]> {
-  return apiRequest<ChatMessageRecord[]>(`/chat/${sessionId}/messages`);
+export function fetchChatMessages(sessionId: string, traceId?: string): Promise<ChatMessageRecord[]> {
+  return apiRequest<ChatMessageRecord[]>(`/chat/${sessionId}/messages`, { traceId });
 }
 
 // --- RAG Query (legacy chat flow) ---
@@ -102,9 +105,11 @@ function parseAssistantCitations(value?: string | null, strategy = "agent"): Cit
   }
 }
 
-export async function sendAssistantTurn(sessionId: string, payload: ChatRequest): Promise<ChatResponse> {
+export async function sendAssistantTurn(sessionId: string, payload: ChatRequest, traceId?: string): Promise<ChatResponse> {
   const response = await apiRequest<AssistantTurnResponse>(`/chat/${sessionId}/assistant-turn`, {
     method: "POST",
+    timeoutMs: CHAT_TIMEOUT_MS,
+    traceId,
     body: JSON.stringify({
       userInput: payload.question,
       strategyName: payload.strategy,
@@ -118,8 +123,16 @@ export async function sendAssistantTurn(sessionId: string, payload: ChatRequest)
 
 function mapAssistantTurnResponse(response: AssistantTurnResponse, fallbackStrategy: string): ChatResponse {
   const strategy = response.selectedStrategyName ?? fallbackStrategy;
+  const traceId =
+    response.trace?.traceId ??
+    response.trace?.trace_id ??
+    response.ragTrace?.traceId ??
+    response.ragTrace?.trace_id ??
+    response.assistantMessage.traceId ??
+    response.userMessage.traceId ??
+    "";
   return {
-    traceId: response.trace?.traceId ?? response.assistantMessage.traceId ?? response.userMessage.traceId ?? "",
+    traceId,
     answer: response.assistantMessage.content,
     sources: parseAssistantCitations(response.assistantMessage.citations, strategy),
     userMessage: response.userMessage,
@@ -134,21 +147,24 @@ function mapAssistantTurnResponse(response: AssistantTurnResponse, fallbackStrat
   };
 }
 
-export function fetchWeakPoints(sessionId: string): Promise<LearningWeakPoint[]> {
-  return apiRequest<LearningWeakPoint[]>(`/chat/${sessionId}/weak-points`);
+export function fetchWeakPoints(sessionId: string, traceId?: string): Promise<LearningWeakPoint[]> {
+  return apiRequest<LearningWeakPoint[]>(`/chat/${sessionId}/weak-points`, { traceId });
 }
 
-export function fetchWeakPointSummary(sessionId: string): Promise<LearningWeakPointSummary> {
-  return apiRequest<LearningWeakPointSummary>(`/chat/${sessionId}/weak-points/summary`);
+export function fetchWeakPointSummary(sessionId: string, traceId?: string): Promise<LearningWeakPointSummary> {
+  return apiRequest<LearningWeakPointSummary>(`/chat/${sessionId}/weak-points/summary`, { traceId });
 }
 
 export async function practiceWeakPointTurn(
   sessionId: string,
   weakPointId: string,
-  payload: { strategyName?: string; topK?: number; userAnswer?: string | null }
+  payload: { strategyName?: string; topK?: number; userAnswer?: string | null },
+  traceId?: string
 ): Promise<WeakPointPracticeTurn> {
   return apiRequest<WeakPointPracticeTurn>(`/chat/${sessionId}/weak-points/${weakPointId}/practice-turn`, {
     method: "POST",
+    timeoutMs: CHAT_TIMEOUT_MS,
+    traceId,
     body: JSON.stringify(payload),
   });
 }
@@ -156,17 +172,21 @@ export async function practiceWeakPointTurn(
 export function updateWeakPoint(
   sessionId: string,
   weakPointId: string,
-  masteryStatus: string
+  masteryStatus: string,
+  traceId?: string
 ): Promise<LearningWeakPoint> {
   return apiRequest<LearningWeakPoint>(`/chat/${sessionId}/weak-points/${weakPointId}`, {
     method: "PATCH",
+    traceId,
     body: JSON.stringify({ masteryStatus }),
   });
 }
 
-export async function sendChatMessage(payload: ChatRequest): Promise<ChatResponse> {
+export async function sendChatMessage(payload: ChatRequest, traceId?: string): Promise<ChatResponse> {
   const response = await apiRequest<RagQueryApiResponse>("/rag/query", {
     method: "POST",
+    timeoutMs: CHAT_TIMEOUT_MS,
+    traceId,
     body: JSON.stringify({
       knowledgeBaseId: payload.knowledgeBaseId,
       sessionId: payload.sessionId,

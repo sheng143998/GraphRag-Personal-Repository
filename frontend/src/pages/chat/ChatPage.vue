@@ -135,13 +135,6 @@
                   <option value="keyword">关键词优先 35/65</option>
                 </select>
               </label>
-              <label class="form-row">
-                <span class="form-label">查询转换</span>
-                <label class="inline-toggle">
-                  <input v-model="store.enableLlmQueryTransform" type="checkbox" />
-                  <span>启用 LLM 查询改写与多查询扩展</span>
-                </label>
-              </label>
             </div>
             <div class="button-row">
               <button class="button button-primary" type="submit" :disabled="store.pending">

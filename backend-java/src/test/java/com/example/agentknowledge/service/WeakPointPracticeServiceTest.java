@@ -115,6 +115,7 @@ class WeakPointPracticeServiceTest {
                 List.of(),
                 List.of(),
                 List.of(),
+                null,
                 null
         );
         when(assistantTurnService.runTurn(org.mockito.ArgumentMatchers.eq(sessionId), org.mockito.ArgumentMatchers.any()))

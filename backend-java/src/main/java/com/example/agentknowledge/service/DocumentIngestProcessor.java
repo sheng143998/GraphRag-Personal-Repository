@@ -44,13 +44,17 @@ public class DocumentIngestProcessor {
     ) {
         TraceContext.setTraceId(traceId);
         try {
-            log.info("开始后台处理文档: documentId={}, title={}", documentId, title);
+            log.info("开始异步处理文档入库: documentId={}, knowledgeBaseId={}, title={}, fileName={}, fileType={}, traceId={}",
+                    documentId, knowledgeBaseId, title, filePayload.filename(), filePayload.fileType(), traceId);
             AiDocumentIngestRequest ingestRequest = new AiDocumentIngestRequest(
                     knowledgeBaseId, documentId, title, documentType,
                     filePayload, tags, techStack, metadata
             );
 
+            log.info("准备调用 AI 文档入库接口: documentId={}, path=/ai/ingest/document, traceId={}", documentId, traceId);
             AiDocumentIngestResponse response = aiServiceGateway.ingestDocument(ingestRequest, traceId);
+            log.info("AI 文档入库接口返回成功: documentId={}, responseDocumentId={}, chunks={}, parser={}, fileType={}, traceId={}",
+                    documentId, response.documentId(), response.chunkCount(), response.parserName(), response.fileType(), traceId);
 
             KnowledgeDocument document = documentRepository.findById(documentId).orElse(null);
             if (document != null) {
@@ -60,13 +64,13 @@ public class DocumentIngestProcessor {
                     document.setParserVersion("v1");
                 }
                 documentRepository.save(document);
-                log.info("文档后台处理完成: documentId={}, chunks={}, parser={}",
-                        documentId, response.chunkCount(), response.parserName());
+                log.info("文档异步入库完成，状态已更新为 INDEXED: documentId={}, chunks={}, parser={}, traceId={}",
+                        documentId, response.chunkCount(), response.parserName(), traceId);
             } else {
-                log.warn("后台处理完成但未找到文档记录: documentId={}", documentId);
+                log.warn("AI 入库已完成，但 Java 文档记录不存在，无法更新状态: documentId={}, traceId={}", documentId, traceId);
             }
         } catch (Exception e) {
-            log.error("文档后台处理失败: documentId={}", documentId, e);
+            log.error("文档异步入库失败: documentId={}, traceId={}", documentId, traceId, e);
             KnowledgeDocument document = documentRepository.findById(documentId).orElse(null);
             if (document != null) {
                 document.setStatus("FAILED");
@@ -76,6 +80,9 @@ public class DocumentIngestProcessor {
                 }
                 document.setSummary("解析失败: " + (errorMsg != null ? errorMsg : "未知错误"));
                 documentRepository.save(document);
+                log.info("文档状态已更新为 FAILED: documentId={}, traceId={}", documentId, traceId);
+            } else {
+                log.warn("文档异步入库失败，但 Java 文档记录不存在，无法写入 FAILED 状态: documentId={}, traceId={}", documentId, traceId);
             }
         } finally {
             TraceContext.clear();

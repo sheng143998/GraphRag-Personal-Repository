@@ -97,7 +97,8 @@ class RagServiceTest {
                                 "stub-llm",
                                 "completed",
                                 12.4,
-                                Map.of("rewritten_query", "advanced rag retrieval augmented generation rerank")
+                                Map.of("rewritten_query", "advanced rag retrieval augmented generation rerank"),
+                                List.of(Map.of("name", "query_rewrite", "status", "completed"))
                         )
                 )
         );
@@ -125,8 +126,14 @@ class RagServiceTest {
 
         ArgumentCaptor<RagRun> runCaptor = ArgumentCaptor.forClass(RagRun.class);
         verify(ragRunRepository, org.mockito.Mockito.atLeast(2)).save(runCaptor.capture());
-        assertThat(runCaptor.getAllValues().getLast().getRewrittenQuery())
+        RagRun completedRun = runCaptor.getAllValues().getLast();
+        assertThat(completedRun.getRewrittenQuery())
                 .isEqualTo("advanced rag retrieval augmented generation rerank");
+        assertThat(completedRun.getTraceAttributes()).containsEntry(
+                "rewritten_query",
+                "advanced rag retrieval augmented generation rerank"
+        );
+        assertThat(completedRun.getTraceSteps()).hasSize(1);
 
         ArgumentCaptor<List<RagRetrievalResult>> retrievalResults = ArgumentCaptor.forClass(List.class);
         verify(ragRetrievalResultRepository).saveAll(retrievalResults.capture());
@@ -193,7 +200,8 @@ class RagServiceTest {
                                 "stub-llm",
                                 "completed",
                                 5.0,
-                                Map.of()
+                                Map.of(),
+                                List.of()
                         )
                 )
         );

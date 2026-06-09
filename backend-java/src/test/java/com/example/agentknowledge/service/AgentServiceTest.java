@@ -44,7 +44,21 @@ class AgentServiceTest {
                 "stub-llm",
                 "completed",
                 12.0,
-                Map.of("question_type", "implementation")
+                Map.of("question_type", "implementation"),
+                List.of()
+        );
+        AiTraceMetadata ragTrace = new AiTraceMetadata(
+                "trace-agent",
+                "rag-run-agent",
+                "rag_query",
+                "advanced-rag",
+                "rag_answer",
+                "v1",
+                "stub-llm",
+                "completed",
+                10.0,
+                Map.of("rewritten_query", "rerank implementation"),
+                List.of(Map.of("name", "query_rewrite", "status", "completed"))
         );
         when(aiServiceGateway.invokeAgent(org.mockito.ArgumentMatchers.any(AiAgentInvokeRequest.class), eq("trace-agent")))
                 .thenReturn(new AiAgentInvokeResponse(
@@ -70,7 +84,8 @@ class AgentServiceTest {
                                 "Selected a strategy.",
                                 Map.of("selected_strategy_name", "advanced-rag")
                         )),
-                        trace
+                        trace,
+                        ragTrace
                 ));
 
         var response = agentService.invoke(new AgentInvokeRequest(
@@ -82,7 +97,7 @@ class AgentServiceTest {
                 null,
                 null,
                 null,
-                Map.of("enableLlmQueryTransform", true, "vectorWeight", 0.6, "keywordWeight", 0.4),
+                Map.of("vectorWeight", 0.6, "keywordWeight", 0.4),
                 null
         ));
 
@@ -96,7 +111,6 @@ class AgentServiceTest {
         assertThat(request.context().knowledgeBaseId()).isEqualTo(knowledgeBaseId);
         assertThat(request.context().metadataFilters()).isEmpty();
         assertThat(request.context().retrievalOptions())
-                .containsEntry("enableLlmQueryTransform", true)
                 .containsEntry("vectorWeight", 0.6)
                 .containsEntry("keywordWeight", 0.4);
         assertThat(response.selectedStrategyName()).isEqualTo("advanced-rag");
@@ -108,5 +122,7 @@ class AgentServiceTest {
         assertThat(response.reviewCards().get(0).expectedAnswer()).contains("end-to-end");
         assertThat(response.workflowSteps()).hasSize(1);
         assertThat(response.workflowSteps().get(0).payload()).containsEntry("selected_strategy_name", "advanced-rag");
+        assertThat(response.trace()).isEqualTo(trace);
+        assertThat(response.ragTrace()).isEqualTo(ragTrace);
     }
 }

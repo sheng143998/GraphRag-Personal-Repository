@@ -24,6 +24,7 @@ public class AssistantTurnService {
     private final ChatMessageRepository chatMessageRepository;
     private final AgentService agentService;
     private final LearningWeakPointService learningWeakPointService;
+    private final RagRunRecorder ragRunRecorder;
     private final ObjectMapper objectMapper;
 
     public AssistantTurnService(
@@ -31,12 +32,14 @@ public class AssistantTurnService {
             ChatMessageRepository chatMessageRepository,
             AgentService agentService,
             LearningWeakPointService learningWeakPointService,
+            RagRunRecorder ragRunRecorder,
             ObjectMapper objectMapper
     ) {
         this.chatService = chatService;
         this.chatMessageRepository = chatMessageRepository;
         this.agentService = agentService;
         this.learningWeakPointService = learningWeakPointService;
+        this.ragRunRecorder = ragRunRecorder;
         this.objectMapper = objectMapper;
     }
 
@@ -66,6 +69,17 @@ public class AssistantTurnService {
                 agentResponse.output(),
                 serializeCitations(agentResponse)
         );
+        ragRunRecorder.recordAgentRagRun(
+                session,
+                userMessage,
+                session.getKnowledgeBase(),
+                request.userInput(),
+                agentResponse.output(),
+                agentResponse.selectedStrategyName(),
+                agentResponse.citations(),
+                agentResponse.trace(),
+                agentResponse.ragTrace()
+        );
         java.util.List<LearningWeakPointResponse> weakPoints = learningWeakPointService.recordReviewCards(
                 session,
                 assistantMessage,
@@ -83,7 +97,8 @@ public class AssistantTurnService {
                 agentResponse.reviewCards(),
                 weakPoints,
                 agentResponse.workflowSteps(),
-                agentResponse.trace()
+                agentResponse.trace(),
+                agentResponse.ragTrace()
         );
     }
 

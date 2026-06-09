@@ -250,14 +250,14 @@
 - UI 改动复用持久化 Spring Boot 评估历史；没有新增浏览器到 FastAPI 的调用。
 - 本地全链路 smoke 脚本 保持通过。
 
-## 2026-06-08 LLM 查询转换回退验证
+## 2026-06-08 LLM 查询转换验证
 
-- AI 侧 pytest 覆盖按请求开启的 LLM 查询改写 / 多查询扩展，以及无效输出回退到规则转换器的路径。
-- 全链路 smoke 脚本 在 Advanced RAG 查询中启用 `retrievalOptions.enableLlmQueryTransform`，并使用 stub LLM 输出验证回退路径保持通过。
+- AI 侧 pytest 覆盖 Advanced RAG 默认 LLM 查询改写 / 多查询扩展，以及无效输出回退到原始问题的路径。
+- 全链路 smoke 脚本 在 Advanced RAG 查询中不再发送查询转换开关，默认由 FastAPI 执行 LLM 查询转换。
 
 ## 2026-06-08 RAG 检索选项 UI 验证
 
 - Spring Boot 单元测试覆盖 assistant-turn 到 AI Agent 请求上下文的 `retrievalOptions` 透传。
 - AI 侧 pytest 覆盖 Agent 工作流在 `retrieve_and_generate` 步骤暴露检索选项可观测字段。
-- 前端类型检查 / 构建 覆盖聊天页检索预设与 LLM 查询转换开关。
+- 前端类型检查 / 构建 覆盖聊天页检索预设；LLM 查询转换不再暴露前端开关。
 - 全链路 smoke 脚本 在 assistant-turn 请求中发送 `retrievalOptions` 并断言 Agent 工作流收到该配置。

@@ -156,3 +156,82 @@
 
 - 增加基于 LLM 的 GraphRAG 抽取，并提供结构化回退。
 - 对历史页面中遗留的英文 UI 文案做一次独立中文化整理。
+
+---
+
+## 2026-06-09 文档入库处理中卡住修复
+
+- 当前已修复上传文档后前端长期显示“处理中”的主要原因：异步入库现在使用 `documentRepository.save(...)` 返回的真实文档 id，而不是保存前手动生成的 id。
+- FastAPI 返回 `POST /ai/ingest/document 200 OK` 后，Spring Boot 异步处理器可以用同一个真实 `documentId` 找到文档记录并回写 `INDEXED`。
+- `DocumentIngestProcessor` 已补充可读中文日志，覆盖异步开始、调用 AI、AI 返回、状态写回成功和失败写回。
+- 已新增 `DocumentServiceTest` 防止 id 传递问题回归。
+- 验证命令已通过：`mvn.cmd -q "-Dtest=DocumentServiceTest,DocumentIngestProcessorTest" test`。
+
+---
+
+## 2026-06-09 知识库对话 AI 调用超时修复
+
+- 用户贴出的错误根因是 `SocketTimeoutException: Read timed out`，不是 FastAPI 返回格式异常；`application/octet-stream` 是超时后 Spring 读取响应时的外层表现。
+- Spring Boot 默认 `AI_SERVICE_READ_TIMEOUT` 已从 30 秒调整为 180 秒，仍可通过环境变量覆盖。
+- 前端聊天类请求已设置 180 秒超时，覆盖 assistant-turn、旧 RAG query 与薄弱点练习。
+- `AiServiceClient.invokeAgent(...)` 已增加调用开始和成功返回日志，便于用 traceId 定位 Java -> FastAPI -> 模型服务耗时。
+- 验证命令已通过：`mvn.cmd -q -DskipTests compile`、`npm.cmd --prefix frontend run typecheck`。
+
+---
+
+## 2026-06-09 FastAPI Agent 请求日志补齐
+
+- 用户反馈 Java 后端有 `SocketTimeoutException: Read timed out`，但 Python 侧没有明显日志。
+- 已在 FastAPI `app/main.py` 增加 HTTP middleware，所有 `/ai/*` 请求都会记录 start / completed / failed、path、status、durationMs 与 `X-Trace-Id`。
+- 已在 `/ai/agent/invoke` 路由和 `AgentService` 增加 Agent 调用入口、完成、失败日志。
+- Python 新增运行日志使用 ASCII 文案，避免 Windows 控制台编码导致日志乱码。
+- 后续判断：如果 Java 再超时但 Python 没有 `AI request start`，说明请求没到当前 AI 服务；如果有 start 但没有 completed，继续看 Agent workflow / embedding / rerank / LLM 卡点。
+- 验证命令已通过：`ai-service\.venv\bin\python.exe -m py_compile ai-service\app\main.py ai-service\app\api\routes\agent.py ai-service\app\services\agent_service.py`、`mvn.cmd -q -DskipTests compile`。
+
+---
+
+## 2026-06-09 统一数据库环境变量
+
+- 用户明确要求数据库统一使用 `DB_URL=jdbc:postgresql://localhost:5432/agent_knowledge`、`DB_USERNAME=postgres`、`DB_PASSWORD=123456`。
+- `.env` 已移除 `DATABASE_URL` / `AI_DATABASE_URL` 等额外数据库 URL，仅保留统一三项和 `AI_RAG_USE_DATABASE=true`。
+- `.env.example`、Spring Boot 默认配置、AI 服务配置和 README 已同步为统一三项。
+- AI 服务现在从 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` 推导 Python PostgreSQL URL，验证为 `PostgresDocumentRepository`。
+- 修复后需重启 AI 服务；之前上传但只写到内存仓库的旧文档 chunks / embeddings 不会自动补回，需要重新上传或重建入库。
+
+---
+
+## 2026-06-09 全链路 TraceId 统一
+
+- FastAPI `TraceBuilder` 现在复用 HTTP middleware 写入的 request trace id，Spring Boot 转发过来的 `X-Trace-Id` 会贯穿 Agent trace 与嵌套 RAG trace。
+- FastAPI 直接被调用且没有 `X-Trace-Id` 时，middleware 会生成 trace id 并写回响应头。
+- 前端知识库对话在一次提问、会话加载、薄弱点评估和薄弱点练习动作中复用同一个客户端 trace id，后续 `messages`、`weak-points`、`weak-points/summary` 刷新请求也会带同一个请求头。
+- 验证已通过：`python -m compileall app`、`uv run --isolated --with pytest --with fastapi==0.95.2 --with pydantic==1.10.26 pytest tests/test_agent_workflow.py -q`、`npm run typecheck`、`mvn.cmd -q -DskipTests compile`。
+- 关键文档：`docs/plans/2026-06-09-unified-trace-id.md`、`docs/reviews/2026-06-09-unified-trace-id-review-prompt.md` 与 `docs/testing/failures/2026-06-09-unified-trace-id-notes.md`。
+
+---
+
+## 2026-06-09 Agent RAG Run 持久化
+
+- FastAPI Agent 响应新增 `rag_trace`，包含内部 RAG query 的 trace id、run id、attributes 和 steps。
+- `rag_runs` 新增 `trace_attributes`、`trace_steps` JSONB 字段，Flyway 迁移为 `V202606092045__add_rag_run_trace_payload.sql`。
+- Spring Boot assistant-turn 现在会通过 `RagRunRecorder` 把 Agent 内部 RAG run 落库，并保存 rewritten query、final context、answer、trace payload 与 top_k citation chunks。
+- 新 trace 可通过 `rag_runs.trace_id = 'chat-...'` 查询到完整 RAG run；旧 trace 只能从 `chat_messages.citations` 还原 top_k，不能自动补出历史 `rag_runs`。
+- 验证已通过：`python -m compileall app`、`uv run --isolated --with pytest --with fastapi==0.95.2 --with pydantic==1.10.26 pytest tests/test_agent_workflow.py -q`、`npm run typecheck`、`mvn.cmd -q -DskipTests compile`、`mvn.cmd -q "-Dtest=AgentServiceTest,AssistantTurnServiceTest,RagRunRecorderTest,RagServiceTest" test`。
+- 关键文档：`docs/plans/2026-06-09-agent-rag-run-persistence.md`、`docs/reviews/2026-06-09-agent-rag-run-persistence-review-prompt.md` 与 `docs/testing/failures/2026-06-09-agent-rag-run-persistence-notes.md`。
+
+---
+
+## 2026-06-09 默认 LLM 查询改写更新
+
+- Frontend 聊天页已删除 `enableLlmQueryTransform` 开关，用户不再需要手动开启查询转换。
+- FastAPI `advanced-rag` 默认调用 LLM 执行 query rewrite 与 multi-query expansion，提示词要求从不同角度生成变体，并补充同义词、相关词、上位概念词和领域术语来增强语义覆盖。
+- 规则型 query rewrite / multi-query 类已从查询转换器中移除；LLM 输出异常时仅回退到原始问题或已成功得到的 LLM 重写问题。
+- Spring Boot 仍只负责透传业务请求和持久化 trace，不实现 RAG 查询转换逻辑。
+
+---
+
+## 2026-06-09 自然化 LLM 问题重写
+
+- FastAPI `rewritten_query` prompt 已调整为输出自然、通顺、完整的主问题，避免关键词堆砌。
+- 同义词、相关词、上位概念词和领域术语扩展由 `multi_query_expand` 的 query variants 承担。
+- AI 测试新增 prompt 约束断言，确认主重写问题不再鼓励 standalone keyword list。

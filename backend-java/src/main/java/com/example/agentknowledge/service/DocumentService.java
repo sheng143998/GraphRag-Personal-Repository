@@ -15,10 +15,14 @@ import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class DocumentService {
+
+    private static final Logger log = LoggerFactory.getLogger(DocumentService.class);
 
     private final KnowledgeDocumentRepository knowledgeDocumentRepository;
     private final DocumentChunkRepository documentChunkRepository;
@@ -47,6 +51,9 @@ public class DocumentService {
 
         KnowledgeDocument document = createInitialDocument(request, knowledgeBase, documentId, fileType);
         document = knowledgeDocumentRepository.save(document);
+        UUID persistedDocumentId = document.getId();
+        log.info("文档元数据已保存，准备提交异步入库任务: documentId={}, knowledgeBaseId={}, title={}, fileName={}, fileType={}",
+                persistedDocumentId, knowledgeBase.getId(), request.title(), request.fileName(), fileType);
 
         AiDocumentIngestRequest.FilePayload filePayload = new AiDocumentIngestRequest.FilePayload(
                 request.fileName(),
@@ -60,7 +67,7 @@ public class DocumentService {
         String traceId = TraceContext.getTraceId();
 
         ingestProcessor.processAsync(
-                documentId,
+                persistedDocumentId,
                 knowledgeBase.getId(),
                 request.title(),
                 request.documentType().toLowerCase(),
@@ -70,6 +77,7 @@ public class DocumentService {
                 metadata,
                 traceId
         );
+        log.info("文档异步入库任务已提交: documentId={}, traceId={}", persistedDocumentId, traceId);
 
         return toResponse(document, 0, List.of());
     }

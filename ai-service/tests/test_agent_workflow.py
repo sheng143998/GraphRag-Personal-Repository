@@ -8,6 +8,7 @@ os.environ["EMBEDDING_PROVIDER"] = "stub"
 os.environ["RERANK_PROVIDER"] = "stub"
 
 from app.core.constants import DocumentType, FileType
+from app.core.tracing import reset_current_trace_id, set_current_trace_id
 from app.schemas.agent import AgentInvokeRequest
 from app.schemas.ingest import DocumentIngestRequest, DocumentPayload
 from app.schemas.rag import RagRequestContext
@@ -64,17 +65,41 @@ def test_agent_workflow_exposes_retrieval_options_in_retrieve_step() -> None:
             "kb-agent-options",
             "How should I implement RAG rerank code?",
             strategy_name="advanced-rag",
-            retrieval_options={"enableLlmQueryTransform": True, "vectorWeight": 0.6, "keywordWeight": 0.4},
+            retrieval_options={"vectorWeight": 0.6, "keywordWeight": 0.4},
         )
     )
 
     retrieve_step = next(step for step in response.workflow_steps if step.name == "retrieve_and_generate")
     assert retrieve_step.payload["retrieval_options_enabled"] is True
     assert retrieve_step.payload["retrieval_option_keys"] == [
-        "enableLlmQueryTransform",
         "keywordWeight",
         "vectorWeight",
     ]
+
+
+def test_agent_workflow_reuses_request_trace_id_for_nested_rag() -> None:
+    token = set_current_trace_id("trace-agent-unified")
+    try:
+        response = asyncio.run(
+            _invoke_agent(
+                "kb-agent-unified-trace",
+                "How should I implement RAG rerank code?",
+                strategy_name="advanced-rag",
+            )
+        )
+    finally:
+        reset_current_trace_id(token)
+
+    retrieve_step = next(step for step in response.workflow_steps if step.name == "retrieve_and_generate")
+    assert response.trace.trace_id == "trace-agent-unified"
+    assert response.rag_trace is not None
+    assert response.rag_trace.trace_id == "trace-agent-unified"
+    assert response.rag_trace.attributes["rewritten_query"]
+    assert response.trace.attributes["rag_trace_id"] == "trace-agent-unified"
+    assert response.trace.attributes["rag_run_id"] == response.rag_trace.run_id
+    assert response.trace.attributes["rag_rewritten_query"] == response.rag_trace.attributes["rewritten_query"]
+    assert retrieve_step.payload["rag_trace_id"] == "trace-agent-unified"
+    assert retrieve_step.payload["rag_rewritten_query"] == response.rag_trace.attributes["rewritten_query"]
 
 
 async def _invoke_agent(

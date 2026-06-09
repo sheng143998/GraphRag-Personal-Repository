@@ -109,6 +109,8 @@ public class RagService {
             run.setLatencyMs(toLongLatency(aiResponse.trace() == null ? null : aiResponse.trace().latencyMs()));
             run.setRewrittenQuery(extractRewrittenQuery(aiResponse));
             run.setFinalContext(buildFinalContext(aiResponse.citations()));
+            run.setTraceAttributes(extractTraceAttributes(aiResponse.trace()));
+            run.setTraceSteps(extractTraceSteps(aiResponse.trace()));
             run = ragRunRepository.save(run);
             saveRetrievalResults(run, aiResponse.citations(), retrieverType);
 
@@ -154,6 +156,8 @@ public class RagService {
                 run.getLatencyMs(),
                 run.getStatus(),
                 run.getErrorMessage(),
+                run.getTraceAttributes(),
+                run.getTraceSteps(),
                 run.getCreatedAt(),
                 retrievalResults
         );
@@ -246,6 +250,14 @@ public class RagService {
         }
         Object rewrittenQuery = aiResponse.trace().attributes().get("rewritten_query");
         return rewrittenQuery == null ? null : Objects.toString(rewrittenQuery, null);
+    }
+
+    private Map<String, Object> extractTraceAttributes(com.example.agentknowledge.client.dto.AiTraceMetadata trace) {
+        return trace == null || trace.attributes() == null ? Collections.emptyMap() : trace.attributes();
+    }
+
+    private List<Map<String, Object>> extractTraceSteps(com.example.agentknowledge.client.dto.AiTraceMetadata trace) {
+        return trace == null || trace.steps() == null ? List.of() : trace.steps();
     }
 
     private Long toLongLatency(Double latencyMs) {

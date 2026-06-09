@@ -32,11 +32,13 @@ class AssistantTurnServiceTest {
     private final ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
     private final AgentService agentService = mock(AgentService.class);
     private final LearningWeakPointService learningWeakPointService = mock(LearningWeakPointService.class);
+    private final RagRunRecorder ragRunRecorder = mock(RagRunRecorder.class);
     private final AssistantTurnService assistantTurnService = new AssistantTurnService(
             chatService,
             chatMessageRepository,
             agentService,
             learningWeakPointService,
+            ragRunRecorder,
             new ObjectMapper()
     );
 
@@ -64,6 +66,32 @@ class AssistantTurnServiceTest {
             }
             return message;
         });
+        AiTraceMetadata agentTrace = new AiTraceMetadata(
+                "trace-turn",
+                "agent-run",
+                "agent_invoke",
+                "advanced-rag",
+                "agent",
+                "v1",
+                "stub",
+                "completed",
+                8.0,
+                Map.of("rag_rewritten_query", "graph rag interview answer"),
+                List.of()
+        );
+        AiTraceMetadata ragTrace = new AiTraceMetadata(
+                "trace-turn",
+                "rag-run",
+                "rag_query",
+                "advanced-rag",
+                "rag_answer",
+                "v1",
+                "stub",
+                "completed",
+                6.0,
+                Map.of("rewritten_query", "graph rag interview answer"),
+                List.of(Map.of("name", "query_rewrite", "status", "completed"))
+        );
         when(agentService.invoke(any(AgentInvokeRequest.class))).thenReturn(new AgentInvokeResponse(
                 "study-agent",
                 "assistant answer",
@@ -83,7 +111,8 @@ class AssistantTurnServiceTest {
                         "medium"
                 )),
                 List.of(new AgentInvokeResponse.WorkflowStep("select_rag_strategy", "Selected strategy.", Map.of())),
-                new AiTraceMetadata("trace-turn", "agent-run", "agent_invoke", "advanced-rag", "agent", "v1", "stub", "completed", 8.0, Map.of())
+                agentTrace,
+                ragTrace
         ));
         when(learningWeakPointService.recordReviewCards(
                 any(ChatSession.class),
@@ -114,7 +143,7 @@ class AssistantTurnServiceTest {
                 null,
                 3,
                 Map.of("topic", "graph-rag"),
-                Map.of("enableLlmQueryTransform", true),
+                Map.of("vectorWeight", 0.6, "keywordWeight", 0.4),
                 Map.of("mode", "interview")
         ));
 
@@ -133,8 +162,22 @@ class AssistantTurnServiceTest {
         assertThat(agentRequest.getValue().sessionId()).isEqualTo(sessionId);
         assertThat(agentRequest.getValue().messageId()).isEqualTo(savedMessages.get(0).getId());
         assertThat(agentRequest.getValue().metadataFilters()).containsEntry("topic", "graph-rag");
-        assertThat(agentRequest.getValue().retrievalOptions()).containsEntry("enableLlmQueryTransform", true);
+        assertThat(agentRequest.getValue().retrievalOptions())
+                .containsEntry("vectorWeight", 0.6)
+                .containsEntry("keywordWeight", 0.4);
         assertThat(agentRequest.getValue().variables()).containsEntry("mode", "interview");
+
+        verify(ragRunRecorder).recordAgentRagRun(
+                any(ChatSession.class),
+                any(ChatMessage.class),
+                any(KnowledgeBase.class),
+                org.mockito.ArgumentMatchers.eq("Give me an interview answer for GraphRAG."),
+                org.mockito.ArgumentMatchers.eq("assistant answer"),
+                org.mockito.ArgumentMatchers.eq("advanced-rag"),
+                org.mockito.ArgumentMatchers.anyList(),
+                org.mockito.ArgumentMatchers.eq(agentTrace),
+                org.mockito.ArgumentMatchers.eq(ragTrace)
+        );
 
         assertThat(response.userMessage().role()).isEqualTo("user");
         assertThat(response.assistantMessage().role()).isEqualTo("assistant");
@@ -148,5 +191,6 @@ class AssistantTurnServiceTest {
         assertThat(response.weakPoints()).hasSize(1);
         assertThat(response.weakPoints().get(0).topic()).contains("60-second");
         assertThat(response.workflowSteps()).hasSize(1);
+        assertThat(response.ragTrace()).isEqualTo(ragTrace);
     }
 }

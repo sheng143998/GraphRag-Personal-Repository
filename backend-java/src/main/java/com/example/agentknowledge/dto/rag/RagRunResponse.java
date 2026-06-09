@@ -23,6 +23,8 @@ public record RagRunResponse(
         Long latencyMs,
         String status,
         String errorMessage,
+        Map<String, Object> traceAttributes,
+        List<Map<String, Object>> traceSteps,
         Instant createdAt,
         List<RetrievalResultResponse> retrievalResults
 ) {

@@ -43,3 +43,4 @@ class AgentInvokeResponse(BaseModel):
     review_cards: list[ReviewCard] = Field(default_factory=list)
     workflow_steps: list[AgentWorkflowStep] = Field(default_factory=list)
     trace: TraceMetadata
+    rag_trace: TraceMetadata | None = None

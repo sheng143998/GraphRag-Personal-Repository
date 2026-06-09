@@ -1,6 +1,7 @@
 package com.example.agentknowledge.client.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 import java.util.Map;
 
 public record AiTraceMetadata(
@@ -13,6 +14,7 @@ public record AiTraceMetadata(
         @JsonProperty("model_name") String modelName,
         String status,
         @JsonProperty("latency_ms") Double latencyMs,
-        Map<String, Object> attributes
+        Map<String, Object> attributes,
+        List<Map<String, Object>> steps
 ) {
 }

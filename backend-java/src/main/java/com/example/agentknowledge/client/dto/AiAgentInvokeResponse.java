@@ -14,7 +14,8 @@ public record AiAgentInvokeResponse(
         @JsonProperty("study_plan") StudyPlan studyPlan,
         @JsonProperty("review_cards") List<ReviewCard> reviewCards,
         @JsonProperty("workflow_steps") List<WorkflowStep> workflowSteps,
-        AiTraceMetadata trace
+        AiTraceMetadata trace,
+        @JsonProperty("rag_trace") AiTraceMetadata ragTrace
 ) {
     public record StudyPlan(
             String summary,

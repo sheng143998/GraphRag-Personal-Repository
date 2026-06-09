@@ -9,7 +9,7 @@ os.environ["RERANK_PROVIDER"] = "stub"
 
 from app.core.constants import DocumentType, FileType
 from app.db.repositories import _hybrid_weights, repository
-from app.rag.query_transformers.base import AdapterBackedQueryTransformer, RuleBasedMultiQueryExpander, RuleBasedQueryRewriter
+from app.rag.query_transformers.base import AdapterBackedQueryTransformer
 from app.schemas.common import SourceMetadata
 from app.schemas.ingest import ChunkRecord, DocumentIngestRequest, DocumentPayload
 from app.schemas.rag import RagEvaluateRequest, RagEvaluationCase, RagQueryRequest, RagRequestContext
@@ -24,8 +24,15 @@ def test_advanced_rag_applies_rewrite_filters_fusion_parent_context_and_rerank()
     assert response.citations
     assert all(source.metadata["topic"] == "advanced-rag" for source in response.citations)
     assert response.trace.attributes["rewritten_query"] != response.question
-    assert "retrieval augmented generation" in str(response.trace.attributes["rewritten_query"])
+    assert response.trace.attributes["rewritten_query"] == (
+        "How should retrieval augmented generation use metadata filters and rerank evidence?"
+    )
     assert response.trace.attributes["retrieval_options"] == {"vectorWeight": 0.6, "keywordWeight": 0.4}
+
+    rewrite_step = next(step for step in response.trace.steps if step.name == "query_rewrite")
+    expand_step = next(step for step in response.trace.steps if step.name == "multi_query_expand")
+    assert rewrite_step.payload["provider"] == "llm"
+    assert expand_step.payload["provider"] == "llm"
 
     step_statuses = {step.name: step.status for step in response.trace.steps}
     assert step_statuses["query_rewrite"] == "completed"
@@ -47,7 +54,7 @@ def test_advanced_rag_applies_rewrite_filters_fusion_parent_context_and_rerank()
     assert "Advanced RAG" in top_source.metadata["content_preview"]
 
 
-def test_advanced_rag_can_use_llm_query_transformer_when_enabled() -> None:
+def test_advanced_rag_uses_llm_query_transformer_by_default() -> None:
     response = asyncio.run(_advanced_query_with_llm_transform())
 
     rewrite_step = next(step for step in response.trace.steps if step.name == "query_rewrite")
@@ -55,26 +62,54 @@ def test_advanced_rag_can_use_llm_query_transformer_when_enabled() -> None:
 
     assert rewrite_step.payload["provider"] == "llm"
     assert expand_step.payload["provider"] == "llm"
-    assert response.trace.attributes["rewritten_query"] == "Advanced RAG metadata rerank retrieval"
-    assert "Advanced RAG metadata rerank retrieval" in expand_step.payload["queries"]
+    assert response.trace.attributes["rewritten_query"] == (
+        "How should Advanced RAG cite reranked evidence from metadata-aware retrieval?"
+    )
+    assert "Advanced RAG metadata rerank retrieval evidence" in expand_step.payload["queries"]
     assert response.citations
 
 
 def test_adapter_query_transformer_falls_back_when_llm_output_is_invalid() -> None:
-    transformer = AdapterBackedQueryTransformer(
-        llm_adapter=FakeLLMAdapter(["not parseable"]),
-        fallback_rewriter=RuleBasedQueryRewriter(),
-        fallback_expander=RuleBasedMultiQueryExpander(),
-    )
+    transformer = AdapterBackedQueryTransformer(llm_adapter=FakeLLMAdapter(["not parseable"]))
 
     rewritten, metadata = asyncio.run(transformer.rewrite(
         "How does RAG rerank?",
         context=_adapter_context("rewrite_query"),
     ))
 
-    assert metadata["provider"] == "rule-based-fallback"
+    assert metadata["provider"] == "llm"
     assert metadata["fallback_used"] is True
-    assert "retrieval augmented generation" in rewritten
+    assert metadata["fallback_strategy"] == "original_query"
+    assert rewritten == "How does RAG rerank?"
+
+
+def test_adapter_query_transformer_prompts_keep_rewrite_natural_and_expand_terms() -> None:
+    adapter = FakeLLMAdapter([
+        "REWRITTEN_QUERY: 请对比 RAG 和微调在知识更新、参数变化和适用场景上的区别。",
+        "QUERY: RAG 和微调的区别\nQUERY: Retrieval-Augmented Generation 与 Fine-tuning 对比",
+    ])
+    transformer = AdapterBackedQueryTransformer(llm_adapter=adapter)
+
+    rewritten, _ = asyncio.run(transformer.rewrite(
+        "给我讲一下rag和微调",
+        context=_adapter_context("rewrite_query"),
+    ))
+    queries, _ = asyncio.run(transformer.expand(
+        rewritten,
+        original_query="给我讲一下rag和微调",
+        max_queries=3,
+        context=_adapter_context("expand_retrieval_queries"),
+    ))
+
+    assert rewritten == "请对比 RAG 和微调在知识更新、参数变化和适用场景上的区别。"
+    assert queries == [
+        "RAG 和微调的区别",
+        "Retrieval-Augmented Generation 与 Fine-tuning 对比",
+    ]
+    assert "one fluent, natural, complete question" in adapter.prompts[0]
+    assert "do not append standalone keywords" in adapter.prompts[0]
+    assert "Put semantic expansion terms in the later multi-query variants" in adapter.prompts[0]
+    assert "synonyms, related terms, broader concepts" in adapter.prompts[1]
 
 
 def test_parent_child_context_uses_real_parent_chunk_when_available() -> None:
@@ -312,6 +347,16 @@ async def _advanced_query():
     _clear_in_memory_repository()
     ingest_service = IngestService()
     rag_service = RagService()
+    rag_service.advanced_strategy.adapter_query_transformer = AdapterBackedQueryTransformer(
+        llm_adapter=FakeLLMAdapter([
+            "REWRITTEN_QUERY: How should retrieval augmented generation use metadata filters and rerank evidence?",
+            (
+                "QUERY: How should retrieval augmented generation use metadata filters and rerank evidence?\n"
+                "QUERY: metadata filter advanced RAG rerank citation evidence\n"
+                "QUERY: hybrid retrieval query rewrite rerank"
+            ),
+        ])
+    )
 
     await ingest_service.ingest_document(
         _document(
@@ -356,11 +401,9 @@ async def _advanced_query_with_llm_transform():
     rag_service = RagService()
     rag_service.advanced_strategy.adapter_query_transformer = AdapterBackedQueryTransformer(
         llm_adapter=FakeLLMAdapter([
-            "REWRITTEN_QUERY: Advanced RAG metadata rerank retrieval",
-            "QUERY: Advanced RAG metadata rerank retrieval\nQUERY: Advanced RAG retrieval examples",
-        ]),
-        fallback_rewriter=RuleBasedQueryRewriter(),
-        fallback_expander=RuleBasedMultiQueryExpander(),
+            "REWRITTEN_QUERY: How should Advanced RAG cite reranked evidence from metadata-aware retrieval?",
+            "QUERY: Advanced RAG metadata rerank retrieval evidence\nQUERY: Advanced RAG retrieval examples",
+        ])
     )
 
     await ingest_service.ingest_document(
@@ -385,7 +428,6 @@ async def _advanced_query_with_llm_transform():
             context=RagRequestContext(
                 knowledge_base_id="kb-test-llm-transform",
                 metadata_filters={"topic": "advanced-rag"},
-                retrieval_options={"enableLlmQueryTransform": True},
             ),
         )
     )
@@ -569,8 +611,10 @@ class FakeLLMAdapter(LLMAdapter):
     def __init__(self, outputs: list[str]) -> None:
         self.outputs = outputs
         self.calls = 0
+        self.prompts: list[str] = []
 
     async def generate(self, *, prompt: str, context: AdapterCallContext) -> str:
+        self.prompts.append(prompt)
         output = self.outputs[min(self.calls, len(self.outputs) - 1)]
         self.calls += 1
         return output

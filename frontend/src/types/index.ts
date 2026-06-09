@@ -303,7 +303,13 @@ export interface AssistantTurnResponse {
   reviewCards: ReviewCard[];
   weakPoints: LearningWeakPoint[];
   workflowSteps: AgentWorkflowStep[];
-  trace?: { traceId?: string; attributes?: Record<string, unknown> } | null;
+  trace?: { traceId?: string; trace_id?: string; attributes?: Record<string, unknown> } | null;
+  ragTrace?: {
+    traceId?: string;
+    trace_id?: string;
+    attributes?: Record<string, unknown>;
+    steps?: Record<string, unknown>[];
+  } | null;
 }
 
 // --- Feedback Types ---
@@ -361,6 +367,8 @@ export interface RagRunDetail {
   latencyMs: number;
   status: string;
   errorMessage?: string | null;
+  traceAttributes?: Record<string, unknown>;
+  traceSteps?: Record<string, unknown>[];
   createdAt: string;
   retrievalResults: RetrievalResult[];
 }

@@ -1,7 +1,7 @@
 ﻿# 本地知识库 Agent 项目上下文
 
 更新时间：2026-06-09
-项目状态：Phase 2 知识库 CRUD、文档上传 / 列表 / 详情 / 删除、Word `.docx` 解析与 MinerU PDF 解析已形成工程闭环；Phase 3 基础 RAG 已完成 Spring Boot -> FastAPI -> PostgreSQL 的本地链路；Phase 4 Advanced RAG 已覆盖 hybrid-rerank、metadata-filter、parent-child、query rewrite、multi-query、rerank、query-aware context compression、可配置混合检索权重、LLM 查询转换回退与 trace / 引用元数据；Phase 5 Agent 已完成问题分类、策略选择、assistant-turn、追问、学习计划、复习卡片与薄弱点学习闭环；Phase 6 GraphRAG 已完成确定性实体 / 关系抽取、图谱事实持久化、遍历检索、图谱指标评估与前端查看入口；Phase 7 RAG 实验评估已完成实验 CRUD、持久化 run 评估、评估历史、汇总接口、对比页、结构化评估用例与本地非 Docker 全链路 smoke；前端已保持浏览器只调用 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑；最新补齐 Spring Boot 统一接口调用日志与知识库创建 / 更新 / 删除操作日志，并完成后端编译验证。
+项目状态：Phase 2 知识库 CRUD、文档上传 / 列表 / 详情 / 删除、Word `.docx` 解析与 MinerU PDF 解析已形成工程闭环；Phase 3 基础 RAG 已完成 Spring Boot -> FastAPI -> PostgreSQL 的本地链路；Phase 4 Advanced RAG 已覆盖 hybrid-rerank、metadata-filter、parent-child、query rewrite、multi-query、rerank、query-aware context compression、可配置混合检索权重、默认 LLM 查询改写 / 多查询扩展与 trace / 引用元数据；Phase 5 Agent 已完成问题分类、策略选择、assistant-turn、追问、学习计划、复习卡片、薄弱点学习闭环与 Agent 内部 RAG run 持久化；Phase 6 GraphRAG 已完成确定性实体 / 关系抽取、图谱事实持久化、遍历检索、图谱指标评估与前端查看入口；Phase 7 RAG 实验评估已完成实验 CRUD、持久化 run 评估、评估历史、汇总接口、对比页、结构化评估用例与本地非 Docker 全链路 smoke；前端已保持浏览器只调用 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑；最新已将 LLM `rewritten_query` 调整为自然通顺的主问题，语义扩展词由 `multi_query_expand` 承担。
 维护规则：每次开启新的开发对话时，优先提供本文件；每完成一个阶段目标或关键任务后，必须同步更新本文件。本文件只保留项目状态、关键架构决策、当前待办和阶段级变更摘要；接口级实现细节、验证命令和失败复盘放入 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 与 `docs/handoff/`。
 
 ## 1. 项目目标
@@ -1337,11 +1337,12 @@ README 更新规则：
 
 ---
 
-## 2026-06-08 LLM 查询转换回退更新
+## 2026-06-08 LLM 查询转换更新
 
-- Advanced RAG 支持通过 `retrievalOptions.enableLlmQueryTransform` 按请求开启基于 LLM 的查询改写与多查询扩展。
-- 规则查询改写 / 扩展仍是默认路径，也是 LLM 输出异常时的回退路径。
-- Trace 步骤会记录查询转换器 provider 与 fallback 元数据。
+- Advanced RAG 默认使用 LLM 做查询改写与多查询扩展，不再依赖前端开关。
+- 查询改写目标是生成自然、通顺、完整的主问题；同义词、相关词、上位概念词和领域术语扩展由 `multi_query_expand` 承担。
+- 规则型查询改写已移除；LLM 输出异常时只回退到原始问题或已成功得到的 LLM 重写问题。
+- Trace 步骤继续记录查询转换器 provider 与 fallback 元数据。
 - Spring Boot 继续只透传请求选项；查询转换逻辑仍由 FastAPI 负责。
 - 关键文档：`docs/plans/2026-06-08-llm-query-transform-fallback.md`、`docs/reviews/2026-06-08-llm-query-transform-fallback-review-prompt.md`、`docs/handoff/CURRENT_STATE.md` 与 `docs/testing/strategy.md`。
 
@@ -1349,8 +1350,74 @@ README 更新规则：
 
 ## 2026-06-08 RAG 检索选项 UI 更新
 
-- 聊天工作台新增混合检索权重预设与 LLM 查询转换开关。
+- 聊天工作台保留混合检索权重预设；LLM 查询改写已改为 Advanced RAG 默认行为，不再提供前端开关。
 - Spring Boot assistant-turn 链路现在透传 `retrievalOptions` 到 FastAPI Agent 上下文，仍不实现 RAG 逻辑。
 - FastAPI Agent 工作流在 `retrieve_and_generate` 步骤记录检索选项是否启用与选项 key，便于全链路 smoke 脚本 脚本验证。
 - 全链路 smoke 脚本 脚本覆盖 assistant-turn 检索选项透传。
 - 关键文档：`docs/plans/2026-06-08-rag-retrieval-options-ui.md`、`docs/reviews/2026-06-08-rag-retrieval-options-ui-review-prompt.md`、`docs/handoff/CURRENT_STATE.md` 与 `docs/testing/strategy.md`。
+
+---
+
+## 2026-06-09 自然化 LLM 问题重写
+
+- Advanced RAG 的 `rewritten_query` 现在要求 LLM 输出自然、通顺、完整的主问题，避免把同义词和相关概念词堆成关键词串。
+- `multi_query_expand` 继续负责从不同角度生成检索变体，并承载同义词、相关词、上位概念词和领域术语扩展。
+- AI 单元测试新增 prompt 约束检查，防止查询重写提示词退回关键词堆砌策略。
+- 关键文档：`docs/plans/2026-06-09-natural-rewritten-query.md`、`docs/reviews/2026-06-09-natural-rewritten-query-review-prompt.md` 与 `docs/testing/failures/2026-06-09-natural-rewritten-query-notes.md`。
+
+---
+
+## 2026-06-09 文档入库处理中卡住修复
+
+- 修复文档异步入库使用保存前 `documentId` 的问题，改为使用 `documentRepository.save(...)` 返回的真实主键，避免异步处理器查不到文档记录。
+- `DocumentIngestProcessor` 新增可读中文日志，覆盖异步任务开始、调用 AI 前、AI 返回成功、状态写回成功、失败写回失败等节点。
+- 新增 `DocumentServiceTest`，回归校验异步任务使用持久化后的文档 id。
+- 关键文档：`docs/plans/2026-06-09-document-ingest-processing-stuck.md`、`docs/reviews/2026-06-09-document-ingest-processing-stuck-review-prompt.md` 与 `docs/testing/failures/2026-06-09-document-ingest-processing-stuck-notes.md`。
+
+---
+
+## 2026-06-09 知识库对话 AI 调用超时修复
+
+- 修复知识库对话提问时 Java 后端调用 FastAPI `/ai/agent/invoke` 过早读取超时的问题，默认 `AI_SERVICE_READ_TIMEOUT` 从 30 秒调整为 180 秒。
+- 前端聊天类请求单独设置 180 秒超时，避免浏览器在 AI 返回前中断请求。
+- `AiServiceClient.invokeAgent(...)` 新增调用开始和成功返回日志，便于结合 traceId 定位 Java -> FastAPI -> 模型服务链路耗时。
+- 关键文档：`docs/plans/2026-06-09-agent-chat-timeout.md`、`docs/reviews/2026-06-09-agent-chat-timeout-review-prompt.md` 与 `docs/testing/failures/2026-06-09-agent-chat-timeout-notes.md`。
+
+---
+
+## 2026-06-09 FastAPI Agent 请求日志补齐
+
+- FastAPI 新增 HTTP middleware 日志，记录所有 AI 请求的开始、完成、失败、耗时与 `X-Trace-Id`。
+- `/ai/agent/invoke` 新增 Agent 调用入口和完成日志，AgentService 新增 workflow 开始、完成、失败日志。
+- Python 侧新增日志使用 ASCII 文案，避免 Windows 控制台编码导致排查信息乱码。
+- 关键文档：`docs/plans/2026-06-09-ai-agent-request-logging.md`、`docs/reviews/2026-06-09-ai-agent-request-logging-review-prompt.md` 与 `docs/testing/failures/2026-06-09-ai-agent-no-python-logs-notes.md`。
+
+---
+
+## 2026-06-09 统一数据库环境变量
+
+- 项目数据库配置统一使用 `DB_URL=jdbc:postgresql://localhost:5432/agent_knowledge`、`DB_USERNAME=postgres`、`DB_PASSWORD=123456`。
+- Spring Boot 默认数据库用户名 / 密码同步为 `postgres` / `123456`。
+- AI 服务不再以 `AI_DATABASE_URL` / `DATABASE_URL` 作为主要配置入口，改为从 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` 推导 PostgreSQL URL。
+- `.env.example`、AI 服务 README 和脚本 README 已同步到统一三项配置。
+- 关键文档：`docs/plans/2026-06-09-unify-db-env.md`、`docs/reviews/2026-06-09-unify-db-env-review-prompt.md` 与 `docs/testing/failures/2026-06-09-ai-service-inmemory-db-env-notes.md`。
+
+---
+
+## 2026-06-09 全链路 TraceId 统一
+
+- FastAPI `TraceBuilder` 现在优先复用请求上下文中的 `X-Trace-Id`，缺失时才生成新的 trace id；内部 `run_id` 仍保持每次操作唯一。
+- FastAPI HTTP middleware 会为直接访问 AI 服务且未携带请求头的调用生成 trace id，并在响应头回写 `X-Trace-Id`。
+- 知识库对话前端会在一次提问 / 会话加载 / 薄弱点练习动作开始时生成客户端 trace id，并在 assistant-turn 与后续刷新请求中复用。
+- Agent workflow 新增回归测试，确认 Agent trace 与嵌套 RAG trace 使用同一个 request trace id。
+- 关键文档：`docs/plans/2026-06-09-unified-trace-id.md`、`docs/reviews/2026-06-09-unified-trace-id-review-prompt.md` 与 `docs/testing/failures/2026-06-09-unified-trace-id-notes.md`。
+
+---
+
+## 2026-06-09 Agent RAG Run 持久化
+
+- FastAPI `/ai/agent/invoke` 响应新增可选 `rag_trace`，保存 Agent 内部调用 `RagService.query()` 产生的 RAG trace。
+- `rag_runs` 新增 `trace_attributes` 与 `trace_steps` JSONB 字段，用于保存 query rewrite、multi-query、retrieve、rerank 等 trace payload。
+- Spring Boot `AssistantTurnService` 在保存问答消息后，通过 `RagRunRecorder` 把 Agent 内部 RAG run、rewritten query、final context、answer 和 top_k citations 持久化到 `rag_runs` / `rag_retrieval_results`。
+- `/api/rag/runs/{id}` 现在可返回 trace attributes 和 trace steps，便于用同一个 traceId 查看知识库对话的完整 RAG 链路。
+- 关键文档：`docs/plans/2026-06-09-agent-rag-run-persistence.md`、`docs/reviews/2026-06-09-agent-rag-run-persistence-review-prompt.md` 与 `docs/testing/failures/2026-06-09-agent-rag-run-persistence-notes.md`。

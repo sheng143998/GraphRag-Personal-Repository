@@ -3,8 +3,8 @@ spring:
     name: agent-knowledge-backend
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/agent_knowledge}
-    username: ${DB_USERNAME:agent}
-    password: ${DB_PASSWORD:agent_local_password}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:123456}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -36,5 +36,5 @@ app:
   ai-service:
     base-url: ${AI_SERVICE_BASE_URL:http://localhost:8001}
     connect-timeout: ${AI_SERVICE_CONNECT_TIMEOUT:2s}
-    read-timeout: ${AI_SERVICE_READ_TIMEOUT:30s}
+    read-timeout: ${AI_SERVICE_READ_TIMEOUT:180s}
     mock-enabled: ${AI_SERVICE_MOCK_ENABLED:false}

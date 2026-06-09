@@ -15,7 +15,8 @@ public record AgentInvokeResponse(
         StudyPlan studyPlan,
         List<ReviewCard> reviewCards,
         List<WorkflowStep> workflowSteps,
-        AiTraceMetadata trace
+        AiTraceMetadata trace,
+        AiTraceMetadata ragTrace
 ) {
     public record StudyPlan(
             String summary,

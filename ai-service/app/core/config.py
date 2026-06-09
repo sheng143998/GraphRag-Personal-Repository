@@ -23,23 +23,20 @@ def _load_dotenv() -> None:
 _load_dotenv()
 
 def _build_database_url() -> str:
-    url = os.getenv("AI_DATABASE_URL") or os.getenv("DATABASE_URL")
-    if url:
-        return url
     db_url = os.getenv("DB_URL", "")
-    if not db_url:
-        return ""
-    m = re.match(r"jdbc:postgresql://([^:/]+)(?::(\d+))?/([^?]+)", db_url)
-    if not m:
-        return ""
-    host = m.group(1)
-    port = m.group(2) or "5432"
-    dbname = m.group(3)
-    user = os.getenv("DB_USERNAME", "postgres")
-    password = os.getenv("DB_PASSWORD", "")
-    if password:
-        return f"postgresql://{quote_plus(user)}:{quote_plus(password)}@{host}:{port}/{dbname}"
-    return f"postgresql://{quote_plus(user)}@{host}:{port}/{dbname}"
+    if db_url:
+        m = re.match(r"jdbc:postgresql://([^:/]+)(?::(\d+))?/([^?]+)", db_url)
+        if not m:
+            return ""
+        host = m.group(1)
+        port = m.group(2) or "5432"
+        dbname = m.group(3)
+        user = os.getenv("DB_USERNAME", "postgres")
+        password = os.getenv("DB_PASSWORD", "")
+        if password:
+            return f"postgresql://{quote_plus(user)}:{quote_plus(password)}@{host}:{port}/{dbname}"
+        return f"postgresql://{quote_plus(user)}@{host}:{port}/{dbname}"
+    return ""
 
 
 def _env_int(name: str, default: int) -> int:
@@ -60,6 +57,13 @@ def _env_float(name: str, default: float) -> float:
         return float(value)
     except ValueError:
         return default
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name, "")
+    if not value.strip():
+        return default
+    return value.lower() in {"1", "true", "yes", "on"}
 
 
 @dataclass(frozen=True)
@@ -111,7 +115,7 @@ _rerank_model = os.getenv("RERANK_MODEL") or os.getenv("DEFAULT_RERANK_MODEL") o
 
 settings = Settings(
     database_url=_build_database_url(),
-    rag_use_database=os.getenv("AI_RAG_USE_DATABASE", "true").lower() in {"1", "true", "yes", "on"},
+    rag_use_database=_env_bool("AI_RAG_USE_DATABASE", True),
     mineru_api_base_url=os.getenv("MINERU_API_BASE_URL", "https://mineru.net/api/v1/agent"),
     mineru_api_token=os.getenv("MINERU_API_TOKEN", ""),
     default_llm_model=_llm_model,

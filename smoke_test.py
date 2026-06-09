@@ -301,8 +301,7 @@ if CREATED_KB_ID:
                           "metadataFilters": {},
                           "retrievalOptions": {
                               "vectorWeight": 0.6,
-                              "keywordWeight": 0.4,
-                              "enableLlmQueryTransform": True
+                              "keywordWeight": 0.4
                           }})
     if r is not None and r.status_code == 200:
         CREATED_ADVANCED_RUN_ID = check_field("Advanced RAG runId", body, "data.runId")
@@ -732,8 +731,7 @@ if CREATED_SESSION_ID:
                           "metadataFilters": {},
                           "retrievalOptions": {
                               "vectorWeight": 0.6,
-                              "keywordWeight": 0.4,
-                              "enableLlmQueryTransform": True
+                              "keywordWeight": 0.4
                           }})
     if r is not None and r.status_code == 200:
         check_field("Assistant turn user message", body, "data.userMessage.id")
@@ -765,10 +763,7 @@ if CREATED_SESSION_ID:
             None,
         )
         retrieval_payload = retrieve_step.get("payload", {}) if isinstance(retrieve_step, dict) else {}
-        if (
-            retrieval_payload.get("retrieval_options_enabled") is True
-            and "enableLlmQueryTransform" in (retrieval_payload.get("retrieval_option_keys") or [])
-        ):
+        if retrieval_payload.get("retrieval_options_enabled") is True:
             PASS += 1
             print("  PASS  Assistant turn retrieval options reached Agent workflow")
         else:

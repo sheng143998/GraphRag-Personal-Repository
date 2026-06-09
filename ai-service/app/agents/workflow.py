@@ -5,6 +5,7 @@ from typing import Literal
 
 from app.core.tracing import TraceBuilder
 from app.schemas.agent import AgentInvokeRequest, AgentWorkflowStep, ReviewCard, StudyPlan
+from app.schemas.common import TraceMetadata
 from app.schemas.rag import RagQueryRequest
 from app.services.rag_service import RagService
 
@@ -23,6 +24,7 @@ class AgentWorkflowState:
     study_plan: StudyPlan | None = None
     review_cards: list[ReviewCard] = field(default_factory=list)
     rag_trace_id: str | None = None
+    rag_trace: TraceMetadata | None = None
     steps: list[AgentWorkflowStep] = field(default_factory=list)
 
 
@@ -95,6 +97,10 @@ class StudyAgentWorkflow:
         state.answer = rag_response.answer
         state.citations = rag_response.citations
         state.rag_trace_id = rag_response.trace.trace_id
+        state.rag_trace = rag_response.trace
+        rewritten_query = rag_response.trace.attributes.get("rewritten_query")
+        if rewritten_query:
+            trace_builder.set_attribute("rag_rewritten_query", rewritten_query)
         self._record_step(
             state,
             trace_builder,
@@ -103,6 +109,7 @@ class StudyAgentWorkflow:
             payload={
                 "rag_trace_id": rag_response.trace.trace_id,
                 "rag_run_id": rag_response.trace.run_id,
+                "rag_rewritten_query": rewritten_query,
                 "citation_count": len(rag_response.citations),
                 "retrieval_options_enabled": bool(state.request.context.retrieval_options),
                 "retrieval_option_keys": sorted(state.request.context.retrieval_options.keys()),

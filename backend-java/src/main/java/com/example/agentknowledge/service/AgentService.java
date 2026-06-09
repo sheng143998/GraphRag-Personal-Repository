@@ -48,7 +48,8 @@ public class AgentService {
                 mapStudyPlan(aiResponse.studyPlan()),
                 mapReviewCards(aiResponse.reviewCards()),
                 mapWorkflowSteps(aiResponse.workflowSteps()),
-                aiResponse.trace()
+                aiResponse.trace(),
+                aiResponse.ragTrace()
         );
     }
 

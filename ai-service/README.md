@@ -52,8 +52,9 @@ python -m venv .venv
 
 ## 环境变量说明
 
-- `AI_DATABASE_URL`：人工智能服务访问 PostgreSQL 的连接地址。
-- `DATABASE_URL`：数据库连接地址备用变量。
+- `DB_URL`：统一 PostgreSQL JDBC 连接地址，Java 后端直接使用，AI 服务会自动转换为 Python PostgreSQL URL。
+- `DB_USERNAME`：统一数据库用户名。
+- `DB_PASSWORD`：统一数据库密码。
 - `AI_RAG_USE_DATABASE`：是否使用真实数据库检索。设为 `false` 时使用内存模式，方便单元测试。
 
 真实数据库密码只放在本地环境，不写入仓库文档或测试。
@@ -123,7 +124,7 @@ Java 后端
 - 回答生成器仍返回占位答案。
 - 向量生成仍是确定性散列逻辑，不代表真实语义效果。
 - 重排器仍是占位实现，Advanced RAG 已接入该链路但排序质量取决于 adapter。
-- query rewrite 与 multi-query 当前为规则型 fallback，不依赖真实 LLM。
+- Advanced RAG 默认通过 LLM 执行 query rewrite 与 multi-query；`rewritten_query` 保持自然主问题，语义扩展由 multi-query 承担，LLM 输出无效时仅回退到原始查询。
 - MinerU PDF 解析器仍是预留位置。
 - 多格式文件解析还未完成。
 - 智能体编排还未完成。
@@ -135,14 +136,14 @@ Java 后端
 - 真实重排器接入。
 - Markdown、TXT、Word、PDF、Excel 解析。
 - MinerU PDF 解析流程。
-- 真实 LLM 驱动的查询改写、多查询检索和上下文压缩。
+- 更细粒度的查询改写提示词、查询扩展评估集和上下文压缩评估。
 - 基于真实 parent_chunk_id 的父子片段构建与检索。
 - RAG 评估与实验对比。
 
 ## 常见问题
 
 - 如果依赖安装失败，先确认 Python 版本和包源是否可用。
-- 如果数据库连接失败，检查 `AI_DATABASE_URL` 或 `DATABASE_URL`。
+- 如果数据库连接失败，检查 `.env` 中的 `DB_URL`、`DB_USERNAME` 和 `DB_PASSWORD`。
 - 如果单测需要绕过数据库，设置 `AI_RAG_USE_DATABASE=false`。
 - 如果 pgvector 写入失败，检查 EMBEDDING_DIMENSIONS 是否为 1536，并确认模型实际返回维度也是 1536。
 - 阿里百炼文本 rerank 的 OpenAI-compatible 地址应使用 https://dashscope.aliyuncs.com/compatible-api/v1，endpoint 为 /reranks。

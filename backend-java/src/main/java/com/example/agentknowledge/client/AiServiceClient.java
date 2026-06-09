@@ -14,12 +14,16 @@ import com.example.agentknowledge.common.api.TraceContext;
 import com.example.agentknowledge.config.AiServiceProperties;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 @Component
 public class AiServiceClient implements AiServiceGateway {
+
+    private static final Logger log = LoggerFactory.getLogger(AiServiceClient.class);
 
     private final RestClient restClient;
     private final AiServiceProperties properties;
@@ -56,7 +60,8 @@ public class AiServiceClient implements AiServiceGateway {
                             "mock-llm",
                             "completed",
                             15.0,
-                            Map.of()
+                            Map.of(),
+                            List.of()
                     )
             );
         }
@@ -91,7 +96,8 @@ public class AiServiceClient implements AiServiceGateway {
                             "mock-evaluator",
                             "completed",
                             8.0,
-                            Map.of()
+                            Map.of(),
+                            List.of()
                     )
             );
         }
@@ -153,18 +159,40 @@ public class AiServiceClient implements AiServiceGateway {
                             "mock-llm",
                             "completed",
                             15.0,
-                            Map.of("selected_strategy_name", request.strategyName())
+                            Map.of("selected_strategy_name", request.strategyName()),
+                            List.of()
+                    ),
+                    new AiTraceMetadata(
+                            traceId,
+                            null,
+                            "rag_query",
+                            request.strategyName(),
+                            "rag_answer",
+                            "v1",
+                            "mock-llm",
+                            "completed",
+                            12.0,
+                            Map.of("rewritten_query", request.userInput()),
+                            List.of()
                     )
             );
         }
 
-        return restClient.post()
+        log.info("准备调用 AI Agent 接口: path=/ai/agent/invoke, agentName={}, strategyName={}, topK={}, traceId={}",
+                request.agentName(), request.strategyName(), request.topK(), traceId);
+        AiAgentInvokeResponse response = restClient.post()
                 .uri("/ai/agent/invoke")
                 .header(HttpHeaders.CONTENT_TYPE, "application/json")
                 .header(TraceContext.HEADER_NAME, traceId)
                 .body(request)
                 .retrieve()
                 .body(AiAgentInvokeResponse.class);
+        log.info("AI Agent 接口返回成功: agentName={}, selectedStrategyName={}, citationCount={}, traceId={}",
+                response.agentName(),
+                response.selectedStrategyName(),
+                response.citations() == null ? 0 : response.citations().size(),
+                traceId);
+        return response;
     }
 
     @Override
@@ -185,7 +213,8 @@ public class AiServiceClient implements AiServiceGateway {
                             "mock-embedding",
                             "completed",
                             10.0,
-                            Map.of()
+                            Map.of(),
+                            List.of()
                     )
             );
         }

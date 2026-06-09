@@ -84,6 +84,14 @@ function sortByUpdatedAt<T extends { updatedAt: string }>(items: T[]): T[] {
   return [...items].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
 
+function createTraceId(prefix: string): string {
+  const randomId =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `${prefix}-${randomId}`;
+}
+
 function findLatestSources(messages: ChatMessage[]) {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     if (messages[index].sources?.length) {
@@ -185,7 +193,6 @@ export const useWorkbenchStore = defineStore("workbench", () => {
   const messages = ref<ChatMessage[]>(mockMessages);
   const settings = ref<AppSettings>(loadPersistedSettings());
   const selectedStrategy = ref(ragStrategyOptions[0].value);
-  const enableLlmQueryTransform = ref(false);
   const hybridRetrievalPreset = ref<"default" | "balanced" | "vector" | "keyword">("default");
   const traceId = ref("trace-demo-20260525-181600");
   const followUpQuestions = ref<string[]>([]);
@@ -258,6 +265,8 @@ export const useWorkbenchStore = defineStore("workbench", () => {
 
     pending.value = true;
     lastError.value = "";
+    const requestTraceId = createTraceId("chat");
+    traceId.value = requestTraceId;
 
     try {
       let sessionId = currentSessionId.value;
@@ -265,7 +274,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
         const session = await createChatSession({
           knowledgeBaseId,
           title: question.trim().slice(0, 60)
-        });
+        }, requestTraceId);
         chatSessions.value.unshift(session);
         currentSessionId.value = session.id;
         sessionId = session.id;
@@ -277,9 +286,10 @@ export const useWorkbenchStore = defineStore("workbench", () => {
         knowledgeBaseId,
         sessionId,
         retrievalOptions: buildRetrievalOptions(),
-      });
+      }, requestTraceId);
 
-      traceId.value = result.traceId;
+      const activeTraceId = result.traceId || requestTraceId;
+      traceId.value = activeTraceId;
       selectedStrategy.value = result.selectedStrategyName || selectedStrategy.value;
       followUpQuestions.value = result.followUpQuestions ?? [];
       studyPlan.value = result.studyPlan ?? null;
@@ -299,10 +309,10 @@ export const useWorkbenchStore = defineStore("workbench", () => {
 
       if (currentSessionId.value) {
         try {
-          sessionMessages.value = await fetchChatMessages(currentSessionId.value);
+          sessionMessages.value = await fetchChatMessages(currentSessionId.value, activeTraceId);
           messages.value = mapHistoryMessages(sessionMessages.value);
-          weakPoints.value = await fetchWeakPoints(currentSessionId.value);
-          weakPointSummary.value = await fetchWeakPointSummary(currentSessionId.value);
+          weakPoints.value = await fetchWeakPoints(currentSessionId.value, activeTraceId);
+          weakPointSummary.value = await fetchWeakPointSummary(currentSessionId.value, activeTraceId);
         } catch {
           // Keep the optimistic thread visible if session history refresh is unavailable.
         }
@@ -389,8 +399,10 @@ export const useWorkbenchStore = defineStore("workbench", () => {
   async function createSession(knowledgeBaseId: string, title: string): Promise<void> {
     sessionsPending.value = true;
     lastError.value = "";
+    const requestTraceId = createTraceId("chat-session");
+    traceId.value = requestTraceId;
     try {
-      const session = await createChatSession({ knowledgeBaseId, title });
+      const session = await createChatSession({ knowledgeBaseId, title }, requestTraceId);
       chatSessions.value.unshift(session);
       currentSessionId.value = session.id;
       sessionMessages.value = [];
@@ -417,12 +429,14 @@ export const useWorkbenchStore = defineStore("workbench", () => {
 
   async function loadSessionMessages(sessionId: string): Promise<void> {
     lastError.value = "";
+    const requestTraceId = createTraceId("chat-load");
+    traceId.value = requestTraceId;
     try {
-      sessionMessages.value = await fetchChatMessages(sessionId);
+      sessionMessages.value = await fetchChatMessages(sessionId, requestTraceId);
       currentSessionId.value = sessionId;
       messages.value = mapHistoryMessages(sessionMessages.value);
-      weakPoints.value = await fetchWeakPoints(sessionId);
-      weakPointSummary.value = await fetchWeakPointSummary(sessionId);
+      weakPoints.value = await fetchWeakPoints(sessionId, requestTraceId);
+      weakPointSummary.value = await fetchWeakPointSummary(sessionId, requestTraceId);
     } catch (error) {
       lastError.value = error instanceof Error ? error.message : "加载消息失败。";
     }
@@ -430,23 +444,28 @@ export const useWorkbenchStore = defineStore("workbench", () => {
 
   async function assessWeakPoint(weakPointId: string, masteryStatus: string): Promise<void> {
     if (!currentSessionId.value) return;
-    const updated = await updateWeakPoint(currentSessionId.value, weakPointId, masteryStatus);
+    const requestTraceId = createTraceId("weak-point");
+    traceId.value = requestTraceId;
+    const updated = await updateWeakPoint(currentSessionId.value, weakPointId, masteryStatus, requestTraceId);
     weakPoints.value = weakPoints.value.map((item) => (item.id === updated.id ? updated : item));
-    weakPointSummary.value = await fetchWeakPointSummary(currentSessionId.value);
+    weakPointSummary.value = await fetchWeakPointSummary(currentSessionId.value, requestTraceId);
   }
 
   async function practiceWeakPoint(weakPointId: string, userAnswer?: string): Promise<void> {
     if (!currentSessionId.value) return;
     pending.value = true;
     lastError.value = "";
+    const requestTraceId = createTraceId("weak-practice");
+    traceId.value = requestTraceId;
     try {
       const result = await practiceWeakPointTurn(currentSessionId.value, weakPointId, {
         strategyName: selectedStrategy.value,
         topK: 5,
         userAnswer: userAnswer?.trim() || undefined
-      });
+      }, requestTraceId);
       const turn = result.turn;
-      traceId.value = turn.trace?.traceId ?? turn.assistantMessage.traceId ?? turn.userMessage.traceId ?? traceId.value;
+      const activeTraceId = turn.trace?.traceId ?? turn.assistantMessage.traceId ?? turn.userMessage.traceId ?? requestTraceId;
+      traceId.value = activeTraceId;
       selectedStrategy.value = turn.selectedStrategyName || selectedStrategy.value;
       followUpQuestions.value = turn.followUpQuestions ?? [];
       studyPlan.value = turn.studyPlan ?? null;
@@ -459,10 +478,10 @@ export const useWorkbenchStore = defineStore("workbench", () => {
       if (turn.userMessage && turn.assistantMessage) {
         messages.value.push(...mapHistoryMessages([turn.userMessage, turn.assistantMessage]));
       }
-      sessionMessages.value = await fetchChatMessages(currentSessionId.value);
+      sessionMessages.value = await fetchChatMessages(currentSessionId.value, activeTraceId);
       messages.value = mapHistoryMessages(sessionMessages.value);
-      weakPoints.value = await fetchWeakPoints(currentSessionId.value);
-      weakPointSummary.value = await fetchWeakPointSummary(currentSessionId.value);
+      weakPoints.value = await fetchWeakPoints(currentSessionId.value, activeTraceId);
+      weakPointSummary.value = await fetchWeakPointSummary(currentSessionId.value, activeTraceId);
     } catch (error) {
       lastError.value = error instanceof Error ? error.message : "无法开始薄弱点练习。";
     } finally {
@@ -472,10 +491,6 @@ export const useWorkbenchStore = defineStore("workbench", () => {
 
   function buildRetrievalOptions(): Record<string, unknown> {
     const options: Record<string, unknown> = {};
-    if (enableLlmQueryTransform.value) {
-      options.enableLlmQueryTransform = true;
-    }
-
     const weights = hybridPresetWeights(hybridRetrievalPreset.value);
     if (weights) {
       options.vectorWeight = weights.vectorWeight;
@@ -719,7 +734,6 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     ragStrategyOptions,
     selectedKnowledgeBase,
     selectedStrategy,
-    enableLlmQueryTransform,
     hybridRetrievalPreset,
     settings,
     totalDocuments,

@@ -3,7 +3,7 @@ from __future__ import annotations
 from app.core.tracing import TraceBuilder
 from app.db.repositories import repository
 from app.rag.graph import RuleBasedGraphExtractor
-from app.rag.query_transformers.base import AdapterBackedQueryTransformer, RuleBasedMultiQueryExpander, RuleBasedQueryRewriter
+from app.rag.query_transformers.base import AdapterBackedQueryTransformer
 from app.rag.rerankers.base import BaseReranker
 from app.rag.retrievers.base import BaseRetriever
 from app.schemas.common import SourceMetadata
@@ -25,13 +25,7 @@ class AdvancedRagStrategy:
         self.retriever = retriever
         self.reranker = reranker
         self.embedding_adapter = embedding_adapter
-        self.query_rewriter = RuleBasedQueryRewriter()
-        self.multi_query_expander = RuleBasedMultiQueryExpander()
-        self.adapter_query_transformer = AdapterBackedQueryTransformer(
-            llm_adapter=llm_adapter,
-            fallback_rewriter=self.query_rewriter,
-            fallback_expander=self.multi_query_expander,
-        )
+        self.adapter_query_transformer = AdapterBackedQueryTransformer(llm_adapter=llm_adapter)
         self.graph_extractor = RuleBasedGraphExtractor()
 
     async def run(
@@ -53,16 +47,11 @@ class AdvancedRagStrategy:
         use_graph = strategy_name == "graph-rag"
         active_filters = filters if strategy_name in {"metadata-filter", "advanced-rag", "graph-rag"} else {}
         active_retrieval_options = retrieval_options or {}
-        use_llm_query_transform = _bool_option(
-            active_retrieval_options,
-            "enable_llm_query_transform",
-            "enableLlmQueryTransform",
-        )
         if active_retrieval_options:
             trace_builder.set_attribute("retrieval_options", active_retrieval_options)
 
         rewrite_payload: dict[str, object] = {"original_query": query}
-        if use_rewrite and use_llm_query_transform:
+        if use_rewrite:
             rewritten_query, rewrite_metadata = await self.adapter_query_transformer.rewrite(
                 query,
                 context=AdapterCallContext(
@@ -75,14 +64,14 @@ class AdvancedRagStrategy:
             )
             rewrite_payload.update(rewrite_metadata)
         else:
-            rewritten_query = self.query_rewriter.rewrite(query) if use_rewrite else query
-            rewrite_payload["provider"] = "rule-based" if use_rewrite else "none"
+            rewritten_query = query
+            rewrite_payload["provider"] = "none"
         trace_builder.set_attribute("rewritten_query", rewritten_query)
         trace_builder.add_step(
             name="query_rewrite",
             status="completed" if use_rewrite else "skipped",
             detail="Query rewrite completed." if use_rewrite else "Query rewrite is not enabled for this strategy.",
-            model_name=get_llm_model_name() if use_rewrite and use_llm_query_transform else None,
+            model_name=get_llm_model_name() if use_rewrite else None,
             payload={**rewrite_payload, "rewritten_query": rewritten_query},
         )
 
@@ -124,7 +113,7 @@ class AdvancedRagStrategy:
         )
 
         expand_payload: dict[str, object] = {}
-        if use_multi_query and use_llm_query_transform:
+        if use_multi_query:
             retrieve_queries, expand_payload = await self.adapter_query_transformer.expand(
                 rewritten_query,
                 original_query=query,
@@ -138,19 +127,15 @@ class AdvancedRagStrategy:
                 ),
             )
         else:
-            retrieve_queries = (
-                self.multi_query_expander.expand(rewritten_query, original_query=query, max_queries=3)
-                if use_multi_query
-                else [graph_query]
-            )
-            expand_payload["provider"] = "rule-based" if use_multi_query else "none"
+            retrieve_queries = [graph_query]
+            expand_payload["provider"] = "none"
         if use_rewrite and rewritten_query in retrieve_queries:
             retrieve_queries = [rewritten_query] + [item for item in retrieve_queries if item != rewritten_query]
         trace_builder.add_step(
             name="multi_query_expand",
             status="completed" if use_multi_query else "skipped",
             detail="Generated query variants." if use_multi_query else "Multi-query expansion is not enabled for this strategy.",
-            model_name=get_llm_model_name() if use_multi_query and use_llm_query_transform else None,
+            model_name=get_llm_model_name() if use_multi_query else None,
             payload={**expand_payload, "query_count": len(retrieve_queries), "queries": retrieve_queries},
         )
 
@@ -316,16 +301,6 @@ def _context_compression_stats(sources: list[SourceMetadata]) -> dict[str, objec
         "context_original_chars": original_chars,
         "context_compressed_chars": compressed_chars,
     }
-
-
-def _bool_option(options: dict[str, object], snake_key: str, camel_key: str) -> bool:
-    value = options.get(snake_key, options.get(camel_key, False))
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "yes", "on"}
-    return bool(value)
-
 
 def _fuse_by_chunk_id(sources: list[SourceMetadata]) -> list[SourceMetadata]:
     fused: dict[str, SourceMetadata] = {}

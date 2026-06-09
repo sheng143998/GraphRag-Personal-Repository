@@ -10,6 +10,7 @@
 # Logs
 *.log
 logs/
+.tmp/
 
 # Node
 node_modules/
