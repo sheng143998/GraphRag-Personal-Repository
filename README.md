@@ -2,6 +2,12 @@
 
 本项目是一个本地知识库智能体与进阶检索增强生成练习项目，采用前端、业务后端、人工智能服务三段式架构。项目目标不是只做一个问答页面，而是逐步沉淀文档入库、向量检索、混合检索、重排、引用、评估和智能体编排等完整能力。
 
+## 个人知识库来源
+
+本项目使用的个人知识库语料来自 [Obsidian AI 学习笔记库](https://github.com/HeWhenJay/obsidian-study-notes)。该笔记库整理了 AI Agent、RAG、LangChain、LangGraph、GraphRAG、多 Agent、MCP、A2A、Agent Skills、AutoGen、CrewAI 等学习笔记、图解和示例代码。
+
+这个搜索项目用于把上述笔记沉淀成本地可检索、可追溯、可评估的知识库：从 Obsidian Markdown 笔记入库，到 RAG/GraphRAG 检索、引用来源展示、问答生成和学习薄弱点分析。需要阅读原始笔记内容时，请访问笔记仓库；需要体验检索问答链路时，请运行本项目。
+
 ## 当前状态
 
 当前项目已经具备三服务基础骨架，并优先推进基础检索增强生成主链路。
