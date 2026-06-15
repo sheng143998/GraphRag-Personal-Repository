@@ -10,7 +10,7 @@
 
 ## 当前状态
 
-- 前端：Vue 3 + TypeScript + Pinia + Vite，已重构为 Coze Studio 风格工作台，覆盖聊天、文档、知识库、实验评测、图谱、反馈和设置页面。
+- 前端：Vue 3 + TypeScript + Pinia + Vite，覆盖聊天、文档、知识库、实验评测、图谱、反馈和设置页面。
 - Java 后端：Spring Boot 统一暴露 `/api/*`，负责业务 CRUD、数据库迁移、RAG run 持久化、评测集管理、批量评测编排和 AI 服务桥接。
 - Python AI 服务：FastAPI 暴露内部 `/ai/*`，负责文档解析、chunk、embedding、检索、重排、生成、Advanced RAG preset、GraphRAG、Agent 和 evaluator。
 - 数据库：PostgreSQL + pgvector，统一承载业务数据、文档 chunk、embedding、RAG run、retrieval results、评测集、评测历史和图谱事实。
