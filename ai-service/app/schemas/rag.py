@@ -65,6 +65,13 @@ class RagEvaluateRequest(BaseModel):
 class RagEvaluationResult(BaseModel):
     grounded_score: float
     retrieval_score: float
+    recall_at_k: float | None = None
+    precision_at_k: float | None = None
+    mrr: float | None = None
+    citation_hit: float | None = None
+    graph_entity_coverage: float | None = None
+    graph_relationship_hit: float | None = None
+    graph_expansion_term_hit: float | None = None
     notes: list[str] = Field(default_factory=list)
 
 

@@ -84,6 +84,13 @@ public class AiServiceClient implements AiServiceGateway {
                     new AiRagEvaluateResponse.Result(
                             groundedScore,
                             retrievalScore,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
                             List.of("Mock evaluator scored persisted RAG run evidence.")
                     ),
                     new AiTraceMetadata(

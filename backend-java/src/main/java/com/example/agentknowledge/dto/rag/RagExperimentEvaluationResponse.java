@@ -7,6 +7,10 @@ public record RagExperimentEvaluationResponse(
         RagExperimentEvaluationHistoryResponse evaluation,
         Double groundedScore,
         Double retrievalScore,
+        Double recallAtK,
+        Double precisionAtK,
+        Double mrr,
+        Double citationHit,
         List<String> notes,
         List<RagExperimentEvaluationHistoryResponse> history
 ) {

@@ -1,18 +1,21 @@
 from __future__ import annotations
 
+from time import perf_counter
+
 from app.core.tracing import TraceBuilder
 from app.db.repositories import repository
 from app.rag.graph import RuleBasedGraphExtractor
 from app.rag.query_transformers.base import AdapterBackedQueryTransformer
 from app.rag.rerankers.base import BaseReranker
 from app.rag.retrievers.base import BaseRetriever
+from app.rag.strategies.presets import PRESETS, resolve_rag_preset
 from app.schemas.common import SourceMetadata
 from app.services.adapters.base import AdapterCallContext, EmbeddingAdapter, LLMAdapter
 from app.services.adapters.registry import get_embedding_model_name, get_llm_model_name, get_rerank_model_name
 
 
 class AdvancedRagStrategy:
-    supported_strategy_names = {"hybrid-rerank", "metadata-filter", "parent-child", "advanced-rag", "graph-rag"}
+    supported_strategy_names = set(PRESETS.keys())
 
     def __init__(
         self,
@@ -41,28 +44,47 @@ class AdvancedRagStrategy:
         embedding_model: str | None = None,
     ) -> list[SourceMetadata]:
         strategy_name = trace_builder.trace.strategy_name
-        use_rewrite = strategy_name == "advanced-rag"
-        use_multi_query = strategy_name == "advanced-rag"
-        use_parent_child = strategy_name in {"parent-child", "advanced-rag", "graph-rag"}
-        use_graph = strategy_name == "graph-rag"
-        active_filters = filters if strategy_name in {"metadata-filter", "advanced-rag", "graph-rag"} else {}
+        preset = resolve_rag_preset(strategy_name)
+        use_rewrite = preset.query_rewrite
+        use_multi_query = preset.multi_query
+        use_parent_child = preset.parent_child
+        use_graph = preset.graph_expand
+        active_filters = filters if preset.metadata_filter else {}
         active_retrieval_options = retrieval_options or {}
+        trace_builder.set_attribute(
+            "rag_preset",
+            {
+                "query_rewrite": preset.query_rewrite,
+                "multi_query": preset.multi_query,
+                "metadata_filter": preset.metadata_filter,
+                "parent_child": preset.parent_child,
+                "rerank": preset.rerank,
+                "graph_expand": preset.graph_expand,
+            },
+        )
         if active_retrieval_options:
             trace_builder.set_attribute("retrieval_options", active_retrieval_options)
 
         rewrite_payload: dict[str, object] = {"original_query": query}
         if use_rewrite:
+            rewrite_context = AdapterCallContext(
+                trace_id=trace_builder.trace.trace_id,
+                run_id=trace_builder.trace.run_id,
+                operation="rewrite_query",
+                model_name=get_llm_model_name(),
+                strategy_name=strategy_name,
+            )
+            rewrite_started_at = perf_counter()
             rewritten_query, rewrite_metadata = await self.adapter_query_transformer.rewrite(
                 query,
-                context=AdapterCallContext(
-                    trace_id=trace_builder.trace.trace_id,
-                    run_id=trace_builder.trace.run_id,
-                    operation="rewrite_query",
-                    model_name=get_llm_model_name(),
-                    strategy_name=strategy_name,
-                ),
+                context=rewrite_context,
             )
             rewrite_payload.update(rewrite_metadata)
+            rewrite_call_metadata = trace_builder.record_adapter_metadata(rewrite_context.metadata)
+            rewrite_payload["latency_ms"] = rewrite_call_metadata.get("latency_ms") or round(
+                (perf_counter() - rewrite_started_at) * 1000,
+                3,
+            )
         else:
             rewritten_query = query
             rewrite_payload["provider"] = "none"
@@ -114,17 +136,24 @@ class AdvancedRagStrategy:
 
         expand_payload: dict[str, object] = {}
         if use_multi_query:
+            expand_context = AdapterCallContext(
+                trace_id=trace_builder.trace.trace_id,
+                run_id=trace_builder.trace.run_id,
+                operation="expand_retrieval_queries",
+                model_name=get_llm_model_name(),
+                strategy_name=strategy_name,
+            )
+            expand_started_at = perf_counter()
             retrieve_queries, expand_payload = await self.adapter_query_transformer.expand(
                 rewritten_query,
                 original_query=query,
                 max_queries=3,
-                context=AdapterCallContext(
-                    trace_id=trace_builder.trace.trace_id,
-                    run_id=trace_builder.trace.run_id,
-                    operation="expand_retrieval_queries",
-                    model_name=get_llm_model_name(),
-                    strategy_name=strategy_name,
-                ),
+                context=expand_context,
+            )
+            expand_call_metadata = trace_builder.record_adapter_metadata(expand_context.metadata)
+            expand_payload["latency_ms"] = expand_call_metadata.get("latency_ms") or round(
+                (perf_counter() - expand_started_at) * 1000,
+                3,
             )
         else:
             retrieve_queries = [graph_query]
@@ -141,21 +170,31 @@ class AdvancedRagStrategy:
 
         per_query_limit = max(top_k * 2, top_k)
         retrieved: list[SourceMetadata] = []
+        retrieve_latency_ms = 0.0
+        embedding_latency_ms = 0.0
         for retrieve_query in retrieve_queries:
             embedding = query_embedding if retrieve_query == query else None
             if embedding is None:
+                embedding_context = AdapterCallContext(
+                    trace_id=trace_builder.trace.trace_id,
+                    run_id=trace_builder.trace.run_id,
+                    operation="embed_retrieval_query",
+                    model_name=embedding_model or get_embedding_model_name(),
+                    strategy_name=strategy_name,
+                )
+                embedding_started_at = perf_counter()
                 embeddings = await self.embedding_adapter.embed(
                     texts=[retrieve_query],
-                    context=AdapterCallContext(
-                        trace_id=trace_builder.trace.trace_id,
-                        run_id=trace_builder.trace.run_id,
-                        operation="embed_retrieval_query",
-                        model_name=embedding_model or get_embedding_model_name(),
-                        strategy_name=strategy_name,
-                    ),
+                    context=embedding_context,
+                )
+                embedding_call_metadata = trace_builder.record_adapter_metadata(embedding_context.metadata)
+                embedding_latency_ms += float(
+                    embedding_call_metadata.get("latency_ms")
+                    or round((perf_counter() - embedding_started_at) * 1000, 3)
                 )
                 embedding = embeddings[0]
 
+            retrieve_started_at = perf_counter()
             sources = await self.retriever.retrieve(
                 query=retrieve_query,
                 chunks=repository.list_chunks(knowledge_base_id),
@@ -166,6 +205,7 @@ class AdvancedRagStrategy:
                 query_embedding=embedding,
                 embedding_model=embedding_model,
             )
+            retrieve_latency_ms += round((perf_counter() - retrieve_started_at) * 1000, 3)
             retrieved.extend(_with_graph_metadata(
                 _with_matched_query(sources, retrieve_query),
                 entity_names=[entity.name for entity in graph_entities],
@@ -182,6 +222,8 @@ class AdvancedRagStrategy:
                 "result_count": len(retrieved),
                 "metadata_filter_enabled": bool(active_filters),
                 "retrieval_options_enabled": bool(active_retrieval_options),
+                "latency_ms": round(retrieve_latency_ms, 3),
+                "embedding_latency_ms": round(embedding_latency_ms, 3),
             },
         )
 
@@ -206,23 +248,34 @@ class AdvancedRagStrategy:
             payload={"result_count": len(contextualized), **compression_stats},
         )
 
-        reranked = await self.reranker.rerank(
-            query=rewritten_query,
-            sources=contextualized,
-            context=AdapterCallContext(
+        if preset.rerank:
+            rerank_context = AdapterCallContext(
                 trace_id=trace_builder.trace.trace_id,
                 run_id=trace_builder.trace.run_id,
                 operation="rerank",
                 model_name=get_rerank_model_name(),
                 strategy_name=strategy_name,
-            ),
-        )
+            )
+            rerank_started_at = perf_counter()
+            reranked = await self.reranker.rerank(
+                query=rewritten_query,
+                sources=contextualized,
+                context=rerank_context,
+            )
+            rerank_call_metadata = trace_builder.record_adapter_metadata(rerank_context.metadata)
+            rerank_latency_ms = rerank_call_metadata.get("latency_ms") or round(
+                (perf_counter() - rerank_started_at) * 1000,
+                3,
+            )
+        else:
+            reranked = contextualized
+            rerank_latency_ms = None
         trace_builder.add_step(
             name="rerank",
-            status="completed",
-            detail="Reranked retrieved chunks.",
-            model_name=get_rerank_model_name(),
-            payload={"result_count": len(reranked)},
+            status="completed" if preset.rerank else "skipped",
+            detail="Reranked retrieved chunks." if preset.rerank else "Rerank is disabled for this preset.",
+            model_name=get_rerank_model_name() if preset.rerank else None,
+            payload={"result_count": len(reranked), "latency_ms": rerank_latency_ms},
         )
         return reranked[:top_k]
 

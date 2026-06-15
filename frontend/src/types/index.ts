@@ -229,6 +229,27 @@ export interface ExperimentEvaluationHistory {
   runCreatedAt?: string | null;
   groundedScore?: number | null;
   retrievalScore?: number | null;
+  recallAtK?: number | null;
+  precisionAtK?: number | null;
+  mrr?: number | null;
+  citationHit?: number | null;
+  graphEntityCoverage?: number | null;
+  graphRelationshipHit?: number | null;
+  graphExpansionTermHit?: number | null;
+  latencyMs?: number | null;
+  promptTokens?: number | null;
+  completionTokens?: number | null;
+  totalTokens?: number | null;
+  embeddingTokens?: number | null;
+  rerankTokens?: number | null;
+  estimatedCost?: number | null;
+  embeddingLatencyMs?: number | null;
+  retrievalLatencyMs?: number | null;
+  rerankLatencyMs?: number | null;
+  llmLatencyMs?: number | null;
+  tokenUsage?: Record<string, unknown> | null;
+  latencyBreakdown?: Record<string, unknown> | null;
+  strategyConfig?: Record<string, unknown> | null;
   expectedAnswer?: string | null;
   generatedAnswer?: string | null;
   notes?: string | null;
@@ -458,6 +479,10 @@ export interface ExperimentEvaluationResponse {
   evaluation?: ExperimentEvaluationHistory;
   groundedScore?: number | null;
   retrievalScore?: number | null;
+  recallAtK?: number | null;
+  precisionAtK?: number | null;
+  mrr?: number | null;
+  citationHit?: number | null;
   notes: string[];
   history?: ExperimentEvaluationHistory[];
 }
@@ -469,6 +494,77 @@ export interface ExperimentEvaluationSummary {
   bestExperimentId?: string | null;
   bestExperimentName?: string | null;
   recentEvaluations: ExperimentEvaluationHistory[];
+}
+
+export interface EvaluationCaseRecord {
+  id: string;
+  experimentId: string;
+  experimentName?: string | null;
+  caseId: string;
+  question: string;
+  expectedAnswer?: string | null;
+  relevantChunkIds: string[];
+  relevantDocumentIds: string[];
+  expectedCitationChunkIds: string[];
+  evaluationTopK: number;
+  notes?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateEvaluationCaseRequest {
+  experimentId: string;
+  caseId: string;
+  question: string;
+  expectedAnswer?: string;
+  relevantChunkIds?: string[];
+  relevantDocumentIds?: string[];
+  expectedCitationChunkIds?: string[];
+  evaluationTopK?: number;
+  notes?: string;
+  status?: string;
+}
+
+export type UpdateEvaluationCaseRequest = Partial<CreateEvaluationCaseRequest>;
+
+export interface EvaluateEvaluationCaseRequest {
+  runId: string;
+  expectedAnswer?: string;
+}
+
+export interface RunEvaluationCasesBatchRequest {
+  experimentId: string;
+  caseIds?: string[];
+  strategyName?: string;
+  retrieverType?: string;
+  topK?: number;
+  metadataFilters?: Record<string, unknown>;
+  retrievalOptions?: Record<string, unknown>;
+}
+
+export interface RunEvaluationCasesBatchItem {
+  caseId: string;
+  caseKey: string;
+  runId?: string | null;
+  evaluationId?: string | null;
+  groundedScore?: number | null;
+  retrievalScore?: number | null;
+  recallAtK?: number | null;
+  precisionAtK?: number | null;
+  mrr?: number | null;
+  citationHit?: number | null;
+  status: string;
+  errorMessage?: string | null;
+}
+
+export interface RunEvaluationCasesBatchResponse {
+  experimentId: string;
+  strategyName?: string | null;
+  requestedCount: number;
+  completedCount: number;
+  failedCount: number;
+  items: RunEvaluationCasesBatchItem[];
 }
 
 // --- Health ---

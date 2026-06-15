@@ -590,6 +590,15 @@ export const useWorkbenchStore = defineStore("workbench", () => {
   }
 
   // --- Experiments ---
+  async function loadExperiments(): Promise<void> {
+    lastError.value = "";
+    try {
+      experiments.value = await fetchExperiments();
+    } catch (error) {
+      lastError.value = error instanceof Error ? error.message : "鏃犳硶鍔犺浇瀹為獙鍒楄〃銆?";
+    }
+  }
+
   async function createExp(payload: ExperimentRequest): Promise<void> {
     experimentFormPending.value = true;
     lastError.value = "";
@@ -775,6 +784,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     removeDocument,
     loadDocumentDetail,
     // experiments
+    loadExperiments,
     createExp,
     updateExp,
     deleteExp,

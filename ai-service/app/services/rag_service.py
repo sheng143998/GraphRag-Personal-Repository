@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from time import perf_counter
+
 from app.core.config import settings
 from app.core.tracing import TraceBuilder
 from app.prompts.registry import prompt_registry
@@ -51,16 +53,18 @@ class RagService:
             strategy_name=payload.strategy_name,
             model_name=get_embedding_model_name(),
         )
+        embed_context = AdapterCallContext(
+            trace_id=trace_builder.trace.trace_id,
+            run_id=trace_builder.trace.run_id,
+            operation="embed_query",
+            model_name=get_embedding_model_name(),
+            strategy_name=payload.strategy_name,
+        )
         query_embeddings = await embedding_adapter.embed(
             texts=[payload.query],
-            context=AdapterCallContext(
-                trace_id=trace_builder.trace.trace_id,
-                run_id=trace_builder.trace.run_id,
-                operation="embed_query",
-                model_name=get_embedding_model_name(),
-                strategy_name=payload.strategy_name,
-            ),
+            context=embed_context,
         )
+        trace_builder.record_adapter_metadata(embed_context.metadata)
         strategy = self._select_strategy(payload.strategy_name)
         reranked = await strategy.run(
             query=payload.query,
@@ -88,21 +92,28 @@ class RagService:
             prompt_version=settings.default_prompt_version,
             model_name=get_llm_model_name(),
         )
+        embed_context = AdapterCallContext(
+            trace_id=trace_builder.trace.trace_id,
+            run_id=trace_builder.trace.run_id,
+            operation="embed_query",
+            model_name=get_embedding_model_name(),
+            strategy_name=payload.strategy_name,
+        )
+        fallback_embed_started_at = perf_counter()
         query_embeddings = await embedding_adapter.embed(
             texts=[payload.question],
-            context=AdapterCallContext(
-                trace_id=trace_builder.trace.trace_id,
-                run_id=trace_builder.trace.run_id,
-                operation="embed_query",
-                model_name=get_embedding_model_name(),
-                strategy_name=payload.strategy_name,
-            ),
+            context=embed_context,
         )
+        embed_metadata = trace_builder.record_adapter_metadata(embed_context.metadata)
+        embed_latency_ms = embed_metadata.get("latency_ms")
+        if embed_latency_ms is None:
+            embed_latency_ms = round((perf_counter() - fallback_embed_started_at) * 1000, 3)
         trace_builder.add_step(
             name="embed_query",
             status="completed",
             detail="Embedded query for vector retrieval.",
             model_name=get_embedding_model_name(),
+            payload={"latency_ms": embed_latency_ms},
         )
         strategy = self._select_strategy(payload.strategy_name)
         citations = await strategy.run(
@@ -119,28 +130,34 @@ class RagService:
             name=settings.default_prompt_name,
             version=settings.default_prompt_version,
             variables={
-                "question": payload.question,
-                "context": "\n\n".join(item.metadata.get("content_preview", "") for item in citations),
+                "query": payload.question,
+                "context_str": _build_context_str(citations),
             },
         )
+        generate_context = AdapterCallContext(
+            trace_id=trace_builder.trace.trace_id,
+            run_id=trace_builder.trace.run_id,
+            operation="generate_answer",
+            model_name=get_llm_model_name(),
+            prompt_name=settings.default_prompt_name,
+            prompt_version=settings.default_prompt_version,
+            strategy_name=payload.strategy_name,
+        )
+        fallback_generate_started_at = perf_counter()
         answer = await self.generator.generate(
             prompt=prompt,
-            context=AdapterCallContext(
-                trace_id=trace_builder.trace.trace_id,
-                run_id=trace_builder.trace.run_id,
-                operation="generate_answer",
-                model_name=get_llm_model_name(),
-                prompt_name=settings.default_prompt_name,
-                prompt_version=settings.default_prompt_version,
-                strategy_name=payload.strategy_name,
-            ),
+            context=generate_context,
         )
+        generate_metadata = trace_builder.record_adapter_metadata(generate_context.metadata)
+        generate_latency_ms = generate_metadata.get("latency_ms")
+        if generate_latency_ms is None:
+            generate_latency_ms = round((perf_counter() - fallback_generate_started_at) * 1000, 3)
         trace_builder.add_step(
             name="generate",
             status="completed",
             detail="Generated answer from retrieved context.",
             model_name=get_llm_model_name(),
-            payload={"citation_count": len(citations)},
+            payload={"citation_count": len(citations), "latency_ms": generate_latency_ms},
         )
         trace = trace_builder.finalize(status="completed")
         return RagQueryResponse(
@@ -172,3 +189,19 @@ class RagService:
         )
         trace = trace_builder.finalize(status="completed")
         return RagEvaluateResponse(result=result, trace=trace)
+
+
+def _build_context_str(citations) -> str:
+    if not citations:
+        return "无检索上下文。"
+    blocks: list[str] = []
+    for index, item in enumerate(citations, start=1):
+        title = item.title or "未命名来源"
+        source_path = item.source_path or "无来源链接"
+        snippet = str(item.metadata.get("content_preview", "")).strip() or "无摘要"
+        blocks.append(
+            f"[{index}] 标题: {title}\n"
+            f"来源: {source_path}\n"
+            f"摘要: {snippet}"
+        )
+    return "\n\n".join(blocks)

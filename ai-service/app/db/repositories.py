@@ -83,7 +83,13 @@ class InMemoryDocumentRepository(BaseDocumentRepository):
     graph_entities: dict[str, list[GraphEntity]] = field(default_factory=dict)
     graph_relationships: dict[str, list[GraphRelationship]] = field(default_factory=dict)
 
-    def save_document(self, parsed_document: ParsedDocument, *, request: Any | None = None) -> None:
+    def save_document(
+        self,
+        parsed_document: ParsedDocument,
+        *,
+        request: Any | None = None,
+        preserve_summary: bool = False,
+    ) -> None:
         self.documents[parsed_document.document_id] = parsed_document
 
     def save_chunks(self, document_id: str, knowledge_base_id: str, chunks: list[ChunkRecord]) -> None:
@@ -212,10 +218,19 @@ class PostgresDocumentRepository(BaseDocumentRepository):
         self.database_url = _normalize_database_url(database_url)
         self.connection_kwargs = _parse_database_url(self.database_url)
 
-    def save_document(self, parsed_document: ParsedDocument, *, request: Any | None = None) -> None:
+    def save_document(
+        self,
+        parsed_document: ParsedDocument,
+        *,
+        request: Any | None = None,
+        preserve_summary: bool = False,
+    ) -> None:
         if request is None:
             return
         metadata = {**request.metadata, **parsed_document.metadata}
+        summary = getattr(request, "summary", None) if preserve_summary else parsed_document.normalized_text[:1000]
+        if summary is None:
+            summary = parsed_document.normalized_text[:1000]
         with self._connection() as connection:
             with _cursor(connection) as cursor:
                 cursor.execute(
@@ -251,7 +266,7 @@ class PostgresDocumentRepository(BaseDocumentRepository):
                         request.file.source_path,
                         parsed_document.parser_name,
                         parsed_document.parser_version,
-                        parsed_document.normalized_text[:1000],
+                        summary,
                         json.dumps(metadata, ensure_ascii=False),
                     ),
                 )

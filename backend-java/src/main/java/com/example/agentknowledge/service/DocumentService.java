@@ -15,6 +15,8 @@ import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,8 @@ import org.springframework.stereotype.Service;
 public class DocumentService {
 
     private static final Logger log = LoggerFactory.getLogger(DocumentService.class);
+    private static final DateTimeFormatter SUMMARY_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
 
     private final KnowledgeDocumentRepository knowledgeDocumentRepository;
     private final DocumentChunkRepository documentChunkRepository;
@@ -98,10 +102,15 @@ public class DocumentService {
         document.setMimeType(request.mimeType());
         document.setSourceType(request.sourceType() == null || request.sourceType().isBlank() ? "LOCAL_UPLOAD" : request.sourceType());
         document.setSourcePath(request.sourcePath());
-        document.setSummary(request.summary());
+        document.setSummary(buildSummary(request.fileName()));
         document.setMetadata("{}");
         document.setStatus("PROCESSING");
         return document;
+    }
+
+    private String buildSummary(String fileName) {
+        String safeFileName = fileName == null || fileName.isBlank() ? "未命名文件" : fileName.trim();
+        return safeFileName + " | 上传时间: " + SUMMARY_TIME_FORMATTER.format(java.time.Instant.now());
     }
 
     public List<DocumentResponse> list(UUID knowledgeBaseId) {

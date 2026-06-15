@@ -1,75 +1,83 @@
-# Python 人工智能服务模块
+# Python AI 服务模块
 
 ## 模块职责
 
-人工智能服务负责本项目的文档处理、切分、向量生成、检索、重排、回答生成、评估和后续智能体编排能力。Java 后端通过内部接口调用本服务，前端不直接访问本服务。
+`ai-service/` 是项目的 AI / RAG 服务。它通过内部 `/ai/*` 接口被 Java 后端调用，负责文档解析、切分、embedding、检索、重排、回答生成、Advanced RAG preset、Agent 编排、GraphRAG 和 evaluator 指标计算。
+
+前端不直接访问本服务。
+
+## 当前状态
+
+- 已完成 FastAPI 基础工程、health check、文档入库、RAG 查询、检索、评估和 Agent 调用接口。
+- 已完成 MinerU PDF parser、Word parser、基础 chunk / parent-child chunk 和空 chunk 防护。
+- 已完成 OpenAI-compatible LLM / embedding / rerank adapter，并保留 stub fallback 便于测试。
+- Advanced RAG 已收敛为 preset 配置：`hybrid-rerank`、`metadata-filter`、`parent-child`、`advanced-rag`、`graph-rag`。
+- evaluator 返回结构化指标：`recall_at_k`、`precision_at_k`、`mrr`、`citation_hit`、GraphRAG entity / relationship / expansion 指标。
+- trace 已记录真实 provider `usage`、`token_usage`、`latency_breakdown`、`adapter_calls`，Java 可提取为评测历史的 token / cost / latency 维度。
 
 ## 技术栈
 
-- Python 3.12。
-- FastAPI。
-- Pydantic。
-- pg8000。
-- PostgreSQL。
-- pgvector。
-- 后续预留 LangChain 与 LangGraph。
+- Python 3.12
+- FastAPI
+- Pydantic
+- pg8000
+- PostgreSQL + pgvector
+- OpenAI-compatible model API
+- LangChain / LangGraph 相关能力按当前工程逐步收敛
 
-## 目录结构说明
+## 目录结构
 
 ```text
 ai-service/
-├─ app/
-│  ├─ api/          # 接口路由
-│  ├─ core/         # 配置和基础能力
-│  ├─ db/           # 数据库访问
-│  ├─ rag/          # 检索增强生成核心模块
-│  ├─ schemas/      # 请求和响应结构
-│  ├─ services/     # 应用服务
-│  ├─ agents/       # 智能体预留目录
-│  └─ prompts/      # 提示词预留目录
-├─ tests/
-├─ pyproject.toml
-└─ README.md
+├── app/
+│   ├── api/          # /ai/* 路由
+│   ├── core/         # 配置、日志、trace
+│   ├── db/           # 数据库访问
+│   ├── rag/          # RAG 核心、retriever、reranker、strategy、evaluator
+│   ├── schemas/      # Pydantic schema
+│   ├── services/     # 应用服务和模型 adapter
+│   ├── agents/       # Agent workflow
+│   └── prompts/      # Prompt 模板
+├── tests/
+├── pyproject.toml
+└── README.md
 ```
 
-## 本地启动方式
+## 本地启动
 
 ```powershell
 cd ai-service
 python -m venv .venv
-.\.venv\bin\python.exe -m pip install -e .
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8001
+```
+
+如果本机虚拟环境是 `bin` 目录：
+
+```powershell
 .\.venv\bin\python.exe -m uvicorn app.main:app --reload --port 8001
 ```
 
 ## 常用命令
 
 ```powershell
-.\.venv\bin\python.exe -m pip install -e .
-.\.venv\bin\python.exe -m pip install -e ".[dev]"
-.\.venv\bin\python.exe -m compileall app tests
-.\.venv\bin\python.exe -m pytest
+.\.venv\bin\python.exe -m py_compile app\services\rag_service.py
+.\.venv\bin\pytest.exe tests
+.\.venv\bin\pytest.exe tests\test_strategy_comparison_evaluator.py tests\test_advanced_rag_strategy.py
 ```
 
-## 环境变量说明
+## 环境变量
 
-- `DB_URL`：统一 PostgreSQL JDBC 连接地址，Java 后端直接使用，AI 服务会自动转换为 Python PostgreSQL URL。
-- `DB_USERNAME`：统一数据库用户名。
-- `DB_PASSWORD`：统一数据库密码。
-- `AI_RAG_USE_DATABASE`：是否使用真实数据库检索。设为 `false` 时使用内存模式，方便单元测试。
+- `DB_URL`：统一 PostgreSQL JDBC 地址，AI 服务会转换为 Python PostgreSQL URL。
+- `DB_USERNAME`：数据库用户名。
+- `DB_PASSWORD`：数据库密码。
+- `AI_RAG_USE_DATABASE`：是否使用真实数据库检索；`false` 时可使用测试 / 内存路径。
+- `LLM_PROVIDER` / `LLM_MODEL` / `LLM_API_KEY` / `LLM_BASE_URL`：LLM adapter 配置。
+- `EMBEDDING_PROVIDER` / `EMBEDDING_MODEL` / `EMBEDDING_API_KEY` / `EMBEDDING_BASE_URL`：embedding adapter 配置。
+- `RERANK_PROVIDER` / `RERANK_MODEL` / `RERANK_API_KEY` / `RERANK_BASE_URL`：rerank adapter 配置。
+- `MINERU_API_BASE_URL` / `MINERU_API_TOKEN`：MinerU PDF 解析配置。
 
-真实数据库密码只放在本地环境，不写入仓库文档或测试。
-
-## 关键代码入口
-
-- `app/api/routes/health.py`：健康检查接口。
-- `app/api/routes/ingest.py`：文档入库接口。
-- `app/api/routes/rag.py`：检索增强生成接口。
-- `app/services/rag_service.py`：RAG 应用服务。
-- `app/db/repositories.py`：文档、片段、向量的数据库访问。
-- `app/rag/retrievers/base.py`：检索器接口与数据库检索器。
-- `app/rag/strategies/base.py`：RAG 策略入口。
-- `app/services/adapters/stub.py`：本地占位模型适配器。
-- `tests/test_basic_rag_pipeline.py`：基础 RAG 主链路测试。
+真实密钥只放在本地环境，不写入仓库。
 
 ## 内部接口
 
@@ -81,70 +89,35 @@ python -m venv .venv
 - `POST /ai/rag/evaluate`
 - `POST /ai/agent/invoke`
 
-## 检索增强生成主链路
+## RAG 主链路
 
 ```text
-Java 后端
--> POST /ai/rag/query
+Spring Boot
+-> /ai/rag/query
 -> RagService
--> 策略
--> 检索器
--> 数据库访问层
--> PostgreSQL 与 pgvector
--> 生成器
--> 返回答案、引用和追踪信息
+-> embed query
+-> preset strategy
+-> query rewrite / multi-query / graph expansion
+-> retrieval / fusion / parent-child context / rerank
+-> prompt render
+-> LLM generate
+-> citations + trace
 ```
 
-## 重点审查文件
+## 关键入口
 
-- `app/api/routes/rag.py`
-- `app/api/routes/ingest.py`
-- `app/services/rag_service.py`
-- `app/db/repositories.py`
-- `app/rag/retrievers/base.py`
-- `app/rag/strategies/base.py`
-- `app/rag/rerankers/base.py`
-- `app/services/adapters/stub.py`
-- `tests/test_basic_rag_pipeline.py`
+- `app/services/rag_service.py`：RAG query / retrieve / evaluate 应用服务。
+- `app/rag/strategies/presets.py`：Advanced RAG preset 配置。
+- `app/rag/strategies/advanced.py`：Advanced RAG 执行链路。
+- `app/rag/evaluators/base.py`：评测指标计算。
+- `app/services/adapters/openai_compatible.py`：OpenAI-compatible 模型调用和 usage 捕获。
+- `app/core/tracing.py`：trace、token usage 和 latency 汇总。
+- `app/db/repositories.py`：文档、chunk、embedding、run、graph 数据访问。
+- `app/prompts/rag_answer.v1.txt`：RAG 回答 prompt。
 
-## 当前已实现能力
+## 后续优化
 
-- 健康检查。
-- 文档文本入库接口。
-- 基础片段切分。
-- 1536 维本地确定性向量生成。
-- PostgreSQL 与 pgvector 写入。
-- 数据库检索器。
-- 基础混合检索。
-- 基础问答请求。
-- 追踪信息返回结构。
-
-## 当前占位实现
-
-- 回答生成器仍返回占位答案。
-- 向量生成仍是确定性散列逻辑，不代表真实语义效果。
-- 重排器仍是占位实现，Advanced RAG 已接入该链路但排序质量取决于 adapter。
-- Advanced RAG 默认通过 LLM 执行 query rewrite 与 multi-query；`rewritten_query` 保持自然主问题，语义扩展由 multi-query 承担，LLM 输出无效时仅回退到原始查询。
-- MinerU PDF 解析器仍是预留位置。
-- 多格式文件解析还未完成。
-- 智能体编排还未完成。
-
-## 后续待补能力
-
-- 真实向量模型接入。
-- 真实大模型生成器接入。
-- 真实重排器接入。
-- Markdown、TXT、Word、PDF、Excel 解析。
-- MinerU PDF 解析流程。
-- 更细粒度的查询改写提示词、查询扩展评估集和上下文压缩评估。
-- 基于真实 parent_chunk_id 的父子片段构建与检索。
-- RAG 评估与实验对比。
-
-## 常见问题
-
-- 如果依赖安装失败，先确认 Python 版本和包源是否可用。
-- 如果数据库连接失败，检查 `.env` 中的 `DB_URL`、`DB_USERNAME` 和 `DB_PASSWORD`。
-- 如果单测需要绕过数据库，设置 `AI_RAG_USE_DATABASE=false`。
-- 如果 pgvector 写入失败，检查 EMBEDDING_DIMENSIONS 是否为 1536，并确认模型实际返回维度也是 1536。
-- 阿里百炼文本 rerank 的 OpenAI-compatible 地址应使用 https://dashscope.aliyuncs.com/compatible-api/v1，endpoint 为 /reranks。
-- qwen3-vl-rerank 不支持 OpenAI-compatible 文本 rerank；本项目文本 RAG 推荐 qwen3-rerank。
+- 将 provider 不返回 cost 时的估算成本做成可配置模型价格表，并明确标记估算来源。
+- 增加 paragraph-aware / title-aware chunker，支持 chunk 策略实验。
+- 增强 GraphRAG 的关系置信度、社区发现和跨文档推理。
+- 为 adapter metadata 聚合补充更细粒度单元测试。

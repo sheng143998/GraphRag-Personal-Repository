@@ -2,37 +2,47 @@
 
 ## 模块职责
 
-前端模块负责提供本地知识库和检索增强生成能力的用户界面，包括知识库管理、文档上传入口、聊天问答、引用来源展示、策略选择和后续实验结果展示。
+`frontend/` 是本地知识库 Agent 的前端工作台，负责知识库管理、文档上传、聊天问答、引用来源展示、RAG 策略配置、评测集管理、实验对比、图谱事实查看、反馈和系统设置。
 
-前端默认只调用 Java 后端对外接口，不直接访问 Python 人工智能服务。
+前端浏览器请求只进入 Spring Boot `/api/*`，不直接访问 FastAPI `/ai/*`。
+
+## 当前状态
+
+- 已完成 Vue 3 + TypeScript + Pinia + Vue Router + Vite 基础工程。
+- 已完成 Coze Studio 风格浅色工作台：窄主导航、二级侧栏、紧凑面板、移动端单栏适配。
+- 已覆盖 `/chat`、`/documents`、`/knowledge-base`、`/experiments`、`/experiments/comparison`、`/graph`、`/feedback`、`/settings`。
+- 实验页已升级为评测集管理工具，支持样本创建、编辑、归档、删除、单样本评估和按 preset 批量评测。
+- 对比页展示结构化指标：`Recall@K`、`Precision@K`、`MRR`、`Citation`、Tokens、Cost 和分阶段耗时。
 
 ## 技术栈
 
-- Vue 3。
-- TypeScript。
-- Vite。
-- Pinia，用于状态管理。
+- Vue 3
+- TypeScript
+- Vite
+- Pinia
+- Vue Router
 
-## 目录结构说明
+## 目录结构
 
 ```text
 frontend/
-├─ src/
-│  ├─ api/              # 统一接口调用入口
-│  ├─ components/       # 通用组件
-│  ├─ layouts/          # 页面布局
-│  ├─ pages/            # 页面级组件
-│  ├─ router/           # 路由配置
-│  ├─ stores/           # 状态管理
-│  ├─ types/            # 类型定义
-│  └─ utils/            # 通用工具
-├─ scripts/             # 前端辅助脚本
-├─ index.html
-├─ package.json
-└─ vite.config.ts
+├── src/
+│   ├── api/              # 统一 API client
+│   ├── components/       # 通用和业务组件
+│   ├── layouts/          # 工作台布局壳
+│   ├── pages/            # 页面级组件
+│   ├── router/           # 路由
+│   ├── stores/           # Pinia 状态
+│   ├── types/            # TypeScript 类型
+│   └── utils/            # 工具函数
+├── scripts/
+│   ├── dev.mjs
+│   └── build.mjs
+├── index.html
+└── package.json
 ```
 
-## 本地启动方式
+## 本地启动
 
 ```powershell
 cd frontend
@@ -44,70 +54,40 @@ npm.cmd run dev
 
 ```powershell
 npm.cmd run dev
+npm.cmd run typecheck
 npm.cmd run build
-npm.cmd run type-check
+npm.cmd run preview
 ```
 
-## 环境变量说明
+## 运行时配置
 
-前端请求后端接口时，应通过统一接口客户端读取基础地址配置。不要在页面组件中直接拼接后端地址。
+- `VITE_BACKEND_PROXY_TARGET`：开发代理目标，默认 `http://localhost:8080`。
+- runtime settings 可配置 API base URL、默认知识库、请求超时和 trace header。
+- `aiServiceBaseUrl` 只作为后端桥接诊断口径保留，页面组件不得绕过 Spring Boot 直连 FastAPI。
 
-常见配置项：
+## 关键入口
 
-- `VITE_API_BASE_URL`：Java 后端接口基础地址。
+- `src/main.ts`：应用入口。
+- `src/layouts/WorkbenchLayout.vue`：全局工作台布局。
+- `src/styles.css`：全局视觉 token、布局和通用样式。
+- `src/api/`：所有后端接口调用入口。
+- `src/stores/workbench.ts`：当前聚合状态入口。
+- `src/pages/chat/ChatPage.vue`：聊天工作台。
+- `src/pages/experiments/ExperimentsPage.vue`：评测集管理工具。
+- `src/pages/experiments/ExperimentComparisonPage.vue`：实验指标对比页。
 
-## 关键代码入口
-
-- `src/main.ts`：前端应用入口。
-- `src/router/`：路由入口。
-- `src/api/`：后端接口调用入口。
-- `src/stores/`：全局状态入口。
-- `src/pages/chat/`：聊天问答页面。
-- `src/pages/knowledge-base/`：知识库页面。
-- `src/pages/documents/`：文档页面。
-
-## 重点审查文件
-
-- `src/api/`
-- `src/stores/`
-- `src/pages/chat/`
-- `src/components/SourceList.vue`
-- `src/components/StrategySelector.vue`
-- `src/components/UploadEntry.vue`
-
-## 与其他模块的调用关系
+## 与其他模块关系
 
 ```text
-前端页面
--> frontend/src/api/
--> Java 后端对外接口
--> Python 人工智能服务
--> PostgreSQL 与 pgvector
+Vue 页面
+-> frontend/src/api/*
+-> Spring Boot /api/*
+-> FastAPI /ai/*
 ```
 
-## 当前已实现能力
+## 后续优化
 
-- 前端工程基础结构。
-- 工作台页面基础结构。
-- 与后端接口对接的统一 API client 和类型定义。
-- 文档列表已展示后端返回的文档状态、解析器和 chunk 数量。
-
-## 当前占位实现
-
-- 文档上传入口已接入 `POST /api/documents/upload` 单篇 JSON Demo 与 multipart 文本文件上传，批量上传、进度展示和真实二进制解析仍待补充。
-- 检索增强生成结果展示仍需继续对齐后端返回结构。
-- 策略选择、实验对比和评估页面仍需继续完善。
-
-## 后续待补能力
-
-- 完整聊天流程。
-- 引用来源列表。
-- 文档上传进度与解析状态。
-- 检索过程可视化。
-- 更完整的策略参数配置、metadata filter 表单与实验结果展示。
-
-## 常见问题
-
-- 如果依赖安装失败，先确认 Node.js 版本和本地缓存目录权限。
-- 如果页面无法访问后端，先确认 Java 后端已启动，并检查 `VITE_API_BASE_URL`。
-- 如果类型检查失败，优先检查接口类型是否与后端响应结构一致。
+- 拆分 `ChatPage.vue` 为会话列表、消息流、composer、source inspector 等组件。
+- 拆分 `workbench` store，降低跨页面状态耦合。
+- 为评测集导入导出、批次任务状态和失败重试补充更完整交互。
+- 增加 Playwright 或截图级回归检查。

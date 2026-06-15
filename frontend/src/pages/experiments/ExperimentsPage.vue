@@ -1,542 +1,722 @@
 <template>
-  <div class="page-grid">
-    <section class="panel">
+  <div class="page-grid evaluation-workbench">
+    <aside class="panel evaluation-sidebar">
       <div class="panel-header">
-        <h2 class="panel-title">RAG 实验</h2>
-        <p class="panel-subtitle">创建、对比并评估不同 RAG 策略的运行效果。</p>
-        <button class="button button-primary" type="button" @click="openCreate">
-          {{ showForm && !editingId ? "关闭表单" : "创建实验" }}
+        <div>
+          <h2 class="panel-title">评测集管理</h2>
+          <p class="panel-subtitle">按实验维护问题、标准答案、命中文档和引用标签。</p>
+        </div>
+        <button class="button button-primary" type="button" @click="openCaseForm()">
+          新建样本
         </button>
       </div>
 
       <div class="panel-body stack">
-        <div v-if="showForm" class="form-grid">
-          <label class="form-row">
-            <span class="form-label">名称</span>
-            <input v-model="formName" class="input" placeholder="混合检索与重排对比" />
-          </label>
-          <label class="form-row">
-            <span class="form-label">描述</span>
-            <textarea v-model="formDescription" class="textarea" placeholder="实验目标和观察记录" />
-          </label>
-          <label class="form-row">
-            <span class="form-label">策略</span>
-            <select v-model="formStrategy" class="input">
-              <option v-for="opt in store.ragStrategyOptions" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </option>
-            </select>
-          </label>
-          <label class="form-row">
-            <span class="form-label">数据集</span>
-            <input v-model="formDatasetName" class="input" placeholder="engineering-smoke" />
-          </label>
-          <label class="form-row">
-            <span class="form-label">样本数</span>
-            <input v-model.number="formSampleCount" class="input" type="number" min="0" />
-          </label>
-          <div class="form-row" style="display: flex; gap: 1rem;">
-            <label style="flex: 1;">
-              <span class="form-label">精确率</span>
-              <input v-model.number="formPrecisionScore" class="input" type="number" min="0" max="1" step="0.01" />
-            </label>
-            <label style="flex: 1;">
-              <span class="form-label">召回率</span>
-              <input v-model.number="formRecallScore" class="input" type="number" min="0" max="1" step="0.01" />
-            </label>
-          </div>
-          <label class="form-row">
-            <span class="form-label">状态</span>
-            <select v-model="formStatus" class="input">
-              <option value="PLANNED">计划中</option>
-              <option value="RUNNING">运行中</option>
-              <option value="COMPLETED">已完成</option>
-            </select>
-          </label>
-          <label class="form-row">
-            <span class="form-label">备注</span>
-            <textarea v-model="formNotes" class="textarea" placeholder="实验备注" />
-          </label>
-          <div class="button-row">
-            <button
-              class="button button-primary"
-              type="button"
-              :disabled="store.experimentFormPending || !formName.trim()"
-              @click="submitForm"
-            >
-              {{ store.experimentFormPending ? "保存中..." : editingId ? "更新实验" : "创建实验" }}
-            </button>
-            <button class="button button-secondary" type="button" @click="closeForm">取消</button>
-          </div>
-          <div v-if="store.lastError" class="empty-state">{{ store.lastError }}</div>
-        </div>
-
-        <div v-if="store.experiments.length === 0" class="empty-state">
-          暂无实验记录。
-        </div>
-        <div v-else class="evaluation-dashboard">
+        <div class="evaluation-dashboard">
           <div class="dashboard-metric">
-            <span class="metric-label">评估次数</span>
-            <strong>{{ evaluationDashboard.evaluationCount }}</strong>
+            <span class="metric-label">样本数</span>
+            <strong>{{ filteredCases.length }}</strong>
           </div>
           <div class="dashboard-metric">
-            <span class="metric-label">平均可信度</span>
-            <strong>{{ formatScore(evaluationDashboard.averageGrounded) }}</strong>
+            <span class="metric-label">启用</span>
+            <strong>{{ activeCaseCount }}</strong>
           </div>
           <div class="dashboard-metric">
-            <span class="metric-label">平均检索分</span>
-            <strong>{{ formatScore(evaluationDashboard.averageRetrieval) }}</strong>
+            <span class="metric-label">已评估</span>
+            <strong>{{ recentEvaluations.length }}</strong>
           </div>
           <div class="dashboard-metric">
-            <span class="metric-label">最新最佳</span>
-            <strong>{{ evaluationDashboard.bestExperimentName }}</strong>
+            <span class="metric-label">平均检索</span>
+            <strong>{{ formatScore(summary.averageRetrieval) }}</strong>
           </div>
         </div>
 
-        <div v-if="store.experiments.length > 0" class="item-list">
-          <article v-for="experiment in store.experiments" :key="experiment.id" class="item-card">
-            <h3 class="item-title">{{ experiment.name }}</h3>
-            <div v-if="experiment.description" class="item-meta">{{ experiment.description }}</div>
+        <label class="form-row">
+          <span class="form-label">所属实验</span>
+          <select v-model="selectedExperimentId" class="input">
+            <option value="">全部实验</option>
+            <option v-for="experiment in store.experiments" :key="experiment.id" :value="experiment.id">
+              {{ experiment.name }}
+            </option>
+          </select>
+        </label>
+
+        <label class="form-row">
+          <span class="form-label">样本状态</span>
+          <select v-model="statusFilter" class="input">
+            <option value="ACTIVE">只看启用</option>
+            <option value="">全部状态</option>
+            <option value="ARCHIVED">只看归档</option>
+          </select>
+        </label>
+
+        <label class="form-row">
+          <span class="form-label">关键词</span>
+          <input v-model="keyword" class="input" placeholder="搜索样本 ID / 问题 / 备注" />
+        </label>
+
+        <div class="button-row">
+          <button class="button button-secondary" type="button" @click="reloadAll">刷新数据</button>
+          <button class="button button-ghost" type="button" @click="resetFilters">清空筛选</button>
+        </div>
+
+        <div class="item-list evaluation-case-list">
+          <button
+            v-for="evaluationCase in filteredCases"
+            :key="evaluationCase.id"
+            class="item-card evaluation-case-card"
+            :class="{ 'is-active': evaluationCase.id === selectedCase?.id }"
+            type="button"
+            @click="selectCase(evaluationCase.id)"
+          >
+            <div class="case-card-topline">
+              <h3 class="item-title">{{ evaluationCase.caseId }}</h3>
+              <span :class="['status-pill', evaluationCase.status === 'ACTIVE' ? 'status-success' : 'status-muted']">
+                {{ statusLabel(evaluationCase.status) }}
+              </span>
+            </div>
+            <div class="item-meta">{{ summarize(evaluationCase.question, 84) }}</div>
             <div class="item-meta">
-              {{ strategyLabel(experiment.strategy) }}
-              <span v-if="experiment.status"> | {{ statusLabel(experiment.status) }}</span>
-              <span v-if="experiment.datasetName"> | {{ experiment.datasetName }}</span>
-              | 更新于 {{ experiment.updatedAt }}
+              {{ experimentName(evaluationCase.experimentId) }}
+              · topK {{ evaluationCase.evaluationTopK }}
+              · chunk {{ evaluationCase.relevantChunkIds.length }}
+            </div>
+          </button>
+        </div>
+
+        <div v-if="filteredCases.length === 0" class="empty-state">
+          当前筛选下没有评测样本。
+        </div>
+      </div>
+    </aside>
+
+    <section class="panel evaluation-main">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">评测样本工作台</h2>
+          <p class="panel-subtitle">
+            维护人工标注，绑定历史 RAG run，按单样本或批量执行评估。
+          </p>
+        </div>
+        <div class="button-row">
+          <button class="button button-secondary" type="button" :disabled="!selectedCase" @click="openCaseForm(selectedCase)">
+            编辑样本
+          </button>
+          <button class="button button-ghost" type="button" :disabled="!selectedCase" @click="archiveSelectedCase">
+            {{ selectedCase?.status === "ARCHIVED" ? "启用样本" : "归档样本" }}
+          </button>
+          <button class="button button-danger" type="button" :disabled="!selectedCase" @click="deleteSelectedCase">
+            删除
+          </button>
+        </div>
+      </div>
+
+      <div class="panel-body stack">
+        <div v-if="caseFormVisible" class="panel panel-nested">
+          <div class="panel-header compact">
+            <div>
+              <h3 class="section-title">{{ editingCaseId ? "编辑评测样本" : "新建评测样本" }}</h3>
+              <p class="panel-subtitle">样本 ID 建议稳定可读，便于后续对比不同策略结果。</p>
+            </div>
+          </div>
+
+          <div class="panel-body form-grid">
+            <label class="form-row">
+              <span class="form-label">所属实验</span>
+              <select v-model="caseForm.experimentId" class="input">
+                <option value="" disabled>请选择实验</option>
+                <option v-for="experiment in store.experiments" :key="experiment.id" :value="experiment.id">
+                  {{ experiment.name }}
+                </option>
+              </select>
+            </label>
+
+            <div class="form-grid split">
+              <label class="form-row">
+                <span class="form-label">样本 ID</span>
+                <input v-model="caseForm.caseId" class="input" placeholder="advanced-rag-rerank-001" />
+              </label>
+              <label class="form-row">
+                <span class="form-label">状态</span>
+                <select v-model="caseForm.status" class="input">
+                  <option value="ACTIVE">启用</option>
+                  <option value="ARCHIVED">归档</option>
+                </select>
+              </label>
+            </div>
+
+            <label class="form-row">
+              <span class="form-label">评测问题</span>
+              <textarea v-model="caseForm.question" class="textarea" placeholder="输入这条样本要评测的问题" />
+            </label>
+
+            <label class="form-row">
+              <span class="form-label">标准答案</span>
+              <textarea v-model="caseForm.expectedAnswer" class="textarea" placeholder="人工标注的参考答案，用于 grounded_score / answer quality 判断" />
+            </label>
+
+            <div class="form-grid split">
+              <label class="form-row">
+                <span class="form-label">相关 Chunk IDs</span>
+                <textarea v-model="chunkIdsText" class="textarea" placeholder="一行一个 chunkId，或用逗号分隔" />
+              </label>
+              <label class="form-row">
+                <span class="form-label">相关 Document IDs</span>
+                <textarea v-model="documentIdsText" class="textarea" placeholder="一行一个 documentId，或用逗号分隔" />
+              </label>
+            </div>
+
+            <div class="form-grid split">
+              <label class="form-row">
+                <span class="form-label">期望引用 Chunk IDs</span>
+                <textarea v-model="citationIdsText" class="textarea" placeholder="用于 citation_hit 的目标引用 chunkId" />
+              </label>
+              <label class="form-row">
+                <span class="form-label">Top K</span>
+                <input v-model.number="caseForm.evaluationTopK" class="input" type="number" min="1" />
+              </label>
+            </div>
+
+            <label class="form-row">
+              <span class="form-label">备注</span>
+              <textarea v-model="caseForm.notes" class="textarea" placeholder="样本来源、标注说明、适用策略、失败原因分类" />
+            </label>
+
+            <div class="button-row">
+              <button class="button button-primary" type="button" :disabled="caseFormSubmitting || !canSubmitCase" @click="submitCaseForm">
+                {{ editingCaseId ? "保存样本" : "创建样本" }}
+              </button>
+              <button class="button button-secondary" type="button" @click="closeCaseForm">取消</button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="selectedCase" class="evaluation-case-detail">
+          <div class="panel-subsection">
+            <div class="panel-header compact">
+              <div>
+                <h3 class="section-title">{{ selectedCase.caseId }}</h3>
+                <p class="panel-subtitle">{{ selectedCase.question }}</p>
+              </div>
+              <span :class="['status-pill', selectedCase.status === 'ACTIVE' ? 'status-success' : 'status-muted']">
+                {{ statusLabel(selectedCase.status) }}
+              </span>
             </div>
 
             <div class="metric-list">
               <div class="metric-row">
-                <span class="metric-label">精确率</span>
-                <span class="metric-value">{{ experiment.precision ?? formatScore(experiment.precisionScore) }}</span>
+                <span class="metric-label">所属实验</span>
+                <span class="metric-value">{{ experimentName(selectedCase.experimentId) }}</span>
               </div>
               <div class="metric-row">
-                <span class="metric-label">召回率</span>
-                <span class="metric-value">{{ experiment.recall ?? formatScore(experiment.recallScore) }}</span>
+                <span class="metric-label">topK</span>
+                <span class="metric-value">{{ selectedCase.evaluationTopK }}</span>
               </div>
-              <div v-if="experiment.sampleCount != null" class="metric-row">
-                <span class="metric-label">样本数</span>
-                <span class="metric-value">{{ experiment.sampleCount }}</span>
-              </div>
-              <div v-if="experimentHistorySummary(experiment).count > 0" class="metric-row">
-                <span class="metric-label">历史均值</span>
+              <div class="metric-row">
+                <span class="metric-label">标注覆盖</span>
                 <span class="metric-value">
-                  {{ formatScore(experimentHistorySummary(experiment).averageGrounded) }}
-                  / {{ formatScore(experimentHistorySummary(experiment).averageRetrieval) }}
+                  chunk {{ selectedCase.relevantChunkIds.length }} / doc {{ selectedCase.relevantDocumentIds.length }} / citation {{ selectedCase.expectedCitationChunkIds.length }}
                 </span>
               </div>
-              <div v-if="experimentHistorySummary(experiment).trendLabel" class="metric-row">
-                <span class="metric-label">最新趋势</span>
-                <span class="metric-value">{{ experimentHistorySummary(experiment).trendLabel }}</span>
+              <div class="metric-row">
+                <span class="metric-label">更新时间</span>
+                <span class="metric-value">{{ formatDate(selectedCase.updatedAt) }}</span>
               </div>
             </div>
+          </div>
 
-            <div v-if="experiment.notes" class="item-meta" style="margin-top: 0.5rem;">{{ experiment.notes }}</div>
-
-            <div v-if="experiment.evaluations?.length" class="history-list">
-              <div
-                v-for="evaluation in experiment.evaluations"
-                :key="evaluation.id"
-                class="history-row"
-              >
-                <div class="history-main">
-                  <span class="history-run">{{ strategyLabel(evaluation.runStrategyName ?? experiment.strategy) }}</span>
-                  <span class="item-meta">{{ formatDate(evaluation.createdAt) }}</span>
+          <div class="split-columns evaluation-detail-grid">
+            <section class="panel panel-nested">
+              <div class="panel-header compact">
+                <h3 class="section-title">人工标注</h3>
+              </div>
+              <div class="panel-body stack">
+                <div class="label-block">
+                  <span class="form-label">标准答案</span>
+                  <p class="item-description">{{ selectedCase.expectedAnswer || "未填写标准答案" }}</p>
                 </div>
-                <div class="history-question">{{ summarize(evaluation.runQuestion) }}</div>
-                <div class="item-meta">
-                  可信度 {{ formatScore(evaluation.groundedScore ?? undefined) }}
-                  | 检索分 {{ formatScore(evaluation.retrievalScore ?? undefined) }}
-                  <span v-if="evaluationDeltaLabel(experiment, evaluation)">
-                    | {{ evaluationDeltaLabel(experiment, evaluation) }}
-                  </span>
-                  <span v-if="evaluation.runLatencyMs != null"> | {{ evaluation.runLatencyMs }}ms</span>
-                </div>
-                <div class="item-meta">
-                  运行 {{ shortId(evaluation.runId) }}
-                  <span v-if="evaluation.runRetrieverType"> | {{ evaluation.runRetrieverType }}</span>
-                  <span v-if="evaluation.runModelName"> | {{ evaluation.runModelName }}</span>
-                </div>
-                <div v-if="evaluation.notes" class="item-meta">{{ evaluation.notes }}</div>
-                <div v-if="graphMetricItems(evaluation).length" class="graph-metric-strip">
-                  <div v-for="metric in graphMetricItems(evaluation)" :key="metric.label" class="graph-metric">
-                    <span>{{ metric.label }}</span>
-                    <strong>{{ metric.value }}</strong>
+                <div class="label-block">
+                  <span class="form-label">相关 Chunk IDs</span>
+                  <div class="tag-row">
+                    <span v-for="id in selectedCase.relevantChunkIds" :key="id" class="tag">{{ shortId(id) }}</span>
+                    <span v-if="selectedCase.relevantChunkIds.length === 0" class="item-meta">未标注</span>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <div class="form-grid" style="margin-top: 0.75rem;">
-              <label class="form-row">
-                <span class="form-label">RAG 运行</span>
-                <select v-model="selectedRunIds[experiment.id]" class="input">
-                  <option value="">选择最近一次运行</option>
-                  <option v-for="run in store.ragRuns" :key="run.id" :value="run.id">
-                    {{ runLabel(run) }}
-                  </option>
-                </select>
-              </label>
-              <label class="form-row">
-                <span class="form-label">期望答案</span>
-                <textarea
-                  v-model="expectedAnswers[experiment.id]"
-                  class="textarea"
-                  placeholder="可选：提供给评估器的参考答案"
-                />
-              </label>
-              <div class="structured-eval-box">
-                <div>
-                  <span class="form-label">结构化检索用例</span>
-                  <p class="item-meta">
-                    {{ structuredCaseLabel(experiment.id) }}
-                  </p>
+                <div class="label-block">
+                  <span class="form-label">相关 Document IDs</span>
+                  <div class="tag-row">
+                    <span v-for="id in selectedCase.relevantDocumentIds" :key="id" class="tag">{{ shortId(id) }}</span>
+                    <span v-if="selectedCase.relevantDocumentIds.length === 0" class="item-meta">未标注</span>
+                  </div>
                 </div>
-                <div class="button-row compact-row">
-                  <button
-                    class="button button-secondary"
-                    type="button"
-                    :disabled="store.experimentFormPending || !selectedRunIds[experiment.id]"
-                    @click="handleUseStructuredCase(experiment.id)"
-                  >
-                    使用首条检索结果
-                  </button>
-                  <button
-                    class="button button-ghost"
-                    type="button"
-                    :disabled="!structuredCaseFor(experiment.id)"
-                    @click="clearStructuredCase(experiment.id)"
-                  >
-                    清除用例
-                  </button>
+                <div class="label-block">
+                  <span class="form-label">期望引用 Chunk IDs</span>
+                  <div class="tag-row">
+                    <span v-for="id in selectedCase.expectedCitationChunkIds" :key="id" class="tag">{{ shortId(id) }}</span>
+                    <span v-if="selectedCase.expectedCitationChunkIds.length === 0" class="item-meta">未标注</span>
+                  </div>
+                </div>
+                <div class="label-block">
+                  <span class="form-label">备注</span>
+                  <p class="item-description">{{ selectedCase.notes || "无备注" }}</p>
                 </div>
               </div>
-            </div>
+            </section>
 
-            <div class="button-row" style="margin-top: 0.75rem;">
-              <button
-                class="button button-primary"
-                type="button"
-                :disabled="store.experimentFormPending || !selectedRunIds[experiment.id]"
-                @click="handleEvaluate(experiment.id)"
-              >
-                评估
-              </button>
-              <button class="button button-secondary" type="button" @click="openEdit(experiment)">编辑</button>
-              <button class="button button-ghost" type="button" @click="handleDelete(experiment.id)">删除</button>
-            </div>
-          </article>
+            <section class="panel panel-nested">
+              <div class="panel-header compact">
+                <h3 class="section-title">执行评估</h3>
+              </div>
+              <div class="panel-body stack">
+                <label class="form-row">
+                  <span class="form-label">选择 RAG Run</span>
+                  <select v-model="selectedRunId" class="input">
+                    <option value="">请选择历史运行</option>
+                    <option v-for="run in runOptionsForSelectedCase" :key="run.id" :value="run.id">
+                      {{ runLabel(run) }}
+                    </option>
+                  </select>
+                </label>
+
+                <label class="form-row">
+                  <span class="form-label">临时覆盖标准答案</span>
+                  <textarea v-model="expectedAnswerOverride" class="textarea" placeholder="留空则使用样本内标准答案" />
+                </label>
+
+                <div class="form-grid split">
+                  <label class="form-row">
+                    <span class="form-label">Preset</span>
+                    <select v-model="batchStrategyName" class="input">
+                      <option value="basic-rag">basic-rag</option>
+                      <option value="hybrid-rerank">hybrid-rerank</option>
+                      <option value="metadata-filter">metadata-filter</option>
+                      <option value="parent-child">parent-child</option>
+                      <option value="advanced-rag">advanced-rag</option>
+                      <option value="graph-rag">graph-rag</option>
+                    </select>
+                  </label>
+                  <label class="form-row">
+                    <span class="form-label">Batch topK</span>
+                    <input v-model.number="batchTopK" class="input" type="number" min="1" />
+                  </label>
+                </div>
+
+                <div class="button-row">
+                  <button class="button button-primary" type="button" :disabled="evaluationPending || !selectedRunId" @click="evaluateSelectedCase">
+                    评估当前样本
+                  </button>
+                  <button class="button button-secondary" type="button" :disabled="evaluationPending || batchCandidateCases.length === 0" @click="evaluateBatch">
+                    批量评估 {{ batchCandidateCases.length }} 条
+                  </button>
+                  <button class="button button-ghost" type="button" :disabled="!selectedRunId" @click="useTopRetrievalAsCase">
+                    从首条召回生成样本
+                  </button>
+                  <button class="button button-primary" type="button" :disabled="evaluationPending || batchCandidateCases.length === 0" @click="runBatchPreset">
+                    Run preset {{ batchStrategyName }}
+                  </button>
+                </div>
+
+                <div v-if="batchStatus" class="empty-state">{{ batchStatus }}</div>
+                <div v-if="store.lastError" class="empty-state">{{ store.lastError }}</div>
+              </div>
+            </section>
+          </div>
         </div>
+
+        <div v-else class="empty-state">
+          先从左侧选择一个样本，或新建第一条评测样本。
+        </div>
+
+        <section class="panel panel-nested">
+          <div class="panel-header compact">
+            <div>
+              <h3 class="section-title">最近评估历史</h3>
+              <p class="panel-subtitle">来自 `rag_experiment_evaluations`，用于回看样本、策略和 run 的评测结果。</p>
+            </div>
+          </div>
+
+          <div v-if="recentEvaluations.length === 0" class="empty-state">
+            暂无评估历史。
+          </div>
+          <div v-else class="history-list">
+            <article v-for="evaluation in recentEvaluations" :key="evaluation.id" class="history-row">
+              <div class="history-main">
+                <span class="history-run">{{ experimentName(evaluation.experimentId) }}</span>
+                <span class="item-meta">{{ formatDate(evaluation.createdAt) }}</span>
+              </div>
+              <div class="history-question">{{ summarize(evaluation.runQuestion) }}</div>
+              <div class="item-meta">
+                可信度 {{ formatScore(evaluation.groundedScore) }}
+                · 检索分 {{ formatScore(evaluation.retrievalScore) }}
+                <span v-if="evaluation.runLatencyMs != null"> · {{ evaluation.runLatencyMs }}ms</span>
+              </div>
+              <div class="item-meta">
+                run {{ shortId(evaluation.runId) }}
+                <span v-if="evaluation.runRetrieverType"> · {{ evaluation.runRetrieverType }}</span>
+                <span v-if="evaluation.runModelName"> · {{ evaluation.runModelName }}</span>
+              </div>
+              <div v-if="evaluation.notes" class="item-meta">{{ evaluation.notes }}</div>
+            </article>
+          </div>
+        </section>
       </div>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
-import type { ExperimentEvaluationHistory, ExperimentRecord, ExperimentEvaluationRequest, RagRunSummary } from "../../types";
+import { computed, onMounted, reactive, ref, watch } from "vue";
+import type {
+  CreateEvaluationCaseRequest,
+  EvaluationCaseRecord,
+  RagRunSummary
+} from "../../types";
 import { useWorkbenchStore } from "../../stores/workbench";
-import { formatMetricPercent, parseGraphRagMetricNote } from "../../utils/evaluation-notes";
+import {
+  createEvaluationCase,
+  deleteEvaluationCase,
+  evaluateEvaluationCase,
+  fetchEvaluationCases,
+  runEvaluationCasesBatch,
+  updateEvaluationCase
+} from "../../api/experiments";
 
 const store = useWorkbenchStore();
+const selectedExperimentId = ref("");
+const selectedCaseId = ref("");
+const selectedRunId = ref("");
+const statusFilter = ref("ACTIVE");
+const keyword = ref("");
+const expectedAnswerOverride = ref("");
+const evaluationCases = ref<EvaluationCaseRecord[]>([]);
+const caseFormVisible = ref(false);
+const editingCaseId = ref<string | null>(null);
+const caseFormSubmitting = ref(false);
+const evaluationPending = ref(false);
+const batchStatus = ref("");
+const batchStrategyName = ref("advanced-rag");
+const batchTopK = ref(5);
 
-const showForm = ref(false);
-const editingId = ref<string | null>(null);
-
-const formName = ref("");
-const formDescription = ref("");
-const formStrategy = ref(store.ragStrategyOptions[0].value);
-const formDatasetName = ref("");
-const formSampleCount = ref<number | undefined>(undefined);
-const formPrecisionScore = ref<number | undefined>(undefined);
-const formRecallScore = ref<number | undefined>(undefined);
-const formStatus = ref("PLANNED");
-const formNotes = ref("");
-const selectedRunIds = reactive<Record<string, string>>({});
-const expectedAnswers = reactive<Record<string, string>>({});
-const structuredCases = reactive<Record<string, StructuredEvaluationCase>>({});
-const structuredCaseRunIds = reactive<Record<string, string>>({});
-
-interface StructuredEvaluationCase {
-  evaluationCaseId: string;
-  relevantChunkIds: string[];
-  relevantDocumentIds: string[];
-  expectedCitationChunkIds: string[];
-  evaluationTopK: number;
-}
-
-interface ExperimentHistorySummary {
-  count: number;
-  averageGrounded?: number;
-  averageRetrieval?: number;
-  trendLabel?: string;
-}
-
-interface EvaluationDashboard {
-  evaluationCount: number;
-  averageGrounded?: number;
-  averageRetrieval?: number;
-  bestExperimentName: string;
-}
-
-const evaluationDashboard = computed<EvaluationDashboard>(() => {
-  const summary = store.experimentEvaluationSummary;
-  if (summary.evaluationCount > 0) {
-    return {
-      evaluationCount: summary.evaluationCount,
-      averageGrounded: summary.averageGrounded ?? undefined,
-      averageRetrieval: summary.averageRetrieval ?? undefined,
-      bestExperimentName: summary.bestExperimentName ?? "待评估"
-    };
-  }
-
-  const evaluations = store.experiments.flatMap((experiment) =>
-    (experiment.evaluations ?? []).map((evaluation) => ({ experiment, evaluation }))
-  );
-
-  if (evaluations.length === 0) {
-    return {
-      evaluationCount: 0,
-      bestExperimentName: "待评估"
-    };
-  }
-
-  const latestByExperiment = store.experiments
-    .map((experiment) => ({ experiment, evaluation: sortEvaluations(experiment.evaluations ?? [])[0] }))
-    .filter((item): item is { experiment: ExperimentRecord; evaluation: ExperimentEvaluationHistory } =>
-      Boolean(item.evaluation)
-    );
-
-  const best = latestByExperiment
-    .filter(({ evaluation }) => evaluation.groundedScore != null || evaluation.retrievalScore != null)
-    .sort((left, right) => evaluationQuality(right.evaluation) - evaluationQuality(left.evaluation))[0];
-
-  return {
-    evaluationCount: evaluations.length,
-    averageGrounded: averageScore(evaluations.map(({ evaluation }) => evaluation.groundedScore)),
-    averageRetrieval: averageScore(evaluations.map(({ evaluation }) => evaluation.retrievalScore)),
-    bestExperimentName: best?.experiment.name ?? "待评估"
-  };
+const caseForm = reactive<CreateEvaluationCaseRequest>({
+  experimentId: "",
+  caseId: "",
+  question: "",
+  expectedAnswer: "",
+  relevantChunkIds: [],
+  relevantDocumentIds: [],
+  expectedCitationChunkIds: [],
+  evaluationTopK: 5,
+  notes: "",
+  status: "ACTIVE"
 });
 
-function formatScore(value?: number): string {
+const chunkIdsText = ref("");
+const documentIdsText = ref("");
+const citationIdsText = ref("");
+
+const summary = computed(() => store.experimentEvaluationSummary);
+const recentEvaluations = computed(() => summary.value.recentEvaluations ?? []);
+const activeCaseCount = computed(() => filteredCases.value.filter((item) => item.status === "ACTIVE").length);
+const filteredCases = computed(() => {
+  const query = keyword.value.trim().toLowerCase();
+  return evaluationCases.value.filter((item) => {
+    const matchesExperiment = !selectedExperimentId.value || item.experimentId === selectedExperimentId.value;
+    const matchesStatus = !statusFilter.value || item.status === statusFilter.value;
+    const matchesKeyword =
+      !query ||
+      item.caseId.toLowerCase().includes(query) ||
+      item.question.toLowerCase().includes(query) ||
+      (item.notes ?? "").toLowerCase().includes(query);
+    return matchesExperiment && matchesStatus && matchesKeyword;
+  });
+});
+
+const selectedCase = computed(() => {
+  if (!selectedCaseId.value) return filteredCases.value[0];
+  return filteredCases.value.find((item) => item.id === selectedCaseId.value)
+    ?? evaluationCases.value.find((item) => item.id === selectedCaseId.value)
+    ?? null;
+});
+
+const runOptionsForSelectedCase = computed(() => {
+  if (!selectedCase.value) return store.ragRuns;
+  return store.ragRuns.filter((run) => {
+    if (!run.knowledgeBaseId) return true;
+    const experiment = store.experiments.find((item) => item.id === selectedCase.value?.experimentId);
+    return !experiment?.knowledgeBaseId || experiment.knowledgeBaseId === run.knowledgeBaseId;
+  });
+});
+
+const batchCandidateCases = computed(() => {
+  if (!selectedRunId.value) return [];
+  return filteredCases.value.filter((item) => item.status === "ACTIVE");
+});
+
+const canSubmitCase = computed(() =>
+  Boolean(caseForm.experimentId && caseForm.caseId.trim() && caseForm.question.trim())
+);
+
+watch(selectedExperimentId, () => {
+  selectedCaseId.value = "";
+  batchStatus.value = "";
+});
+
+watch(selectedCase, (value) => {
+  selectedRunId.value = "";
+  expectedAnswerOverride.value = value?.expectedAnswer ?? "";
+});
+
+function resetFilters(): void {
+  selectedExperimentId.value = "";
+  statusFilter.value = "ACTIVE";
+  keyword.value = "";
+}
+
+function reloadAll(): void {
+  batchStatus.value = "";
+  void Promise.all([
+    loadCases(),
+    store.loadExperiments(),
+    store.loadExperimentEvaluationSummary(50),
+    store.loadRagRuns(50)
+  ]);
+}
+
+async function loadCases(): Promise<void> {
+  evaluationCases.value = await fetchEvaluationCases();
+  if (!selectedCaseId.value || !evaluationCases.value.some((item) => item.id === selectedCaseId.value)) {
+    selectedCaseId.value = filteredCases.value[0]?.id ?? evaluationCases.value[0]?.id ?? "";
+  }
+}
+
+function selectCase(id: string): void {
+  selectedCaseId.value = id;
+  const target = evaluationCases.value.find((item) => item.id === id);
+  if (target) {
+    selectedExperimentId.value = target.experimentId;
+    selectedRunId.value = "";
+    expectedAnswerOverride.value = target.expectedAnswer ?? "";
+  }
+}
+
+function openCaseForm(target?: EvaluationCaseRecord | null): void {
+  if (target) {
+    editingCaseId.value = target.id;
+    Object.assign(caseForm, {
+      experimentId: target.experimentId,
+      caseId: target.caseId,
+      question: target.question,
+      expectedAnswer: target.expectedAnswer ?? "",
+      relevantChunkIds: [...target.relevantChunkIds],
+      relevantDocumentIds: [...target.relevantDocumentIds],
+      expectedCitationChunkIds: [...target.expectedCitationChunkIds],
+      evaluationTopK: target.evaluationTopK,
+      notes: target.notes ?? "",
+      status: target.status
+    });
+    chunkIdsText.value = target.relevantChunkIds.join("\n");
+    documentIdsText.value = target.relevantDocumentIds.join("\n");
+    citationIdsText.value = target.expectedCitationChunkIds.join("\n");
+  } else {
+    editingCaseId.value = null;
+    Object.assign(caseForm, {
+      experimentId: selectedExperimentId.value || store.experiments[0]?.id || "",
+      caseId: "",
+      question: "",
+      expectedAnswer: "",
+      relevantChunkIds: [],
+      relevantDocumentIds: [],
+      expectedCitationChunkIds: [],
+      evaluationTopK: 5,
+      notes: "",
+      status: "ACTIVE"
+    });
+    chunkIdsText.value = "";
+    documentIdsText.value = "";
+    citationIdsText.value = "";
+  }
+  caseFormVisible.value = true;
+}
+
+function closeCaseForm(): void {
+  caseFormVisible.value = false;
+  editingCaseId.value = null;
+}
+
+async function submitCaseForm(): Promise<void> {
+  if (!canSubmitCase.value) return;
+  caseFormSubmitting.value = true;
+  try {
+    const payload = {
+      ...caseForm,
+      evaluationTopK: Math.max(1, Number(caseForm.evaluationTopK) || 5),
+      relevantChunkIds: parseIds(chunkIdsText.value),
+      relevantDocumentIds: parseIds(documentIdsText.value),
+      expectedCitationChunkIds: parseIds(citationIdsText.value)
+    };
+    const record = editingCaseId.value
+      ? await updateEvaluationCase(editingCaseId.value, payload)
+      : await createEvaluationCase(payload);
+    await loadCases();
+    selectedCaseId.value = record.id;
+    selectedExperimentId.value = record.experimentId;
+    closeCaseForm();
+  } finally {
+    caseFormSubmitting.value = false;
+  }
+}
+
+async function archiveSelectedCase(): Promise<void> {
+  if (!selectedCase.value) return;
+  const nextStatus = selectedCase.value.status === "ARCHIVED" ? "ACTIVE" : "ARCHIVED";
+  const updated = await updateEvaluationCase(selectedCase.value.id, { status: nextStatus });
+  evaluationCases.value = evaluationCases.value.map((item) => (item.id === updated.id ? updated : item));
+  selectedCaseId.value = updated.id;
+}
+
+async function deleteSelectedCase(): Promise<void> {
+  if (!selectedCase.value) return;
+  await handleDeleteCase(selectedCase.value.id);
+}
+
+async function handleDeleteCase(id: string): Promise<void> {
+  const target = evaluationCases.value.find((item) => item.id === id);
+  if (!target) return;
+  if (!confirm(`确认删除评测样本 ${target.caseId} 吗？`)) return;
+  await deleteEvaluationCase(id);
+  evaluationCases.value = evaluationCases.value.filter((item) => item.id !== id);
+  selectedCaseId.value = filteredCases.value[0]?.id ?? evaluationCases.value[0]?.id ?? "";
+}
+
+async function evaluateSelectedCase(): Promise<void> {
+  if (!selectedCase.value || !selectedRunId.value) return;
+  evaluationPending.value = true;
+  batchStatus.value = "";
+  try {
+    await evaluateEvaluationCase(selectedCase.value.id, {
+      runId: selectedRunId.value,
+      expectedAnswer: expectedAnswerOverride.value.trim() || undefined
+    });
+    await Promise.all([
+      store.loadExperiments(),
+      store.loadExperimentEvaluationSummary(50)
+    ]);
+    batchStatus.value = `已完成样本 ${selectedCase.value.caseId} 的评估。`;
+  } finally {
+    evaluationPending.value = false;
+  }
+}
+
+async function evaluateBatch(): Promise<void> {
+  if (!selectedRunId.value || batchCandidateCases.value.length === 0) return;
+  evaluationPending.value = true;
+  batchStatus.value = `开始批量评估 ${batchCandidateCases.value.length} 条样本...`;
+  try {
+    let completed = 0;
+    for (const evaluationCase of batchCandidateCases.value) {
+      await evaluateEvaluationCase(evaluationCase.id, { runId: selectedRunId.value });
+      completed += 1;
+      batchStatus.value = `批量评估进度：${completed}/${batchCandidateCases.value.length}`;
+    }
+    await Promise.all([
+      store.loadExperiments(),
+      store.loadExperimentEvaluationSummary(50)
+    ]);
+    batchStatus.value = `批量评估完成：${completed}/${batchCandidateCases.value.length}`;
+  } finally {
+    evaluationPending.value = false;
+  }
+}
+
+async function runBatchPreset(): Promise<void> {
+  if (!selectedExperimentId.value || batchCandidateCases.value.length === 0) return;
+  evaluationPending.value = true;
+  batchStatus.value = `Running ${batchStrategyName.value} for ${batchCandidateCases.value.length} cases...`;
+  try {
+    const result = await runEvaluationCasesBatch({
+      experimentId: selectedExperimentId.value,
+      caseIds: batchCandidateCases.value.map((item) => item.id),
+      strategyName: batchStrategyName.value,
+      retrieverType: "hybrid",
+      topK: Math.max(1, Number(batchTopK.value) || 5)
+    });
+    await Promise.all([
+      store.loadExperiments(),
+      store.loadExperimentEvaluationSummary(50),
+      store.loadRagRuns(50)
+    ]);
+    batchStatus.value = `Preset ${result.strategyName ?? batchStrategyName.value} completed: ${result.completedCount}/${result.requestedCount}, failed ${result.failedCount}.`;
+  } finally {
+    evaluationPending.value = false;
+  }
+}
+
+async function useTopRetrievalAsCase(): Promise<void> {
+  if (!selectedRunId.value) return;
+  const detail = await store.loadRagRunDetail(selectedRunId.value);
+  const topResult = detail?.retrievalResults?.[0];
+  if (!topResult?.chunkId) {
+    store.lastError = "所选 RAG run 没有可用于生成样本的首条召回片段。";
+    return;
+  }
+  openCaseForm();
+  caseForm.caseId = `auto-${shortId(selectedRunId.value)}`;
+  caseForm.question = detail?.question ?? "";
+  caseForm.expectedAnswer = detail?.answer ?? "";
+  caseForm.relevantChunkIds = [topResult.chunkId];
+  caseForm.relevantDocumentIds = topResult.documentId ? [topResult.documentId] : [];
+  caseForm.expectedCitationChunkIds = [topResult.chunkId];
+  caseForm.evaluationTopK = 1;
+  chunkIdsText.value = topResult.chunkId;
+  documentIdsText.value = topResult.documentId ?? "";
+  citationIdsText.value = topResult.chunkId;
+}
+
+function parseIds(value: string): string[] {
+  return value
+    .split(/\r?\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function experimentName(id?: string | null): string {
+  if (!id) return "未知实验";
+  return store.experiments.find((experiment) => experiment.id === id)?.name ?? shortId(id);
+}
+
+function formatScore(value?: number | null): string {
   if (value == null) return "待评估";
   return `${Math.round(value * 100)}%`;
 }
 
-function averageScore(values: Array<number | null | undefined>): number | undefined {
-  const valid = values.filter((value): value is number => value != null);
-  if (valid.length === 0) return undefined;
-  return valid.reduce((total, value) => total + value, 0) / valid.length;
-}
-
-function evaluationQuality(evaluation: ExperimentEvaluationHistory): number {
-  return averageScore([evaluation.groundedScore, evaluation.retrievalScore]) ?? 0;
-}
-
-function sortEvaluations(evaluations: ExperimentEvaluationHistory[]): ExperimentEvaluationHistory[] {
-  return [...evaluations].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
-}
-
-function experimentHistorySummary(experiment: ExperimentRecord): ExperimentHistorySummary {
-  const evaluations = sortEvaluations(experiment.evaluations ?? []);
-  const latest = evaluations[0];
-  const previous = evaluations[1];
-  const latestQuality = latest ? evaluationQuality(latest) : undefined;
-  const previousQuality = previous ? evaluationQuality(previous) : undefined;
-  const delta = latestQuality != null && previousQuality != null ? latestQuality - previousQuality : undefined;
-
-  return {
-    count: evaluations.length,
-    averageGrounded: averageScore(evaluations.map((evaluation) => evaluation.groundedScore)),
-    averageRetrieval: averageScore(evaluations.map((evaluation) => evaluation.retrievalScore)),
-    trendLabel: formatTrend(delta)
-  };
-}
-
-function evaluationDeltaLabel(experiment: ExperimentRecord, evaluation: ExperimentEvaluationHistory): string | undefined {
-  const evaluations = sortEvaluations(experiment.evaluations ?? []);
-  const index = evaluations.findIndex((item) => item.id === evaluation.id);
-  if (index < 0 || index >= evaluations.length - 1) return undefined;
-  return formatTrend(evaluationQuality(evaluation) - evaluationQuality(evaluations[index + 1]));
-}
-
-function graphMetricItems(evaluation: ExperimentEvaluationHistory): Array<{ label: string; value: string }> {
-  const metrics = parseGraphRagMetricNote(evaluation.notes);
-  if (!metrics) return [];
-  return [
-    { label: "实体", value: formatMetricPercent(metrics.entityCoverage) },
-    { label: "关系", value: formatMetricPercent(metrics.relationshipHit) },
-    { label: "扩展", value: formatMetricPercent(metrics.expansionTermHit) }
-  ];
-}
-
-function formatTrend(value?: number): string | undefined {
-  if (value == null) return undefined;
-  const sign = value >= 0 ? "+" : "";
-  return `${sign}${Math.round(value * 100)} 点`;
-}
-
-function runLabel(run: RagRunSummary): string {
-  const question = run.question.length > 64 ? `${run.question.slice(0, 64)}...` : run.question;
-  return `${strategyLabel(run.strategyName)} | ${statusLabel(run.status)} | ${question}`;
-}
-
-function summarize(value?: string | null, maxLength = 92): string {
-  if (!value) return "无问题快照";
+function summarize(value?: string | null, maxLength = 72): string {
+  if (!value) return "暂无内容";
   return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 }
 
-function shortId(value: string): string {
+function shortId(value?: string | null): string {
+  if (!value) return "-";
   return value.slice(0, 8);
 }
 
-function formatDate(value: string): string {
-  if (!value) return "";
+function formatDate(value?: string | null): string {
+  if (!value) return "-";
   return value.replace("T", " ").slice(0, 16);
 }
 
-function structuredCaseFor(experimentId: string): StructuredEvaluationCase | undefined {
-  const selectedRunId = selectedRunIds[experimentId];
-  if (!selectedRunId || structuredCaseRunIds[experimentId] !== selectedRunId) {
-    return undefined;
-  }
-  return structuredCases[experimentId];
-}
-
-function structuredCaseLabel(experimentId: string): string {
-  const evaluationCase = structuredCaseFor(experimentId);
-  if (!evaluationCase) {
-    return "当前使用简单评估路径。添加用例后可按召回率、精确率、MRR 和引用命中率评估检索结果。";
-  }
-  const chunkId = evaluationCase.relevantChunkIds[0] ?? "待选择";
-  return `${evaluationCase.evaluationCaseId} | topK=${evaluationCase.evaluationTopK} | 片段 ${shortId(chunkId)}`;
-}
-
-function strategyLabel(value?: string | null): string {
-  if (!value) return "未知策略";
-  return store.ragStrategyOptions.find((option) => option.value === value)?.label ?? value;
+function runLabel(run: RagRunSummary): string {
+  return `${run.strategyName ?? "未知策略"} · ${run.status} · ${summarize(run.question, 44)}`;
 }
 
 function statusLabel(value?: string | null): string {
-  const labels: Record<string, string> = {
-    PLANNED: "计划中",
-    RUNNING: "运行中",
-    COMPLETED: "已完成",
-    FAILED: "失败",
-    SUCCESS: "成功",
-    ERROR: "错误"
-  };
-  return value ? labels[value] ?? value : "未知状态";
-}
-
-function resetForm(): void {
-  formName.value = "";
-  formDescription.value = "";
-  formStrategy.value = store.ragStrategyOptions[0].value;
-  formDatasetName.value = "";
-  formSampleCount.value = undefined;
-  formPrecisionScore.value = undefined;
-  formRecallScore.value = undefined;
-  formStatus.value = "PLANNED";
-  formNotes.value = "";
-  editingId.value = null;
-}
-
-function openCreate(): void {
-  if (showForm.value && !editingId.value) {
-    showForm.value = false;
-    return;
-  }
-  resetForm();
-  showForm.value = true;
-}
-
-function openEdit(exp: ExperimentRecord): void {
-  formName.value = exp.name;
-  formDescription.value = exp.description ?? "";
-  formStrategy.value = exp.strategy;
-  formDatasetName.value = exp.datasetName ?? "";
-  formSampleCount.value = exp.sampleCount;
-  formPrecisionScore.value = exp.precisionScore;
-  formRecallScore.value = exp.recallScore;
-  formStatus.value = exp.status ?? "PLANNED";
-  formNotes.value = exp.notes ?? "";
-  editingId.value = exp.id;
-  showForm.value = true;
-}
-
-function closeForm(): void {
-  showForm.value = false;
-  resetForm();
-}
-
-async function submitForm(): Promise<void> {
-  const payload = {
-    name: formName.value.trim(),
-    description: formDescription.value.trim() || undefined,
-    strategy: formStrategy.value,
-    datasetName: formDatasetName.value.trim() || undefined,
-    sampleCount: formSampleCount.value,
-    precisionScore: formPrecisionScore.value,
-    recallScore: formRecallScore.value,
-    status: formStatus.value,
-    notes: formNotes.value.trim() || undefined,
-  };
-
-  if (editingId.value) {
-    await store.updateExp(editingId.value, payload);
-  } else {
-    await store.createExp(payload);
-  }
-
-  if (!store.lastError) {
-    closeForm();
-  }
-}
-
-async function handleEvaluate(id: string): Promise<void> {
-  const runId = selectedRunIds[id];
-  if (!runId) return;
-  const evaluationCase = structuredCaseFor(id);
-  const payload: ExperimentEvaluationRequest = {
-    runId,
-    expectedAnswer: expectedAnswers[id],
-    ...(evaluationCase ?? {})
-  };
-  await store.evaluateExp(id, payload);
-}
-
-async function handleUseStructuredCase(id: string): Promise<void> {
-  const runId = selectedRunIds[id];
-  if (!runId) return;
-  const detail = await store.loadRagRunDetail(runId);
-  const topResult = detail?.retrievalResults?.[0];
-  if (!topResult?.chunkId) {
-    store.lastError = "所选 RAG 运行没有可用于结构化评估用例的检索片段。";
-    return;
-  }
-  structuredCases[id] = {
-    evaluationCaseId: `ui-${shortId(runId)}-top-retrieval`,
-    relevantChunkIds: [topResult.chunkId],
-    relevantDocumentIds: topResult.documentId ? [topResult.documentId] : [],
-    expectedCitationChunkIds: [topResult.chunkId],
-    evaluationTopK: 1
-  };
-  structuredCaseRunIds[id] = runId;
-}
-
-function clearStructuredCase(id: string): void {
-  delete structuredCases[id];
-  delete structuredCaseRunIds[id];
-}
-
-async function handleDelete(id: string): Promise<void> {
-  if (!confirm("确定删除这个实验吗？")) return;
-  await store.deleteExp(id);
+  return value === "ARCHIVED" ? "归档" : "启用";
 }
 
 onMounted(() => {
-  store.loadRagRuns();
-  store.loadExperimentEvaluationSummary();
+  void Promise.all([
+    store.loadExperiments(),
+    store.loadExperimentEvaluationSummary(50),
+    store.loadRagRuns(50)
+  ]).then(() => loadCases());
 });
 </script>

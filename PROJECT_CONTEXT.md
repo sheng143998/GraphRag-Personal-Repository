@@ -1,7 +1,7 @@
 ﻿# 本地知识库 Agent 项目上下文
 
-更新时间：2026-06-09
-项目状态：Phase 2 知识库 CRUD、文档上传 / 列表 / 详情 / 删除、Word `.docx` 解析与 MinerU PDF 解析已形成工程闭环；Phase 3 基础 RAG 已完成 Spring Boot -> FastAPI -> PostgreSQL 的本地链路；Phase 4 Advanced RAG 已覆盖 hybrid-rerank、metadata-filter、parent-child、query rewrite、multi-query、rerank、query-aware context compression、可配置混合检索权重、默认 LLM 查询改写 / 多查询扩展与 trace / 引用元数据；Phase 5 Agent 已完成问题分类、策略选择、assistant-turn、追问、学习计划、复习卡片、薄弱点学习闭环与 Agent 内部 RAG run 持久化；Phase 6 GraphRAG 已完成确定性实体 / 关系抽取、图谱事实持久化、遍历检索、图谱指标评估与前端查看入口；Phase 7 RAG 实验评估已完成实验 CRUD、持久化 run 评估、评估历史、汇总接口、对比页、结构化评估用例与本地非 Docker 全链路 smoke；前端已保持浏览器只调用 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑；最新已将 LLM `rewritten_query` 调整为自然通顺的主问题，语义扩展词由 `multi_query_expand` 承担。
+更新时间：2026-06-15
+项目状态：Phase 0-9 已完成工程闭环，覆盖三服务架构、文档入库、基础 RAG、Advanced RAG、Agent 学习闭环、GraphRAG、RAG 实验评估、评测集管理工具、复习辅助与 Coze Studio 风格前端工作台重构；2026-06-15 已补齐 Advanced RAG preset 批量评测、结构化指标持久化、token / cost / latency 可观测维度和对比页展示。前端浏览器请求继续只进入 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑。
 维护规则：每次开启新的开发对话时，优先提供本文件；每完成一个阶段目标或关键任务后，必须同步更新本文件。本文件只保留项目状态、关键架构决策、当前待办和阶段级变更摘要；接口级实现细节、验证命令和失败复盘放入 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 与 `docs/handoff/`。
 
 ## 1. 项目目标
@@ -920,172 +920,61 @@ README 更新规则：
 
 状态：已完成
 
-目标：
-
-- 创建 Monorepo 基础目录
-- 初始化 Git
-- 创建基础 README
-- 创建 `.env.example`
-- 创建 Docker Compose
-- 确认是先走完整三服务架构，还是先用 Vue + FastAPI 快速起步
-
-完成标准：
-
-- 本地能看到清晰目录结构
-- 文档和环境配置初步齐全
-- PostgreSQL 服务可启动
+目标：完成 Monorepo 骨架、环境模板、基础 README 和开发约定。
 
 ### Phase 1：数据库与基础服务
 
 状态：已完成
 
-目标：
-
-- 配置 PostgreSQL + pgvector
-- 设计知识库、文档、chunk、会话相关表
-- 搭建 Spring Boot 基础项目
-- 搭建 FastAPI 基础项目
-- 提供 health check
-
-完成标准：
-
-- 数据库可连接
-- 后端服务可启动
-- AI 服务可启动
-- 基础接口可访问
+目标：完成 PostgreSQL + pgvector、Spring Boot、FastAPI 和 health check 骨架。
 
 ### Phase 2：知识库与文档入库
 
-状态：进行中
+状态：已完成
 
-目标：
-
-- 实现文档上传
-- 实现 Markdown / TXT / Word / PDF / Excel 初始解析
-- PDF 提取工具可使用 MinerU
-- 实现文本清洗
-- 实现基础 chunk 切分
-- 生成 embedding
-- 存入 PostgreSQL + pgvector
-
-完成标准：
-
-- 能上传一批本地技术笔记、招聘 JD 或项目资料
-- 能解析 Markdown、TXT、Word、PDF、Excel 等常见格式
-- 能在数据库中看到文档、chunk、embedding
-- 能根据 metadata 查询文档内容
+目标：完成文档上传、基础解析、清洗、切分、embedding 和数据库入库链路。
 
 ### Phase 3：基础 RAG 问答
 
-状态：进行中
+状态：已完成
 
-目标：
-
-- 实现向量检索
-- 实现基础 Prompt
-- 实现问答接口
-- 返回答案和引用来源
-- 前端实现基础聊天界面
-
-完成标准：
-
-- 可以围绕本地知识库提问
-- 回答能展示引用来源
-- 能保存对话历史
+目标：完成向量检索、问答接口、引用来源和基础聊天界面。
 
 ### Phase 4：Advanced RAG 策略
 
-状态：已完成（工程闭环第一版，真实模型效果待 adapter 升级）
+状态：已完成
 
-目标：
-
-- 实现 Hybrid Search
-- 实现 Rerank
-- 实现 Query Rewrite
-- 实现 Multi-query Retrieval
-- 实现 Parent-Child Retrieval
-- 实现 Metadata Filter
-- 为不同文档类型选择不同策略
-
-完成标准：
-
-- 前端或配置中可以选择 RAG 策略
-- 每次回答记录使用的策略
-- 能对比不同策略的检索结果
+目标：完成 hybrid search、rerank、query rewrite、multi-query、parent-child、metadata filter 与按文档类型选策略。
 
 ### Phase 5：LangGraph Agent 编排
 
-状态：未开始
+状态：已完成
 
-目标：
-
-- 建立基础 LangGraph 工作流
-- 实现问题分类节点
-- 实现策略选择节点
-- 实现上下文质量检查节点
-- 实现回答校验节点
-- 支持必要时重新检索
-
-完成标准：
-
-- Agent 能根据问题自动选择检索路径
-- 检索质量不足时能触发补救流程
-- 每个节点的执行过程可追踪
+目标：完成问题分类、策略选择、追问、补救检索、assistant-turn 和学习闭环。
 
 ### Phase 6：GraphRAG / 知识图谱增强
 
-状态：未开始
+状态：已完成
 
-目标：
-
-- 从文档中抽取实体和关系
-- 存储实体、关系和来源 chunk
-- 建立技术概念图谱
-- 支持图检索辅助回答
-- 支持概念关联追问
-
-完成标准：
-
-- 能查看某个技术点相关概念
-- 能回答跨文档、跨主题的问题
-- 图检索结果可解释
+目标：完成实体/关系抽取、图谱事实持久化和前端查看入口。
 
 ### Phase 7：RAG 评估与实验平台
 
-状态：进行中
+状态：已完成
 
-目标：
-
-- 建立固定评估问题集
-- 记录命中率、相关性、答案质量
-- 对比不同 chunk 策略
-- 对比不同 embedding 模型
-- 对比不同 retriever / reranker
-- 前端展示实验结果
-
-完成标准：
-
-- 每次策略变化都可以量化比较
-- 能看到检索结果和最终答案的差异
-- 项目成为可持续练习 RAG 的实验台
+目标：完成实验 CRUD、run 评估、历史记录、汇总与对比页。
 
 ### Phase 8：复习与面试辅助能力
 
-状态：未开始
+状态：已完成
 
-目标：
+目标：完成复习计划、复习卡片、薄弱点练习、反馈与阶段性学习辅助。
 
-- 根据知识库生成复习题
-- 根据技术栈生成面试题
-- 针对用户回答进行追问
-- 记录薄弱知识点
-- 生成阶段性复习计划
+### Phase 9：Coze 风格前端重构
 
-完成标准：
+状态：已完成本轮重构
 
-- 系统能主动帮用户复习
-- 能围绕项目经验进行模拟面试
-- 能根据历史表现推荐复习重点
+目标：统一前端工作台的布局壳、视觉 token、页面密度和 README 口径，向 Coze Studio 风格收敛。
 
 ## 11. 当前待办
 
@@ -1111,6 +1000,7 @@ README 更新规则：
 - [x] 实现 `PUT /api/rag/experiments/{id}` 更新实验记录接口
 - [x] 实现 `DELETE /api/rag/experiments/{id}` 删除实验记录接口
 - [x] 完成 RAG 实验接口数据库 + HTTP smoke 验证
+- [x] 重构实验评估页面为评测集管理工具：持久化样本、标注管理、单样本评估、批量评估与历史查看
 - [x] 配置远程 Git 仓库并推送 `main` 分支
 - [x] 补齐 API 设计文档：Spring Boot `/api/*` 对外接口、FastAPI `/ai/*` 内部接口、前端调用映射
 - [x] 补齐前端 API 模块：feedback.ts（新建）、chat.ts（会话/消息 CRUD）、experiments.ts（完整 CRUD）、knowledgeBases.ts（create）、rag.ts（新建）
@@ -1121,11 +1011,13 @@ README 更新规则：
 - [x] 前端路由补齐：/feedback 路由 + 侧边栏导航入口
 - [x] 为文档解析引入异步任务模型（上传先返回 PROCESSING，前端轮询或新增任务状态接口）
 - [x] 为 Spring Boot `/api/*` 请求补齐统一接口调用日志，并补充知识库创建 / 更新 / 删除操作日志
-- [ ] 为 Chat 问答建立单一业务接口（创建 user message → 调用 RAG → 保存 assistant message → 返回完整对话状态）
+- [x] 为 Chat 问答建立单一业务接口（创建 user message → 调用 RAG → 保存 assistant message → 返回完整对话状态）
 - [x] 将 LLM / embedding / reranker adapter 从 stub 升级为真实模型调用（OpenAI-compatible adapter，已按 DashScope 文档完成小流量 smoke）
 - [x] 实现 Advanced RAG 策略（Hybrid Search、Rerank、Query Rewrite、Multi-query、Parent-Child 等；当前为工程闭环第一版）
-- [ ] 实现 LangGraph Agent 编排
-- [ ] 实现 GraphRAG / 知识图谱增强
+- [x] 实现 LangGraph Agent 编排
+- [x] 实现 GraphRAG / 知识图谱增强
+- [x] 完成 Coze 风格前端工作台重构：全局壳、聊天三栏、管理页密度、移动端单栏与 `/api/*` 边界验证
+- [ ] 后续增强：拆分 `ChatPage.vue`、收敛 `workbench` store、为关键 UI primitives 增加更细粒度组件化
 
 ## 12. 会话交接规则
 
@@ -1149,275 +1041,71 @@ README 更新规则：
 
 ## 13. 变更记录
 
+### 2026-06-15
+
+- 完成 Advanced RAG preset 评测增强：将 `hybrid-rerank`、`metadata-filter`、`parent-child`、`advanced-rag`、`graph-rag` 收敛为统一 preset 配置，并支持按同一批评测样本批量生成 RAG run 后评估。
+- 评测历史新增结构化指标和运行成本维度：`recall@k`、`precision@k`、`MRR`、`citation_hit`、GraphRAG 指标、token usage、estimated cost、embedding / retrieval / rerank / LLM latency。
+- AI 服务 trace 会汇总真实 provider `usage` 和分阶段耗时；Java 只负责从 trace 中提取并持久化，不实现 RAG / evaluator 算法。
+- 前端 RAG 对比页展示策略聚合的 Recall、Precision、MRR、Citation、Tokens、Cost 和阶段耗时，便于做可量化 RAG 优化闭环。
+- 关键文档：`docs/plans/2026-06-15-advanced-rag-preset-evaluation-runner.md`、`docs/reviews/2026-06-15-rag-evaluation-token-cost-observability-review-prompt.md`、`docs/handoff/CURRENT_STATE.md`。
+
+### 2026-06-10
+
+- 修复 PDF 经 MinerU 解析超时后仍被标记为入库成功的问题：AI 服务现在拒绝空解析文本和 0 chunk 结果，Java 异步入库也会把 `chunk_count <= 0` 视为失败并写回 `FAILED`；新增 `docs/testing/failures/2026-06-10-mineru-pdf-zero-chunk-indexed-notes.md` 记录根因和验证。
+- 完成实验评估页到评测集管理工具的重构：新增 `rag_evaluation_cases` 持久化模型和 `/api/rag/evaluation-cases` 系列接口，`/experiments` 支持样本创建、编辑、归档、删除、筛选、单样本评估、批量评估和历史查看。
+- case-based 评估支持临时覆盖标准答案，后端单元测试覆盖样本标签、topK、期望引用与标准答案覆盖透传；验证 `mvn.cmd -f backend-java/pom.xml test`、`npm.cmd --prefix frontend run typecheck`、`npm.cmd --prefix frontend run build` 通过。
+- 完成前端 Coze 风格工作台重构：`WorkbenchLayout` 改为窄主导航 + 二级侧栏 + 顶栏，`styles.css` 统一为浅色 IDE token，`ChatPage` 形成三栏会话工作台，文档 / 知识库 / 图谱 / 实验 / 反馈 / 设置页统一为两栏或三栏工作台密度。
+- 验证 `frontend` 类型检查与构建通过；使用 Edge headless 检查 `/chat` 桌面与移动端、`/documents`、`/experiments`、`/graph`、`/settings` 预览截图。
+- 前端边界检查通过：页面未直接调用 `/ai/*`，浏览器请求仍经由统一 API client 进入 Spring Boot `/api/*`；`SettingsPage` 文案回收为后端桥接诊断口径。
+- 关键文档：`docs/plans/2026-06-09-chat-workbench-layout-refactor.md`、`docs/plans/2026-06-09-coze-inspired-frontend-refactor-prep.md`、`docs/reviews/2026-06-10-coze-workbench-frontend-refactor-review-prompt.md`。
+
 ### 2026-06-09
 
-- Spring Boot `TraceIdFilter` 新增统一接口调用完成日志，覆盖 `/api/*` 请求的 method、path、status、durationMs 与 traceId，便于定位前端调用是否进入后端。
-- `KnowledgeBaseService` 新增知识库创建、更新、删除成功日志，记录 knowledgeBaseId、name、status 与 defaultRagStrategy 等关键业务字段。
-- 验证：`mvn.cmd -q -DskipTests compile` 通过。
-- 关键文档索引：`docs/plans/2026-06-09-backend-api-call-logging.md`、`docs/reviews/2026-06-09-backend-api-call-logging-review-prompt.md`、`docs/handoff/CURRENT_STATE.md`。
+- 完成后端接口日志与 trace 统一：Spring Boot 统一记录 `/api/*` 调用日志，FastAPI 与前端的 `X-Trace-Id` 贯通，Agent 内部 RAG run 也可持久化回查。
+- 统一数据库环境变量为 `DB_URL`、`DB_USERNAME`、`DB_PASSWORD`；AI 服务从 JDBC URL 推导 Python PostgreSQL URL，避免回退到内存模式。
+- 修复文档异步入库使用保存前 `documentId` 的问题，延长知识库对话 AI 调用超时，并补齐 Java / FastAPI 关键请求日志。
+- 完成 Coze 风格前端重构准备：确认参考边界、Figma 工具限制、多 agent 分工和第一阶段工作台重构方向。
 
 ### 2026-06-08
 
-- 完成 Phase 4 Advanced RAG 工程闭环第一版：Python AI 服务新增规则型 query rewrite / multi-query expansion、`AdvancedRagStrategy`、策略分发与 parent-child 邻近 chunk fallback。
-- 策略已支持 `basic-rag`、`hybrid-rerank`、`metadata-filter`、`parent-child`、`advanced-rag`；前端策略列表已对齐。
-- Java 后端 `RagQueryRequest` 新增 `metadataFilters` 并透传到 FastAPI `metadata_filters`；`rag_retrieval_results.rank` 改为顺序计数；Python trace attributes 中的 `rewritten_query` 已写入 `rag_runs.rewritten_query`。
-- 新增 Advanced RAG 评估问题集 `docs/experiments/eval-questions.md`，补充计划与失败复盘文档。
-- 验证：`python -m compileall ai-service/app`、`mvn compile -q -f backend-java/pom.xml`、`frontend npm run build` 通过；`pytest` 因当前 shell Python 缺少 pytest/pydantic 未运行，已记录复盘。
-- 用户明确要求 Advanced RAG 之后的 LangGraph、GraphRAG、复习/面试辅助暂不完成。
-- 完成 OpenAI-compatible 模型 adapter 接入：新增 `openai_compatible.py`，`config.py` 自动读取根目录 `.env`，`registry.py` 可根据 LLM / Embedding / Rerank 配置自动切换真实 adapter 或 fallback stub；对网络异常、超时、429 与 5xx 做轻量指数退避重试。
-- 根据阿里百炼文档修正配置：`text-embedding-v4` 使用 `/compatible-mode/v1/embeddings` 且维度 1536，文本 rerank 使用 `qwen3-rerank` 与 `/compatible-api/v1/reranks`，不使用 `qwen3-vl-rerank` 的 OpenAI 兼容方式。
-- 小流量真实 adapter smoke 已通过：embedding 返回 1536 维，rerank 返回相关分数，LLM 返回内容；关键文档：`docs/plans/2026-06-08-openai-compatible-model-adapters.md`、`docs/reviews/2026-06-08-openai-compatible-model-adapters-review-prompt.md`。
+- Advanced RAG 工程闭环第一版完成，覆盖 hybrid-rerank、metadata-filter、parent-child、query rewrite、multi-query、query-aware compression 和请求级检索权重。
+- OpenAI-compatible LLM / embedding / rerank adapter 接入并完成小流量 smoke；查询改写改为自然主问题，多查询扩展承载语义扩展。
+- Agent 与学习闭环完成，覆盖问题分类、策略选择、assistant-turn、追问、学习计划、复习卡片、薄弱点练习和自动评分。
+- GraphRAG 与评估体系完成，覆盖实体/关系持久化、图谱事实前端入口、run 评估、评估历史、汇总接口与对比页。
+- 新增本地全链路脚本 `scripts/test-fullchain-local.ps1`，覆盖 Spring Boot -> FastAPI -> RAG 的非 Docker 验证路径。
+
 ### 2026-06-05
 
-- 完成前端接口全面补齐：以 `docs/architecture/api-design.md` 为契约，补齐所有前端 API 模块、TypeScript 类型、页面 UI 和路由导航。
-- 新建 `frontend/src/api/feedback.ts`（POST /api/feedback）与 `frontend/src/api/rag.ts`（GET /api/rag/runs/{id}）。
-- 扩充 `chat.ts`：新增 createChatSession / fetchChatSessions / addChatMessage / fetchChatMessages，修复 sendChatMessage 补齐 knowledgeBaseId / sessionId / messageId / topK 字段。
-- 扩充 `experiments.ts`：新增 fetchExperimentById / createExperiment / updateExperiment / deleteExperiment，形成完整 CRUD。
-- 扩充 `knowledgeBases.ts`：新增 createKnowledgeBase。
-- 修复 `client.ts` extractErrorMessage：从错误的 `payload.message` 改为正确的 `payload.error.message`（对齐 Spring Boot ApiResponse 结构）。
-- 新增 11 个 TypeScript 类型：ChatSession、ChatSessionRequest、ChatMessageRecord、ChatMessageRequest、FeedbackRecord、FeedbackRequest、ExperimentRequest、ExperimentUpdateRequest、RagRunDetail、RetrievalResult、HealthResponse；扩展现有 ExperimentRecord / ChatRequest / AppSettings / ApiEnvelope。
-- Store 全面升级：hydrate() 改为部分失败容错（仅全部失败才回退 mock）；新增 chatSessions / currentSessionId / sessionMessages / feedbackPending / lastFeedback 等状态；新增 createSession / loadSessions / loadSessionMessages / createKb / updateKb / deleteKb / removeDocument / loadDocumentDetail / createExp / updateExp / deleteExp / loadExpDetail / submitFeedback 共 14 个 actions。
-- ExperimentsPage 升级为完整 CRUD：内联创建/编辑表单（名称/描述/策略/数据集/样本数/Precision/Recall/状态/备注）、编辑/删除按钮、确认对话框、空状态提示。
-- SettingsPage 从只读变为可编辑：v-model 绑定本地状态、默认知识库下拉选择、localStorage 持久化。
-- 新建 FeedbackPage：评分 1-5、反馈类型下拉（answer_quality / retrieval_relevance / citation_accuracy / usability）、Run/Session/Message ID 关联、提交后展示最近反馈。
-- ChatPage 新增会话管理面板：新建会话、刷新列表、选择会话加载历史消息、会话选中高亮（新增 `.item-card-active` 样式）。
-- 路由新增 `/feedback` 懒加载路由，侧边栏 WorkbenchLayout 新增「用户反馈」导航入口。
-- 关键文档索引：
-  - 计划文档：`docs/plans/2026-06-05-frontend-api-completion.md`
-  - Review 提示：`docs/reviews/2026-06-05-frontend-api-completion-review-prompt.md`
-  - 交接状态：`docs/handoff/CURRENT_STATE.md`
+- 前端 API、TypeScript 类型、Pinia store、页面和路由补齐，`/feedback`、实验 CRUD、知识库 CRUD、聊天会话与 RAG run 详情形成统一前端调用面。
+- `client.ts` 错误提取对齐 Spring Boot `{error: {code, message}}` 结构，`hydrate()` 支持部分失败容错。
 
 ### 2026-06-04
 
-- 完成接口设计文档补全：新增 `docs/architecture/api-design.md`，沉淀 Spring Boot `/api/*` 对外接口、FastAPI `/ai/*` 内部接口、统一响应包裹、核心请求 / 响应字段、前端调用映射和当前限制。
-- 明确后续 Agent 开发边界：前端只调用 Spring Boot `/api/*`，Spring Boot 负责业务 API 与 AI Service 调用，FastAPI 仅承担内部 AI / RAG 服务。
-- 本轮只做接口文档与交接契约，不新增业务接口、不运行 HTTP smoke、不修复 PDF 解析遗留问题。
-- 关键文档索引：
-  - API 设计：`docs/architecture/api-design.md`
-  - 计划文档：`docs/plans/2026-06-04-api-design-docs.md`
-  - Review 提示：`docs/reviews/2026-06-04-api-design-docs-review-prompt.md`
+- 新增 `docs/architecture/api-design.md`，沉淀 Spring Boot `/api/*` 对外接口、FastAPI `/ai/*` 内部接口、统一响应结构、核心字段和前端调用映射。
+- 明确前端只调用 Spring Boot，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 AI / RAG / Agent / GraphRAG / evaluator 逻辑。
 
 ### 2026-05-31
 
-- 完成 Word (.docx) 解析器接入 python-docx：MSYS2 pacman 安装预编译 python-docx + lxml，venv 通过 .pth 引用系统包。DocxParser 从 stub 升级为 v2，支持 base64 编码 .docx 的段落和表格文本提取。
-- DocumentPayload 新增 content_base64 字段，InlineContentLoader 支持 base64 解码。
-- Python compileall 全量通过。
-- 关键文档索引：
-  - Docx 解析器：docs/plans/2026-05-31-docx-parser-python-docx.md、docs/reviews/2026-05-31-docx-parser-python-docx-review-prompt.md
-- MinerU PDF 解析器：docs/plans/2026-05-31-mineru-pdf-parser.md、docs/reviews/2026-05-31-mineru-pdf-parser-review-prompt.md
-
-- 完成 MinerU PDF 解析器接入：MinerUPdfParser 从 reserved stub 升级为 v2，支持 URL 模式 + base64 文件上传模式（web 端本地上传 PDF → 签名上传 OSS → 异步解析 → Markdown 下载），Agent API 无需 Token，调用 MinerU Agent 轻量 API（无需 Token），支持异步提交+轮询+Markdown 下载。config.py 新增 mineru_api_base_url/mineru_api_token 配置项，pyproject.toml 新增 httpx 依赖。
-- 关键文档索引：
+- Word `.docx` 解析器接入 `python-docx`，支持 base64 `.docx` 段落和表格文本提取。
+- MinerU PDF 解析器从预留 stub 升级为 v2，支持 URL / base64 提交、轮询和 Markdown 下载。
 
 ### 2026-05-29
 
-- 完成 Phase 2 文档入库 Demo 的第一个接口：`POST /api/documents/upload` 支持单篇 JSON 文档内容，由 Spring Boot 调用 FastAPI `/ai/ingest/document` 完成解析、切块和 embedding 入库。
-- 前端文档上传入口改为单篇 Demo 表单，提交字段对齐 Spring Boot 上传接口。
-- 更新 `backend-java/README.md` 和 `frontend/README.md`，记录当前文档入库 Demo 能力与仍待补充的真实文件上传能力。
-- 新增本轮计划、review 提示和失败复盘 / 观察记录：`docs/plans/2026-05-29-document-upload-ingest-demo.md`、`docs/reviews/2026-05-29-document-upload-ingest-demo-review-prompt.md`、`docs/testing/failures/2026-05-29-document-upload-ingest-demo-notes.md`。
-- 已验证 Java 后端构建、前端构建和 AI 服务语法编译；pytest 与 HTTP smoke 待后续环境就绪后补充。
-- 更新 `docs/handoff/CURRENT_STATE.md`，记录本轮已完成接口并按规则暂停等待 review。
-- 用户确认继续后，启动 `GET /api/documents` 文档列表状态增强，新增计划、review 提示和失败复盘 / 观察记录：`docs/plans/2026-05-29-documents-list-status.md`、`docs/reviews/2026-05-29-documents-list-status-review-prompt.md`、`docs/testing/failures/2026-05-29-documents-list-status-notes.md`。
-- 完成 `GET /api/documents` 文档列表状态增强：后端返回知识库名称和 chunk 数量，前端文档页展示真实标题、文件名、解析器、chunk 数量和状态。
-- 已验证 Java 后端构建、前端构建和 AI 服务语法编译；HTTP smoke 待后续环境就绪后补充。
-- 用户确认继续后，启动 `GET /api/documents/{id}` 文档详情与 chunk 摘要增强，新增计划、review 提示和失败复盘 / 观察记录：`docs/plans/2026-05-29-document-detail-chunks.md`、`docs/reviews/2026-05-29-document-detail-chunks-review-prompt.md`、`docs/testing/failures/2026-05-29-document-detail-chunks-notes.md`。
-- 完成 `GET /api/documents/{id}` 文档详情与 chunk 摘要增强：详情响应返回按 `chunkIndex` 排序的 chunk 内容预览、切分策略、页码、sheet、行范围和 metadata；前端类型预留 `DocumentChunkRecord`。
-- 已验证 Java 后端构建、前端构建和 AI 服务语法编译；HTTP smoke 待后续环境就绪后补充。
-- 用户确认继续后，启动 `POST /api/documents/upload` multipart 单文件上传增强，新增计划、review 提示和失败复盘 / 观察记录：`docs/plans/2026-05-29-document-upload-multipart.md`、`docs/reviews/2026-05-29-document-upload-multipart-review-prompt.md`、`docs/testing/failures/2026-05-29-document-upload-multipart-notes.md`。
-- 完成 `POST /api/documents/upload` multipart 单文件上传增强：后端同一路径同时支持 JSON 与 multipart，前端使用文件选择器和 FormData 提交到 Spring Boot；当前 multipart 内容按 UTF-8 文本读取，真实 PDF / Word 二进制解析仍待后续接入。
-- 已验证 Java 后端构建、前端构建和 AI 服务语法编译；HTTP smoke 待后续环境就绪后补充。
-- 用户要求先做本地 HTTP smoke 并查看前端，新增计划、review 提示和失败复盘 / 观察记录：`docs/plans/2026-05-29-local-http-smoke-and-frontend-preview.md`、`docs/reviews/2026-05-29-local-http-smoke-and-frontend-preview-review-prompt.md`、`docs/testing/failures/2026-05-29-local-http-smoke-and-frontend-preview-notes.md`。
-- 按用户要求使用本地 PostgreSQL、不启动 Docker，完成前端、AI 服务和 Java 后端重启；健康检查通过，并在 Codex 浏览器打开 `http://127.0.0.1:5173/chat`。
-- 本地 HTTP smoke 验证知识库创建、JSON 文档上传和文档列表通过；发现文档上传响应 `chunkCount=1` 但详情响应 `chunks=[]`，已记录到本轮失败复盘，下一轮优先排查。
+- 文档入库链路完成：`POST /api/documents/upload` 支持 JSON 与 multipart，`GET /api/documents` 和 `GET /api/documents/{id}` 展示状态、解析器、chunk 数量与摘要。
+- 知识库 CRUD、文档删除、`chunks=[]` 修复、documentType 枚举修复和全链路 HTTP smoke 相继完成。
+- 前端完成上传入口、文档列表/详情、基础工作台视觉升级，并记录对应计划、review 与失败复盘文档。
 
-### 2026-05-25
+### 2026-05-27
 
-- 创建项目上下文文档
-- 明确项目目标、技术栈、推荐架构、目录结构、开发规范和阶段目标
-- 新增两份 Agent 项目上下文文档学习参考：`docs/reference/onyx-agents-cn.md` 与 `docs/reference/cognee-claude-cn.md`
-- 补充 Agent 关键规则、数据库与迁移规范、测试策略、日志与可观测性、LLM 调用规范和 Plan 文档规范
-- 在建议目录结构中新增 `docs/plans/`、`docs/testing/failures/`、`docs/experiments/eval-questions.md` 与 `ai-service/app/prompts/`
-- 补充招聘 JD 文档类型、常见文档格式支持范围，并明确 PDF 提取工具可使用 MinerU
-- 补充代码审查与关键链路说明规范、重点 review 文件清单、Agent 中断恢复规范、中文文档/注释/复盘规范和模块 README 中文规范
-- 补充接口级 review 暂停规则：每完成一个接口后必须在 Codex 对话中提示用户 review，并等待确认后再继续
-- 补充子 Agent 代码风格一致性规则：并行开发后必须由主 Agent 统一码风、命名、接口契约和 trace 结构
+- RAG 实验接口完成数据库 CRUD 与 HTTP smoke；完成本地 `.env` 模板、数据库设计文档、Git 远程仓库配置与 `main` 分支推送。
+- `PROJECT_CONTEXT.md` 维护规则调整为“阶段摘要 + 文档索引”，接口级细节沉淀到 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 和 `docs/handoff/`。
 
 ### 2026-05-26
 
-- 完成 Basic RAG 主链路第一版：Spring Boot `POST /api/rag/query` 真实调用 FastAPI `/ai/rag/query`，FastAPI 从 PostgreSQL + pgvector 检索 chunk，并返回 answer、citations 和 trace。
-- AI 服务新增数据库 repository 与 `DatabaseRetriever`，支持文档 chunk、embedding 写入，以及基于向量分数和关键词分数的混合检索。
-- Spring Boot 保存 `rag_runs` 和 `rag_retrieval_results`，并将 retrieval metadata 调整为结构化 `Map<String, Object>` 以匹配 JSONB。
-- 默认关闭 Java AI mock：`AI_SERVICE_MOCK_ENABLED=false`，本地联调默认走真实 FastAPI 服务。
-- 新增 Basic RAG 计划文档：`docs/plans/2026-05-26-basic-rag-pipeline.md`。
-- 新增 RAG review 提示文档：`docs/reviews/2026-05-26-basic-rag-review-prompt.md`，记录接口路径、涉及文件、调用链路、重点 review 顺序、验证命令和当前占位实现。
-- 新增失败经验复盘：`docs/testing/failures/2026-05-26-basic-rag-dev-failures.md`，记录 Maven 依赖、数据库连接、Python 驱动、Pydantic 版本、JSONB 类型、PowerShell JSON 转义和完整联调耗时等问题。
-- 新增当前交接状态：`docs/handoff/CURRENT_STATE.md`，记录已完成内容、验证结果、重点 review 文件、占位实现和下一步建议。
-- 已验证：Python compileall、Python pytest、Java `mvn test`、后端健康检查、AI 服务数据库 smoke、完整 Spring -> FastAPI -> PostgreSQL HTTP 联调。
-- 当前仍是占位：LLM generator、embedding、reranker 仍为 stub；真实文件上传、多格式解析、MinerU PDF 解析、Advanced RAG 和前端完整对齐尚未完成。
-- 修复模块 README 中文化：更新根目录、AI 服务和计划目录 README，新增 `frontend/README.md`、`backend-java/README.md`、`infra/README.md`、`scripts/README.md`，并补充 `docs/reviews/2026-05-26-readme-localization-review-prompt.md` 与 `docs/testing/failures/2026-05-26-readme-localization-notes.md`。
+- Basic RAG 主链路第一版完成：Spring Boot `POST /api/rag/query` 调用 FastAPI `/ai/rag/query`，FastAPI 从 PostgreSQL + pgvector 检索并返回答案、引用和 trace。
+- AI 服务新增数据库 repository、`DatabaseRetriever`、chunk / embedding 写入与混合检索；Spring Boot 保存 `rag_runs` 与 `rag_retrieval_results`。
+- README 中文化、当前交接文档、基础测试和失败复盘完成。
 
+### 2026-05-25
 
-- 完成 chunks=[] bug 修复：AI 服务 config.py 新增 _build_database_url()，从 DB_URL + DB_USERNAME + DB_PASSWORD 构造 PostgreSQL URL，避免 DATABASE_URL 为空时回退到 InMemory 存储。
-- 完成前端视觉美化升级：新增 ParticleBackground.vue Canvas 粒子动画组件，styles.css 全面升级玻璃态/渐变/动画，侧边栏增加品牌 logo。
-- 完成知识库 CRUD 补全：GET /api/knowledge-bases/{id} 详情（含 documentCount/chunkCount）、PUT /api/knowledge-bases/{id} 部分更新（UpdateKnowledgeBaseRequest）、DELETE /api/knowledge-bases/{id} 删除（数据库级联）。
-- 完成文档删除：DELETE /api/documents/{id} + 前端 deleteDocument/etchDocumentById。
-- 修复 documentType 枚举大小写：DocumentService.create() 自动 .toLowerCase() 以匹配 AI 服务 Pydantic 枚举。
-- 完成全链路 HTTP smoke：9 个接口全部通过，chunks bug 已验证修复。
-- 关键文档索引：
-  - Bug fix：docs/plans/2026-05-29-fix-chunks-empty-bug.md、docs/reviews/2026-05-29-fix-chunks-empty-bug-review-prompt.md、docs/testing/failures/2026-05-29-fix-chunks-empty-bug-notes.md
-  - 知识库详情：docs/plans/2026-05-29-knowledge-base-detail.md、docs/reviews/2026-05-29-knowledge-base-detail-review-prompt.md、docs/testing/failures/2026-05-29-knowledge-base-detail-notes.md
-  - 知识库更新：docs/plans/2026-05-29-knowledge-base-update.md、docs/reviews/2026-05-29-knowledge-base-update-review-prompt.md
-  - 知识库删除：docs/plans/2026-05-29-knowledge-base-delete.md、docs/reviews/2026-05-29-knowledge-base-delete-review-prompt.md、docs/testing/failures/2026-05-29-knowledge-base-delete-notes.md
-  - 文档删除：docs/plans/2026-05-29-document-delete.md、docs/reviews/2026-05-29-document-delete-review-prompt.md、docs/testing/failures/2026-05-29-document-delete-and-smoke-notes.md
-  - 全链路 smoke 脚本：docs/plans/2026-05-29-full-http-smoke.md
-### 2026-05-27
-
-- 完成 AI 服务环境配置定位：确认 `ai-service/` 没有独立 `.env`，配置入口为 `ai-service/app/core/config.py`，运行时读取 `AI_DATABASE_URL`、`DATABASE_URL` 和 `AI_RAG_USE_DATABASE`。
-- 完成 RAG 实验接口阶段能力：新增 `rag_experiments` 表，Spring Boot 支持实验记录列表、创建、详情、更新和删除。
-- 完成本地配置与联调验证：创建根目录本地 `.env` 空字段文件，由用户自行补全真实数据库连接信息；使用本地 PostgreSQL 完成 Spring Boot Flyway 迁移和 RAG 实验接口 HTTP smoke，验证列表、创建、详情、更新、删除和删除后 404 全链路通过。
-- 维护规则调整为“阶段摘要 + 文档索引”：`PROJECT_CONTEXT.md` 不再记录接口级流水账，接口级计划、review、失败复盘和交接细节分别沉淀在 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 和 `docs/handoff/`。
-- 完成项目阶段状态校准与 Git 本地仓库初始化准备：将 Phase 0、Phase 1 标记为已完成，Phase 2、Phase 3、Phase 7 标记为进行中；远程仓库推送等待用户提供仓库 URL。
-- GitHub 远程仓库已由用户创建，本地 `origin` 已配置为 `https://github.com/sheng143998/GraphRag-Personal-Repository.git`；网络恢复后已成功推送 `main` 分支，并设置本地 `main` 跟踪 `origin/main`。
-- 完成第一版数据库设计文档：新增 `docs/architecture/database-design.md`，以当前 Flyway 迁移为准沉淀 PostgreSQL + pgvector 表结构、服务写入边界、索引、当前限制和后续演进方向。
-- 关键文档索引：
-  - RAG 实验接口：`docs/plans/2026-05-27-rag-experiments-list.md`、`docs/plans/2026-05-27-rag-experiments-create.md`、`docs/plans/2026-05-27-rag-experiments-detail.md`、`docs/plans/2026-05-27-rag-experiments-update.md`、`docs/plans/2026-05-27-rag-experiments-delete-and-smoke.md`
-  - 本地环境与 smoke：`docs/plans/2026-05-27-ai-service-env-location.md`、`docs/plans/2026-05-27-local-env-template.md`、`docs/plans/2026-05-27-local-postgres-smoke-retry.md`
-  - 失败与观察记录：`docs/testing/failures/2026-05-27-rag-experiments-delete-and-smoke-notes.md`、`docs/testing/failures/2026-05-27-local-postgres-smoke-retry-notes.md`
-  - Git 初始化与阶段更新：`docs/plans/2026-05-27-git-init-and-stage-update.md`、`docs/reviews/2026-05-27-git-init-and-stage-update-review-prompt.md`、`docs/testing/failures/2026-05-27-git-init-and-stage-update-notes.md`
-  - GitHub 建仓与远程推送：`docs/plans/2026-05-27-github-repo-create-and-push.md`、`docs/reviews/2026-05-27-github-repo-create-and-push-review-prompt.md`、`docs/testing/failures/2026-05-27-github-repo-create-and-push-notes.md`
-  - 数据库设计：`docs/architecture/database-design.md`、`docs/plans/2026-05-27-database-design-v1.md`、`docs/reviews/2026-05-27-database-design-v1-review-prompt.md`、`docs/testing/failures/2026-05-27-database-design-v1-notes.md`
----
-
-## 2026-06-08 本地全链路验证与 RAG 评估更新
-
-- 新增本地全链路自动化脚本 `scripts/test-fullchain-local.ps1`，覆盖 Spring Boot -> FastAPI -> RAG 的非 Docker 验证路径。
-- 新增离线 Advanced RAG 策略对比能力，覆盖 recall@k、precision@k、MRR 与 citation hit。
-- 补充后端异步文档入库、RAG bridge 持久化 / 失败处理相关单元测试。
-- 验证范围包括 AI 侧 pytest、后端 Maven 测试、前端类型检查 / 构建 与本地 smoke 脚本。
-
----
-
-## 2026-06-08 Agent 与学习闭环更新
-
-- FastAPI `/ai/agent/invoke` 已支持问题分类、策略选择、RAG 查询、引用返回与工作流步骤。
-- Spring Boot 暴露 `/api/agent/invoke` 与 `/api/chat/{sessionId}/assistant-turn`，只承担桥接、会话消息持久化和 DTO 映射。
-- 前端聊天页改为使用 assistant-turn，浏览器请求仍只进入 Spring Boot `/api/*`。
-- Agent 已陆续补齐追问问题、学习计划、复习卡片、薄弱点记录、薄弱点状态评估、优先级、进度汇总、练习流、自动评分、复习日程与队列控件。
-- smoke 覆盖 direct Agent、assistant-turn、弱点列表、弱点汇总、弱点练习与反馈提交。
-
----
-
-## 2026-06-08 GraphRAG 与图谱事实更新
-
-- FastAPI 已加入确定性实体 / 关系抽取、GraphRAG 查询增强、遍历关系元数据与引用图谱元数据。
-- Spring Boot 通过 Flyway 管理 `graph_entities` 与 `graph_relationships`，并提供 `GET /api/graph/facts` 读取接口。
-- 前端新增 `/graph` 工作台，用于查看持久化实体与关系。
-- 本地全链路脚本在数据库模式运行 AI 服务，使 AI 入库写入的图谱事实可由 Spring Boot 读取。
-- GraphRAG 评估已加入实体覆盖、关系命中与扩展词命中指标，前端实验视图和对比页可展示紧凑图谱指标。
-
----
-
-## 2026-06-08 RAG 实验评估体系更新
-
-- Spring Boot 新增实验评估接口 `POST /api/rag/experiments/{id}/evaluate`，从持久化 RAG run 收集证据后调用 FastAPI `/ai/rag/evaluate`。
-- 评分逻辑仍在 FastAPI；Spring Boot 只负责桥接、事务化保存评估历史、更新实验汇总并返回业务响应。
-- 新增 `rag_experiment_evaluations` 历史表、最近 RAG run 列表、评估汇总接口与对比页数据源。
-- 前端实验页支持选择最近 run、填写 expected answer、查看评估历史；对比页支持策略 / 实验筛选、策略排行、实验排行与最近评估明细。
-- 结构化 RAG 评估已支持 evaluation case id、相关 chunk/document id、期望引用 chunk id 与 top-k，用于计算结构化检索指标。
-
----
-
-## 2026-06-08 Advanced RAG 工程化更新
-
-- Advanced RAG 已覆盖 query rewrite、multi-query、metadata filter、hybrid rerank、parent-child 上下文、query-aware context compression 与 GraphRAG 评估指标。
-- Parent-Child 已支持真实 `parent_chunk_id` 关系；缺失父块或扁平 chunk 时继续使用邻近窗口 fallback。
-- 可选 `ParentChildChunker` 支持入库时生成父块与子块，父块作为上下文载体保存但不参与检索、embedding 与图谱事实抽取。
-- 混合检索已支持请求级 `retrieval_options` / `retrievalOptions`，FastAPI 归一化 vector / keyword 权重并保留默认 0.7 / 0.3。
-- 引用元数据记录 `vector_score`、`keyword_score`、`vector_weight`、`keyword_weight` 与上下文压缩统计，便于后续评估。
-
----
-
-## 2026-06-08 LLM 查询转换更新
-
-- Advanced RAG 默认使用 LLM 做查询改写与多查询扩展，不再依赖前端开关。
-- 查询改写目标是生成自然、通顺、完整的主问题；同义词、相关词、上位概念词和领域术语扩展由 `multi_query_expand` 承担。
-- 规则型查询改写已移除；LLM 输出异常时只回退到原始问题或已成功得到的 LLM 重写问题。
-- Trace 步骤继续记录查询转换器 provider 与 fallback 元数据。
-- Spring Boot 继续只透传请求选项；查询转换逻辑仍由 FastAPI 负责。
-- 关键文档：`docs/plans/2026-06-08-llm-query-transform-fallback.md`、`docs/reviews/2026-06-08-llm-query-transform-fallback-review-prompt.md`、`docs/handoff/CURRENT_STATE.md` 与 `docs/testing/strategy.md`。
-
----
-
-## 2026-06-08 RAG 检索选项 UI 更新
-
-- 聊天工作台保留混合检索权重预设；LLM 查询改写已改为 Advanced RAG 默认行为，不再提供前端开关。
-- Spring Boot assistant-turn 链路现在透传 `retrievalOptions` 到 FastAPI Agent 上下文，仍不实现 RAG 逻辑。
-- FastAPI Agent 工作流在 `retrieve_and_generate` 步骤记录检索选项是否启用与选项 key，便于全链路 smoke 脚本 脚本验证。
-- 全链路 smoke 脚本 脚本覆盖 assistant-turn 检索选项透传。
-- 关键文档：`docs/plans/2026-06-08-rag-retrieval-options-ui.md`、`docs/reviews/2026-06-08-rag-retrieval-options-ui-review-prompt.md`、`docs/handoff/CURRENT_STATE.md` 与 `docs/testing/strategy.md`。
-
----
-
-## 2026-06-09 自然化 LLM 问题重写
-
-- Advanced RAG 的 `rewritten_query` 现在要求 LLM 输出自然、通顺、完整的主问题，避免把同义词和相关概念词堆成关键词串。
-- `multi_query_expand` 继续负责从不同角度生成检索变体，并承载同义词、相关词、上位概念词和领域术语扩展。
-- AI 单元测试新增 prompt 约束检查，防止查询重写提示词退回关键词堆砌策略。
-- 关键文档：`docs/plans/2026-06-09-natural-rewritten-query.md`、`docs/reviews/2026-06-09-natural-rewritten-query-review-prompt.md` 与 `docs/testing/failures/2026-06-09-natural-rewritten-query-notes.md`。
-
----
-
-## 2026-06-09 文档入库处理中卡住修复
-
-- 修复文档异步入库使用保存前 `documentId` 的问题，改为使用 `documentRepository.save(...)` 返回的真实主键，避免异步处理器查不到文档记录。
-- `DocumentIngestProcessor` 新增可读中文日志，覆盖异步任务开始、调用 AI 前、AI 返回成功、状态写回成功、失败写回失败等节点。
-- 新增 `DocumentServiceTest`，回归校验异步任务使用持久化后的文档 id。
-- 关键文档：`docs/plans/2026-06-09-document-ingest-processing-stuck.md`、`docs/reviews/2026-06-09-document-ingest-processing-stuck-review-prompt.md` 与 `docs/testing/failures/2026-06-09-document-ingest-processing-stuck-notes.md`。
-
----
-
-## 2026-06-09 知识库对话 AI 调用超时修复
-
-- 修复知识库对话提问时 Java 后端调用 FastAPI `/ai/agent/invoke` 过早读取超时的问题，默认 `AI_SERVICE_READ_TIMEOUT` 从 30 秒调整为 180 秒。
-- 前端聊天类请求单独设置 180 秒超时，避免浏览器在 AI 返回前中断请求。
-- `AiServiceClient.invokeAgent(...)` 新增调用开始和成功返回日志，便于结合 traceId 定位 Java -> FastAPI -> 模型服务链路耗时。
-- 关键文档：`docs/plans/2026-06-09-agent-chat-timeout.md`、`docs/reviews/2026-06-09-agent-chat-timeout-review-prompt.md` 与 `docs/testing/failures/2026-06-09-agent-chat-timeout-notes.md`。
-
----
-
-## 2026-06-09 FastAPI Agent 请求日志补齐
-
-- FastAPI 新增 HTTP middleware 日志，记录所有 AI 请求的开始、完成、失败、耗时与 `X-Trace-Id`。
-- `/ai/agent/invoke` 新增 Agent 调用入口和完成日志，AgentService 新增 workflow 开始、完成、失败日志。
-- Python 侧新增日志使用 ASCII 文案，避免 Windows 控制台编码导致排查信息乱码。
-- 关键文档：`docs/plans/2026-06-09-ai-agent-request-logging.md`、`docs/reviews/2026-06-09-ai-agent-request-logging-review-prompt.md` 与 `docs/testing/failures/2026-06-09-ai-agent-no-python-logs-notes.md`。
-
----
-
-## 2026-06-09 统一数据库环境变量
-
-- 项目数据库配置统一使用 `DB_URL=jdbc:postgresql://localhost:5432/agent_knowledge`、`DB_USERNAME=postgres`、`DB_PASSWORD=123456`。
-- Spring Boot 默认数据库用户名 / 密码同步为 `postgres` / `123456`。
-- AI 服务不再以 `AI_DATABASE_URL` / `DATABASE_URL` 作为主要配置入口，改为从 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` 推导 PostgreSQL URL。
-- `.env.example`、AI 服务 README 和脚本 README 已同步到统一三项配置。
-- 关键文档：`docs/plans/2026-06-09-unify-db-env.md`、`docs/reviews/2026-06-09-unify-db-env-review-prompt.md` 与 `docs/testing/failures/2026-06-09-ai-service-inmemory-db-env-notes.md`。
-
----
-
-## 2026-06-09 全链路 TraceId 统一
-
-- FastAPI `TraceBuilder` 现在优先复用请求上下文中的 `X-Trace-Id`，缺失时才生成新的 trace id；内部 `run_id` 仍保持每次操作唯一。
-- FastAPI HTTP middleware 会为直接访问 AI 服务且未携带请求头的调用生成 trace id，并在响应头回写 `X-Trace-Id`。
-- 知识库对话前端会在一次提问 / 会话加载 / 薄弱点练习动作开始时生成客户端 trace id，并在 assistant-turn 与后续刷新请求中复用。
-- Agent workflow 新增回归测试，确认 Agent trace 与嵌套 RAG trace 使用同一个 request trace id。
-- 关键文档：`docs/plans/2026-06-09-unified-trace-id.md`、`docs/reviews/2026-06-09-unified-trace-id-review-prompt.md` 与 `docs/testing/failures/2026-06-09-unified-trace-id-notes.md`。
-
----
-
-## 2026-06-09 Agent RAG Run 持久化
-
-- FastAPI `/ai/agent/invoke` 响应新增可选 `rag_trace`，保存 Agent 内部调用 `RagService.query()` 产生的 RAG trace。
-- `rag_runs` 新增 `trace_attributes` 与 `trace_steps` JSONB 字段，用于保存 query rewrite、multi-query、retrieve、rerank 等 trace payload。
-- Spring Boot `AssistantTurnService` 在保存问答消息后，通过 `RagRunRecorder` 把 Agent 内部 RAG run、rewritten query、final context、answer 和 top_k citations 持久化到 `rag_runs` / `rag_retrieval_results`。
-- `/api/rag/runs/{id}` 现在可返回 trace attributes 和 trace steps，便于用同一个 traceId 查看知识库对话的完整 RAG 链路。
-- 关键文档：`docs/plans/2026-06-09-agent-rag-run-persistence.md`、`docs/reviews/2026-06-09-agent-rag-run-persistence-review-prompt.md` 与 `docs/testing/failures/2026-06-09-agent-rag-run-persistence-notes.md`。
+- 创建项目上下文文档，明确项目目标、技术栈、目录结构、开发规范、文档命名、review 规则和子 Agent 协作规则。

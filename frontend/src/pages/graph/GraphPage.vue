@@ -1,5 +1,5 @@
 <template>
-  <div class="page-grid">
+  <div class="page-grid coze-three-column">
     <section class="panel">
       <div class="panel-header">
         <div>

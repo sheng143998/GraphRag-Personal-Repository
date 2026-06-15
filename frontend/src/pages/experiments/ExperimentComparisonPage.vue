@@ -87,8 +87,16 @@
                 <p class="item-meta">
                   最近 {{ formatDate(row.latestAt) }}
                   <span v-if="row.averageLatencyMs != null"> | 平均延迟 {{ Math.round(row.averageLatencyMs) }}ms</span>
+                  <span v-if="row.averageTotalTokens != null"> | Tokens {{ Math.round(row.averageTotalTokens) }}</span>
+                  <span v-if="row.averageEstimatedCost != null"> | Cost {{ formatCost(row.averageEstimatedCost) }}</span>
                   <span v-if="row.graphMetricCount"> | 图谱指标 {{ row.graphMetricCount }}</span>
                 </p>
+                <div class="metric-chip-row">
+                  <span>Recall@K {{ formatScore(row.averageRecallAtK) }}</span>
+                  <span>Precision@K {{ formatScore(row.averagePrecisionAtK) }}</span>
+                  <span>MRR {{ formatScore(row.averageMrr) }}</span>
+                  <span>Citation {{ formatScore(row.averageCitationHit) }}</span>
+                </div>
               </article>
             </div>
           </section>
@@ -114,6 +122,10 @@
                     <span class="metric-label">最近运行</span>
                     <span class="metric-value">{{ strategyLabel(row.latestStrategy) }}</span>
                   </div>
+                  <div class="metric-row">
+                    <span class="metric-label">Recall / MRR</span>
+                    <span class="metric-value">{{ formatScore(row.averageRecallAtK) }} / {{ formatScore(row.averageMrr) }}</span>
+                  </div>
                 </div>
               </article>
             </div>
@@ -128,7 +140,7 @@
               <span>策略</span>
               <span>问题</span>
               <span>分数</span>
-              <span>图谱指标</span>
+              <span>Retrieval</span>
               <span>运行</span>
             </div>
             <div v-for="evaluation in filteredRows" :key="evaluation.id" class="comparison-table-row">
@@ -150,11 +162,21 @@
                 <template v-if="graphMetricSummary(evaluation)">
                   {{ graphMetricSummary(evaluation) }}
                 </template>
-                <template v-else>无</template>
+                <template v-else>
+                  R {{ formatScore(evaluation.recallAtK) }}
+                  / P {{ formatScore(evaluation.precisionAtK) }}
+                </template>
+                <small>
+                  MRR {{ formatScore(evaluation.mrr) }}
+                  / Citation {{ formatScore(evaluation.citationHit) }}
+                </small>
               </span>
               <span>
                 {{ shortId(evaluation.runId) }}
                 <small>{{ evaluation.runModelName ?? "模型待记录" }}</small>
+                <small v-if="evaluation.totalTokens != null">Tokens {{ evaluation.totalTokens }}</small>
+                <small v-if="evaluation.estimatedCost != null">Cost {{ formatCost(evaluation.estimatedCost) }}</small>
+                <small v-if="stageLatencySummary(evaluation)">{{ stageLatencySummary(evaluation) }}</small>
               </span>
             </div>
           </div>
@@ -181,6 +203,12 @@ interface AggregateRow {
   count: number;
   averageGrounded?: number;
   averageRetrieval?: number;
+  averageRecallAtK?: number;
+  averagePrecisionAtK?: number;
+  averageMrr?: number;
+  averageCitationHit?: number;
+  averageTotalTokens?: number;
+  averageEstimatedCost?: number;
   quality?: number;
   averageLatencyMs?: number;
   graphMetricCount: number;
@@ -239,6 +267,10 @@ function aggregateRows(
     const latest = sorted[0];
     const averageGrounded = averageScore(items.map((item) => item.groundedScore));
     const averageRetrieval = averageScore(items.map((item) => item.retrievalScore));
+    const averageRecallAtK = averageScore(items.map((item) => item.recallAtK));
+    const averagePrecisionAtK = averageScore(items.map((item) => item.precisionAtK));
+    const averageMrr = averageScore(items.map((item) => item.mrr));
+    const averageCitationHit = averageScore(items.map((item) => item.citationHit));
 
     return {
       experimentId: latest.experimentId,
@@ -247,8 +279,21 @@ function aggregateRows(
       count: items.length,
       averageGrounded,
       averageRetrieval,
-      quality: averageScore([averageGrounded, averageRetrieval]),
-      averageLatencyMs: averageScore(items.map((item) => item.runLatencyMs)),
+      averageRecallAtK,
+      averagePrecisionAtK,
+      averageMrr,
+      averageCitationHit,
+      averageTotalTokens: averageScore(items.map((item) => item.totalTokens)),
+      averageEstimatedCost: averageScore(items.map((item) => item.estimatedCost)),
+      quality: averageScore([
+        averageGrounded,
+        averageRetrieval,
+        averageRecallAtK,
+        averagePrecisionAtK,
+        averageMrr,
+        averageCitationHit
+      ]),
+      averageLatencyMs: averageScore(items.map((item) => item.latencyMs ?? item.runLatencyMs)),
       graphMetricCount: items.filter(hasGraphRagMetricNote).length,
       latestAt: latest.createdAt,
       latestStrategy: latest.runStrategyName ?? "未知策略"
@@ -271,6 +316,11 @@ function formatScore(value?: number | null): string {
   return `${Math.round(value * 100)}%`;
 }
 
+function formatCost(value?: number | null): string {
+  if (value == null) return "-";
+  return `$${value.toFixed(value < 0.01 ? 6 : 4)}`;
+}
+
 function strategyLabel(value?: string | null): string {
   if (!value) return "未知策略";
   return store.ragStrategyOptions.find((option) => option.value === value)?.label ?? value;
@@ -287,6 +337,17 @@ function summarize(value?: string | null, maxLength = 92): string {
 }
 
 function graphMetricSummary(evaluation: ExperimentEvaluationHistory): string | undefined {
+  if (
+    evaluation.graphEntityCoverage != null
+    || evaluation.graphRelationshipHit != null
+    || evaluation.graphExpansionTermHit != null
+  ) {
+    return [
+      `E ${formatScore(evaluation.graphEntityCoverage)}`,
+      `R ${formatScore(evaluation.graphRelationshipHit)}`,
+      `X ${formatScore(evaluation.graphExpansionTermHit)}`
+    ].join(" / ");
+  }
   const metrics = parseGraphRagMetricNote(evaluation.notes);
   if (!metrics) return undefined;
   return [
@@ -294,6 +355,18 @@ function graphMetricSummary(evaluation: ExperimentEvaluationHistory): string | u
     `R ${formatMetricPercent(metrics.relationshipHit)}`,
     `X ${formatMetricPercent(metrics.expansionTermHit)}`
   ].join(" / ");
+}
+
+function stageLatencySummary(evaluation: ExperimentEvaluationHistory): string {
+  const parts = [
+    ["Emb", evaluation.embeddingLatencyMs],
+    ["Ret", evaluation.retrievalLatencyMs],
+    ["Rerank", evaluation.rerankLatencyMs],
+    ["LLM", evaluation.llmLatencyMs]
+  ]
+    .filter((item): item is [string, number] => item[1] != null)
+    .map(([label, value]) => `${label} ${value}ms`);
+  return parts.join(" / ");
 }
 
 function shortId(value: string): string {

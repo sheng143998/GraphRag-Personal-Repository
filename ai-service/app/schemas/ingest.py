@@ -18,6 +18,7 @@ class DocumentIngestRequest(BaseModel):
     document_id: str
     title: str
     document_type: DocumentType
+    summary: str | None = None
     file: DocumentPayload
     tags: list[str] = Field(default_factory=list)
     tech_stack: list[str] = Field(default_factory=list)

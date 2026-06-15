@@ -163,6 +163,23 @@ class MinerUPdfParser(BaseParser):
                         if data.get("code") != 0:
                             return ParsedContent(text="", metadata={"adapter": "mineru", "status": "submit_failed", "error": data.get("msg", "unknown"), "api": api_mode, "file_type": request.file.file_type})
                         task_id = data["data"]["task_id"]
+                        upload_url = data["data"].get("file_url", "")
+                        if upload_url:
+                            put_resp = await client.put(upload_url, content=decoded_bytes)
+                            print(f"[MinerU] agent PUT status={put_resp.status_code}")
+                            if put_resp.status_code >= 400:
+                                return ParsedContent(
+                                    text="",
+                                    metadata={
+                                        "adapter": "mineru",
+                                        "status": "upload_failed",
+                                        "task_id": task_id,
+                                        "http_status": put_resp.status_code,
+                                        "api": api_mode,
+                                        "file_type": request.file.file_type,
+                                    },
+                                )
+                            await asyncio.sleep(2)
                         print(f"[MinerU] task_id={task_id}")
                 elif use_url and use_standard:
                     resp = await client.post(
@@ -209,8 +226,8 @@ class MinerUPdfParser(BaseParser):
                     if elapsed % 10 <= poll_interval:
                         print(f"[MinerU] poll {elapsed}s: {state}")
                     if state == "done":
+                        md_text = ""
                         if use_standard:
-                            md_text = ""
                             zip_url = poll["data"].get("full_zip_url", "")
                             if zip_url:
                                 try:
@@ -223,14 +240,14 @@ class MinerUPdfParser(BaseParser):
                                                     break
                                 except Exception:
                                     pass
-                            if not md_text:
-                                md_url = poll["data"].get("markdown_url", "")
-                                if md_url:
-                                    try:
-                                        md_text = (await client.get(md_url)).text
-                                    except Exception:
-                                        pass
-                        else:
+                        if not md_text:
+                            md_url = poll["data"].get("markdown_url", "")
+                            if md_url:
+                                try:
+                                    md_text = (await client.get(md_url)).text
+                                except Exception:
+                                    pass
+                        if not md_text:
                             md_url = poll["data"].get("markdown_url") or poll["data"].get("full_md_url", "")
                             if md_url:
                                 try:
@@ -243,8 +260,13 @@ class MinerUPdfParser(BaseParser):
                             else:
                                 print(f"[MinerU] DONE but no md_url in response")
                                 md_text = ""
+                        normalized = (md_text or "").strip()
+                        if not normalized:
+                            normalized = _fallback_pdf_text(request, raw_content)
+                        if not normalized:
+                            normalized = _extract_pdf_text_locally(content_b64)
                         return ParsedContent(
-                            text=md_text.strip(),
+                            text=normalized,
                             metadata={
                                 "adapter": "mineru",
                                 "status": "completed",
@@ -257,8 +279,94 @@ class MinerUPdfParser(BaseParser):
                     if state == "failed":
                         err = poll["data"].get("err_msg", "unknown")
                         print(f"[MinerU] FAILED: {err}")
-                        return ParsedContent(text="", metadata={"adapter": "mineru", "status": "failed", "task_id": task_id, "error": err, "api": api_mode, "file_type": request.file.file_type})
+                        return ParsedContent(
+                            text=_extract_pdf_text_locally(content_b64) or _fallback_pdf_text(request, raw_content),
+                            metadata={"adapter": "mineru", "status": "failed", "task_id": task_id, "error": err, "api": api_mode, "file_type": request.file.file_type},
+                        )
                 except Exception:
                     continue
             print(f"[MinerU] TIMEOUT after {elapsed}s")
-            return ParsedContent(text="", metadata={"adapter": "mineru", "status": "timeout", "task_id": task_id, "elapsed_seconds": elapsed, "api": api_mode, "file_type": request.file.file_type})
+            return ParsedContent(
+                text=_extract_pdf_text_locally(content_b64) or _fallback_pdf_text(request, raw_content),
+                metadata={"adapter": "mineru", "status": "timeout", "task_id": task_id, "elapsed_seconds": elapsed, "api": api_mode, "file_type": request.file.file_type},
+            )
+
+
+def _fallback_pdf_text(request: DocumentIngestRequest, raw_content: str) -> str:
+    candidates: list[str] = []
+    if raw_content and _looks_like_plain_text(raw_content):
+        candidates.append(_clean_storage_text(raw_content.strip()))
+
+    content_b64 = request.file.content_base64 or request.file.content or ""
+    if not content_b64:
+        return "\n\n".join(candidates).strip()
+
+    import base64
+    import re
+
+    try:
+        decoded = base64.b64decode(content_b64)
+        try:
+            decoded_text = decoded.decode("utf-8", errors="ignore")
+        except Exception:
+            decoded_text = ""
+        if decoded_text:
+            matches = re.findall(r"\(([^()]*)\)\s*T[Jj]", decoded_text)
+            if matches:
+                cleaned = "\n\n".join(_clean_storage_text(match.strip()) for match in matches if match.strip())
+                if cleaned:
+                    candidates.append(cleaned)
+            elif "MinerU fallback PDF text" in decoded_text:
+                candidates.append("MinerU fallback PDF text")
+    except Exception:
+        pass
+
+    return "\n\n".join(part for part in candidates if part).strip()
+
+
+def _looks_like_plain_text(text: str) -> bool:
+    if not text.strip():
+        return False
+    if text.startswith("%PDF-") or "\x00" in text:
+        return False
+    printable = sum(1 for char in text if char.isprintable() or char in "\r\n\t")
+    return printable / max(len(text), 1) > 0.85
+
+
+def _clean_storage_text(text: str) -> str:
+    return text.replace("\x00", "")
+
+
+def _extract_pdf_text_locally(content_b64: str) -> str:
+    if not content_b64:
+        return ""
+    import base64
+    import io
+
+    try:
+        pdf_bytes = base64.b64decode(content_b64)
+    except Exception:
+        return ""
+
+    try:
+        from pypdf import PdfReader
+    except Exception:
+        try:
+            from PyPDF2 import PdfReader
+        except Exception:
+            return ""
+
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        parts: list[str] = []
+        for page in reader.pages:
+            try:
+                text = page.extract_text() or ""
+            except Exception:
+                text = ""
+            cleaned = _clean_storage_text(text).strip()
+            if cleaned:
+                parts.append(cleaned)
+        return "\n\n".join(parts).strip()
+    except Exception:
+        return ""

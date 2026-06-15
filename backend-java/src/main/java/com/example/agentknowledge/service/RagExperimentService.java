@@ -6,24 +6,36 @@ import com.example.agentknowledge.client.dto.AiRagEvaluateResponse;
 import com.example.agentknowledge.client.dto.AiSourceMetadata;
 import com.example.agentknowledge.common.api.TraceContext;
 import com.example.agentknowledge.common.exception.ResourceNotFoundException;
+import com.example.agentknowledge.domain.RagEvaluationCase;
 import com.example.agentknowledge.domain.RagExperiment;
 import com.example.agentknowledge.domain.RagExperimentEvaluation;
 import com.example.agentknowledge.domain.RagRetrievalResult;
 import com.example.agentknowledge.domain.RagRun;
+import com.example.agentknowledge.dto.rag.CreateRagEvaluationCaseRequest;
 import com.example.agentknowledge.dto.rag.CreateRagExperimentRequest;
+import com.example.agentknowledge.dto.rag.EvaluateRagEvaluationCaseRequest;
 import com.example.agentknowledge.dto.rag.EvaluateRagExperimentRequest;
+import com.example.agentknowledge.dto.rag.RagEvaluationCaseResponse;
 import com.example.agentknowledge.dto.rag.RagExperimentEvaluationResponse;
 import com.example.agentknowledge.dto.rag.RagExperimentEvaluationHistoryResponse;
 import com.example.agentknowledge.dto.rag.RagExperimentEvaluationSummaryResponse;
 import com.example.agentknowledge.dto.rag.RagExperimentResponse;
+import com.example.agentknowledge.dto.rag.RagQueryRequest;
+import com.example.agentknowledge.dto.rag.RagQueryResponse;
+import com.example.agentknowledge.dto.rag.RunEvaluationCasesBatchRequest;
+import com.example.agentknowledge.dto.rag.RunEvaluationCasesBatchResponse;
+import com.example.agentknowledge.dto.rag.UpdateRagEvaluationCaseRequest;
 import com.example.agentknowledge.dto.rag.UpdateRagExperimentRequest;
+import com.example.agentknowledge.repository.RagEvaluationCaseRepository;
 import com.example.agentknowledge.repository.RagExperimentRepository;
 import com.example.agentknowledge.repository.RagExperimentEvaluationRepository;
 import com.example.agentknowledge.repository.RagRetrievalResultRepository;
 import com.example.agentknowledge.repository.RagRunRepository;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -33,26 +45,32 @@ import org.springframework.transaction.annotation.Transactional;
 public class RagExperimentService {
 
     private final RagExperimentRepository ragExperimentRepository;
+    private final RagEvaluationCaseRepository ragEvaluationCaseRepository;
     private final RagExperimentEvaluationRepository ragExperimentEvaluationRepository;
     private final RagRunRepository ragRunRepository;
     private final RagRetrievalResultRepository ragRetrievalResultRepository;
     private final KnowledgeBaseService knowledgeBaseService;
     private final AiServiceGateway aiServiceGateway;
+    private final RagService ragService;
 
     public RagExperimentService(
             RagExperimentRepository ragExperimentRepository,
+            RagEvaluationCaseRepository ragEvaluationCaseRepository,
             RagExperimentEvaluationRepository ragExperimentEvaluationRepository,
             RagRunRepository ragRunRepository,
             RagRetrievalResultRepository ragRetrievalResultRepository,
             KnowledgeBaseService knowledgeBaseService,
-            AiServiceGateway aiServiceGateway
+            AiServiceGateway aiServiceGateway,
+            RagService ragService
     ) {
         this.ragExperimentRepository = ragExperimentRepository;
+        this.ragEvaluationCaseRepository = ragEvaluationCaseRepository;
         this.ragExperimentEvaluationRepository = ragExperimentEvaluationRepository;
         this.ragRunRepository = ragRunRepository;
         this.ragRetrievalResultRepository = ragRetrievalResultRepository;
         this.knowledgeBaseService = knowledgeBaseService;
         this.aiServiceGateway = aiServiceGateway;
+        this.ragService = ragService;
     }
 
     public RagExperimentResponse create(CreateRagExperimentRequest request) {
@@ -81,6 +99,119 @@ public class RagExperimentService {
 
     public RagExperimentResponse get(UUID id) {
         return toResponse(getEntity(id));
+    }
+
+    public List<RagEvaluationCaseResponse> listEvaluationCases(UUID experimentId) {
+        List<RagEvaluationCase> cases = experimentId == null
+                ? ragEvaluationCaseRepository.findAllByOrderByUpdatedAtDesc()
+                : ragEvaluationCaseRepository.findByExperiment_IdOrderByUpdatedAtDesc(experimentId);
+        return cases.stream().map(this::toEvaluationCaseResponse).toList();
+    }
+
+    public RagEvaluationCaseResponse createEvaluationCase(CreateRagEvaluationCaseRequest request) {
+        RagEvaluationCase evaluationCase = new RagEvaluationCase();
+        evaluationCase.setExperiment(getEntity(request.experimentId()));
+        evaluationCase.setCaseId(request.caseId());
+        evaluationCase.setQuestion(request.question());
+        evaluationCase.setExpectedAnswer(request.expectedAnswer());
+        evaluationCase.setRelevantChunkIds(emptyIfNull(request.relevantChunkIds()));
+        evaluationCase.setRelevantDocumentIds(emptyIfNull(request.relevantDocumentIds()));
+        evaluationCase.setExpectedCitationChunkIds(emptyIfNull(request.expectedCitationChunkIds()));
+        evaluationCase.setEvaluationTopK(request.evaluationTopK() == null ? 5 : Math.max(1, request.evaluationTopK()));
+        evaluationCase.setNotes(request.notes());
+        evaluationCase.setStatus(normalizeCaseStatus(request.status()));
+        return toEvaluationCaseResponse(ragEvaluationCaseRepository.save(evaluationCase));
+    }
+
+    public RagEvaluationCaseResponse updateEvaluationCase(UUID id, UpdateRagEvaluationCaseRequest request) {
+        RagEvaluationCase evaluationCase = getEvaluationCaseEntity(id);
+        if (request.experimentId() != null) {
+            evaluationCase.setExperiment(getEntity(request.experimentId()));
+        }
+        if (hasText(request.caseId())) {
+            evaluationCase.setCaseId(request.caseId());
+        }
+        if (hasText(request.question())) {
+            evaluationCase.setQuestion(request.question());
+        }
+        if (request.expectedAnswer() != null) {
+            evaluationCase.setExpectedAnswer(request.expectedAnswer());
+        }
+        if (request.relevantChunkIds() != null) {
+            evaluationCase.setRelevantChunkIds(request.relevantChunkIds());
+        }
+        if (request.relevantDocumentIds() != null) {
+            evaluationCase.setRelevantDocumentIds(request.relevantDocumentIds());
+        }
+        if (request.expectedCitationChunkIds() != null) {
+            evaluationCase.setExpectedCitationChunkIds(request.expectedCitationChunkIds());
+        }
+        if (request.evaluationTopK() != null) {
+            evaluationCase.setEvaluationTopK(Math.max(1, request.evaluationTopK()));
+        }
+        if (request.notes() != null) {
+            evaluationCase.setNotes(request.notes());
+        }
+        if (hasText(request.status())) {
+            evaluationCase.setStatus(request.status());
+        }
+        return toEvaluationCaseResponse(ragEvaluationCaseRepository.save(evaluationCase));
+    }
+
+    public void deleteEvaluationCase(UUID id) {
+        ragEvaluationCaseRepository.delete(getEvaluationCaseEntity(id));
+    }
+
+    @Transactional
+    public RagExperimentEvaluationResponse evaluateCase(UUID caseId, EvaluateRagEvaluationCaseRequest request) {
+        RagEvaluationCase evaluationCase = getEvaluationCaseEntity(caseId);
+        String expectedAnswer = hasText(request.expectedAnswer())
+                ? request.expectedAnswer()
+                : evaluationCase.getExpectedAnswer();
+        return evaluate(
+                evaluationCase.getExperiment().getId(),
+                new EvaluateRagExperimentRequest(
+                        request.runId(),
+                        expectedAnswer,
+                        evaluationCase.getCaseId(),
+                        evaluationCase.getRelevantChunkIds(),
+                        evaluationCase.getRelevantDocumentIds(),
+                        evaluationCase.getExpectedCitationChunkIds(),
+                        evaluationCase.getEvaluationTopK()
+                )
+        );
+    }
+
+    @Transactional
+    public RunEvaluationCasesBatchResponse runBatch(RunEvaluationCasesBatchRequest request) {
+        RagExperiment experiment = getEntity(request.experimentId());
+        if (experiment.getKnowledgeBase() == null) {
+            throw new IllegalArgumentException("Experiment must be linked to a knowledge base before running evaluation cases.");
+        }
+        List<RagEvaluationCase> cases = selectedEvaluationCases(request);
+        String strategyName = hasText(request.strategyName()) ? request.strategyName() : experiment.getStrategyName();
+        String retrieverType = hasText(request.retrieverType()) ? request.retrieverType() : "hybrid";
+        Integer topK = request.topK() == null ? 5 : Math.max(1, request.topK());
+        List<RunEvaluationCasesBatchResponse.Item> items = cases.stream()
+                .map(evaluationCase -> runAndEvaluateCase(
+                        experiment,
+                        evaluationCase,
+                        strategyName,
+                        retrieverType,
+                        topK,
+                        request.metadataFilters(),
+                        request.retrievalOptions()
+                ))
+                .toList();
+        int completed = (int) items.stream().filter(item -> "COMPLETED".equals(item.status())).count();
+        return new RunEvaluationCasesBatchResponse(
+                experiment.getId(),
+                strategyName,
+                items.size(),
+                completed,
+                items.size() - completed,
+                items
+        );
     }
 
     public RagExperimentEvaluationSummaryResponse summarizeEvaluations(Integer limit) {
@@ -163,11 +294,12 @@ public class RagExperimentService {
                 TraceContext.getTraceId()
         );
 
-        Double groundedScore = evaluation.result() == null ? null : evaluation.result().groundedScore();
-        Double retrievalScore = evaluation.result() == null ? null : evaluation.result().retrievalScore();
-        List<String> notes = evaluation.result() == null || evaluation.result().notes() == null
+        AiRagEvaluateResponse.Result result = evaluation.result();
+        Double groundedScore = result == null ? null : result.groundedScore();
+        Double retrievalScore = result == null ? null : result.retrievalScore();
+        List<String> notes = result == null || result.notes() == null
                 ? List.of()
-                : evaluation.result().notes();
+                : result.notes();
         experiment.setPrecisionScore(groundedScore);
         experiment.setRecallScore(retrievalScore);
         experiment.setSampleCount(experiment.getSampleCount() == null || experiment.getSampleCount() == 0
@@ -180,8 +312,7 @@ public class RagExperimentService {
                 savedExperiment,
                 run,
                 request.expectedAnswer(),
-                groundedScore,
-                retrievalScore,
+                result,
                 notes
         );
         RagExperimentResponse updated = toResponse(savedExperiment);
@@ -190,6 +321,10 @@ public class RagExperimentService {
                 toEvaluationHistoryResponse(savedEvaluation),
                 groundedScore,
                 retrievalScore,
+                result == null ? null : result.recallAtK(),
+                result == null ? null : result.precisionAtK(),
+                result == null ? null : result.mrr(),
+                result == null ? null : result.citationHit(),
                 notes,
                 updated.evaluations()
         );
@@ -224,13 +359,98 @@ public class RagExperimentService {
         return status == null || status.isBlank() ? "PLANNED" : status;
     }
 
+    private String normalizeCaseStatus(String status) {
+        return status == null || status.isBlank() ? "ACTIVE" : status;
+    }
+
     private RagExperiment getEntity(UUID id) {
         return ragExperimentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("RAG experiment not found: " + id));
     }
 
+    private RagEvaluationCase getEvaluationCaseEntity(UUID id) {
+        return ragEvaluationCaseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("RAG evaluation case not found: " + id));
+    }
+
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private List<RagEvaluationCase> selectedEvaluationCases(RunEvaluationCasesBatchRequest request) {
+        List<RagEvaluationCase> cases = ragEvaluationCaseRepository
+                .findByExperiment_IdOrderByUpdatedAtDesc(request.experimentId())
+                .stream()
+                .filter(item -> "ACTIVE".equalsIgnoreCase(item.getStatus()))
+                .toList();
+        if (request.caseIds() == null || request.caseIds().isEmpty()) {
+            return cases;
+        }
+        Set<UUID> requestedIds = Set.copyOf(request.caseIds());
+        return cases.stream()
+                .filter(item -> requestedIds.contains(item.getId()))
+                .toList();
+    }
+
+    private RunEvaluationCasesBatchResponse.Item runAndEvaluateCase(
+            RagExperiment experiment,
+            RagEvaluationCase evaluationCase,
+            String strategyName,
+            String retrieverType,
+            Integer topK,
+            Map<String, Object> metadataFilters,
+            Map<String, Object> retrievalOptions
+    ) {
+        try {
+            RagQueryResponse queryResponse = ragService.query(new RagQueryRequest(
+                    experiment.getKnowledgeBase() == null ? null : experiment.getKnowledgeBase().getId(),
+                    null,
+                    null,
+                    evaluationCase.getQuestion(),
+                    strategyName,
+                    retrieverType,
+                    metadataFilters == null ? Map.of() : metadataFilters,
+                    retrievalOptions == null ? Map.of() : retrievalOptions,
+                    topK
+            ));
+            RagExperimentEvaluationResponse evaluation = evaluateCase(
+                    evaluationCase.getId(),
+                    new EvaluateRagEvaluationCaseRequest(
+                            queryResponse.runId(),
+                            evaluationCase.getExpectedAnswer()
+                    )
+            );
+            RagExperimentEvaluationHistoryResponse history = evaluation.evaluation();
+            return new RunEvaluationCasesBatchResponse.Item(
+                    evaluationCase.getId(),
+                    evaluationCase.getCaseId(),
+                    queryResponse.runId(),
+                    history == null ? null : history.id(),
+                    evaluation.groundedScore(),
+                    evaluation.retrievalScore(),
+                    evaluation.recallAtK(),
+                    evaluation.precisionAtK(),
+                    evaluation.mrr(),
+                    evaluation.citationHit(),
+                    "COMPLETED",
+                    null
+            );
+        } catch (RuntimeException exception) {
+            return new RunEvaluationCasesBatchResponse.Item(
+                    evaluationCase.getId(),
+                    evaluationCase.getCaseId(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    "FAILED",
+                    exception.getMessage()
+            );
+        }
     }
 
     private String formatMetric(Double value) {
@@ -242,6 +462,10 @@ public class RagExperimentService {
             return 20;
         }
         return Math.max(1, Math.min(limit, 50));
+    }
+
+    private List<UUID> emptyIfNull(List<UUID> values) {
+        return values == null ? List.of() : values;
     }
 
     private Double average(List<Double> values) {
@@ -302,19 +526,60 @@ public class RagExperimentService {
         return values == null || values.isEmpty();
     }
 
+    private RagEvaluationCaseResponse toEvaluationCaseResponse(RagEvaluationCase evaluationCase) {
+        RagExperiment experiment = evaluationCase.getExperiment();
+        return new RagEvaluationCaseResponse(
+                evaluationCase.getId(),
+                experiment == null ? null : experiment.getId(),
+                experiment == null ? null : experiment.getName(),
+                evaluationCase.getCaseId(),
+                evaluationCase.getQuestion(),
+                evaluationCase.getExpectedAnswer(),
+                evaluationCase.getRelevantChunkIds(),
+                evaluationCase.getRelevantDocumentIds(),
+                evaluationCase.getExpectedCitationChunkIds(),
+                evaluationCase.getEvaluationTopK(),
+                evaluationCase.getNotes(),
+                evaluationCase.getStatus(),
+                evaluationCase.getCreatedAt(),
+                evaluationCase.getUpdatedAt()
+        );
+    }
+
     private RagExperimentEvaluation saveEvaluationHistory(
             RagExperiment experiment,
             RagRun run,
             String expectedAnswer,
-            Double groundedScore,
-            Double retrievalScore,
+            AiRagEvaluateResponse.Result result,
             List<String> notes
     ) {
         RagExperimentEvaluation evaluation = new RagExperimentEvaluation();
         evaluation.setExperiment(experiment);
         evaluation.setRun(run);
-        evaluation.setGroundedScore(groundedScore);
-        evaluation.setRetrievalScore(retrievalScore);
+        evaluation.setGroundedScore(result == null ? null : result.groundedScore());
+        evaluation.setRetrievalScore(result == null ? null : result.retrievalScore());
+        evaluation.setRecallAtK(result == null ? null : result.recallAtK());
+        evaluation.setPrecisionAtK(result == null ? null : result.precisionAtK());
+        evaluation.setMrr(result == null ? null : result.mrr());
+        evaluation.setCitationHit(result == null ? null : result.citationHit());
+        evaluation.setGraphEntityCoverage(result == null ? null : result.graphEntityCoverage());
+        evaluation.setGraphRelationshipHit(result == null ? null : result.graphRelationshipHit());
+        evaluation.setGraphExpansionTermHit(result == null ? null : result.graphExpansionTermHit());
+        evaluation.setLatencyMs(run.getLatencyMs());
+        EvaluationCostSnapshot costSnapshot = extractCostSnapshot(run);
+        evaluation.setPromptTokens(costSnapshot.promptTokens());
+        evaluation.setCompletionTokens(costSnapshot.completionTokens());
+        evaluation.setTotalTokens(costSnapshot.totalTokens());
+        evaluation.setEmbeddingTokens(costSnapshot.embeddingTokens());
+        evaluation.setRerankTokens(costSnapshot.rerankTokens());
+        evaluation.setEstimatedCost(costSnapshot.estimatedCost());
+        evaluation.setEmbeddingLatencyMs(costSnapshot.embeddingLatencyMs());
+        evaluation.setRetrievalLatencyMs(costSnapshot.retrievalLatencyMs());
+        evaluation.setRerankLatencyMs(costSnapshot.rerankLatencyMs());
+        evaluation.setLlmLatencyMs(costSnapshot.llmLatencyMs());
+        evaluation.setTokenUsage(costSnapshot.tokenUsage());
+        evaluation.setLatencyBreakdown(costSnapshot.latencyBreakdown());
+        evaluation.setStrategyConfig(strategyConfigSnapshot(run));
         evaluation.setExpectedAnswer(expectedAnswer);
         evaluation.setGeneratedAnswer(run.getAnswer());
         evaluation.setNotes(String.join("\n", notes));
@@ -347,6 +612,27 @@ public class RagExperimentService {
                 run.getCreatedAt(),
                 evaluation.getGroundedScore(),
                 evaluation.getRetrievalScore(),
+                evaluation.getRecallAtK(),
+                evaluation.getPrecisionAtK(),
+                evaluation.getMrr(),
+                evaluation.getCitationHit(),
+                evaluation.getGraphEntityCoverage(),
+                evaluation.getGraphRelationshipHit(),
+                evaluation.getGraphExpansionTermHit(),
+                evaluation.getLatencyMs(),
+                evaluation.getPromptTokens(),
+                evaluation.getCompletionTokens(),
+                evaluation.getTotalTokens(),
+                evaluation.getEmbeddingTokens(),
+                evaluation.getRerankTokens(),
+                evaluation.getEstimatedCost(),
+                evaluation.getEmbeddingLatencyMs(),
+                evaluation.getRetrievalLatencyMs(),
+                evaluation.getRerankLatencyMs(),
+                evaluation.getLlmLatencyMs(),
+                evaluation.getTokenUsage(),
+                evaluation.getLatencyBreakdown(),
+                evaluation.getStrategyConfig(),
                 evaluation.getExpectedAnswer(),
                 evaluation.getGeneratedAnswer(),
                 evaluation.getNotes(),
@@ -360,5 +646,171 @@ public class RagExperimentService {
             return evaluationLine;
         }
         return existingNotes + "\n" + evaluationLine;
+    }
+
+    private Map<String, Object> strategyConfigSnapshot(RagRun run) {
+        Map<String, Object> values = new LinkedHashMap<>();
+        putIfPresent(values, "strategyName", run.getStrategyName());
+        putIfPresent(values, "retrieverType", run.getRetrieverType());
+        putIfPresent(values, "modelName", run.getModelName());
+        putIfPresent(values, "promptName", run.getPromptName());
+        putIfPresent(values, "promptVersion", run.getPromptVersion());
+        Map<String, Object> attributes = run.getTraceAttributes() == null ? Map.of() : run.getTraceAttributes();
+        putIfPresent(values, "ragPreset", attributes.get("rag_preset"));
+        putIfPresent(values, "retrievalOptions", attributes.get("retrieval_options"));
+        return values;
+    }
+
+    private void putIfPresent(Map<String, Object> values, String key, Object value) {
+        if (value != null) {
+            values.put(key, value);
+        }
+    }
+
+    private EvaluationCostSnapshot extractCostSnapshot(RagRun run) {
+        Map<String, Object> tokenUsage = new LinkedHashMap<>();
+        Map<String, Object> latencyBreakdown = new LinkedHashMap<>();
+        Map<String, Object> attributes = run.getTraceAttributes() == null ? Map.of() : run.getTraceAttributes();
+        mergeMap(tokenUsage, attributes.get("token_usage"));
+        mergeMap(tokenUsage, attributes.get("usage"));
+        mergeMap(latencyBreakdown, attributes.get("latency_breakdown"));
+
+        if (run.getTraceSteps() != null) {
+            for (Map<String, Object> step : run.getTraceSteps()) {
+                String name = stringValue(step.get("name"));
+                Object payload = step.get("payload");
+                if (name != null) {
+                    Long latency = longValue(step.get("latency_ms"));
+                    if (latency != null) {
+                        latencyBreakdown.put(name, latency);
+                    }
+                }
+                if (payload instanceof Map<?, ?> payloadMap) {
+                    mergeMap(tokenUsage, payloadMap.get("token_usage"));
+                    mergeMap(tokenUsage, payloadMap.get("usage"));
+                    Long payloadLatency = longValue(payloadMap.get("latency_ms"));
+                    if (name != null && payloadLatency != null) {
+                        latencyBreakdown.put(name, payloadLatency);
+                    }
+                }
+            }
+        }
+
+        Integer promptTokens = intValue(firstPresent(tokenUsage, "prompt_tokens", "promptTokens", "input_tokens", "inputTokens"));
+        Integer completionTokens = intValue(firstPresent(tokenUsage, "completion_tokens", "completionTokens", "output_tokens", "outputTokens"));
+        Integer totalTokens = intValue(firstPresent(tokenUsage, "total_tokens", "totalTokens"));
+        if (totalTokens == null && (promptTokens != null || completionTokens != null)) {
+            totalTokens = (promptTokens == null ? 0 : promptTokens) + (completionTokens == null ? 0 : completionTokens);
+        }
+        Integer embeddingTokens = intValue(firstPresent(tokenUsage, "embedding_tokens", "embeddingTokens"));
+        Integer rerankTokens = intValue(firstPresent(tokenUsage, "rerank_tokens", "rerankTokens"));
+        Double estimatedCost = doubleValue(firstPresent(tokenUsage, "estimated_cost", "estimatedCost", "cost"));
+
+        return new EvaluationCostSnapshot(
+                promptTokens,
+                completionTokens,
+                totalTokens,
+                embeddingTokens,
+                rerankTokens,
+                estimatedCost,
+                latencyFor(latencyBreakdown, "embed_query", "embed_retrieval_query", "embedding"),
+                latencyFor(latencyBreakdown, "retrieve", "retrieval"),
+                latencyFor(latencyBreakdown, "rerank"),
+                latencyFor(latencyBreakdown, "generate", "generate_answer", "llm"),
+                tokenUsage,
+                latencyBreakdown
+        );
+    }
+
+    @SuppressWarnings("unchecked")
+    private void mergeMap(Map<String, Object> target, Object value) {
+        if (value instanceof Map<?, ?> map) {
+            map.forEach((key, item) -> {
+                if (key != null && item != null) {
+                    target.put(String.valueOf(key), item);
+                }
+            });
+        }
+    }
+
+    private Object firstPresent(Map<String, Object> values, String... keys) {
+        for (String key : keys) {
+            if (values.containsKey(key)) {
+                return values.get(key);
+            }
+        }
+        return null;
+    }
+
+    private Long latencyFor(Map<String, Object> values, String... keys) {
+        for (String key : keys) {
+            Long value = longValue(values.get(key));
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private Integer intValue(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            try {
+                return Integer.parseInt(text);
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private Long longValue(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            try {
+                return Math.round(Double.parseDouble(text));
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private Double doubleValue(Object value) {
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            try {
+                return Double.parseDouble(text);
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private record EvaluationCostSnapshot(
+            Integer promptTokens,
+            Integer completionTokens,
+            Integer totalTokens,
+            Integer embeddingTokens,
+            Integer rerankTokens,
+            Double estimatedCost,
+            Long embeddingLatencyMs,
+            Long retrievalLatencyMs,
+            Long rerankLatencyMs,
+            Long llmLatencyMs,
+            Map<String, Object> tokenUsage,
+            Map<String, Object> latencyBreakdown
+    ) {
     }
 }

@@ -47,15 +47,20 @@ class IngestService:
 
         parser = self.parser_registry.get_parser(payload.file.file_type)
         parsed_content = await parser.parse(raw_content=raw_content, request=payload)
+        parsed_text = _sanitize_text_for_storage(parsed_content.text)
+        if not parsed_text.strip():
+            raise RuntimeError(
+                f"parser {parser.name} returned empty content for file_type={payload.file.file_type}"
+            )
         parsed_document = ParsedDocument(
             document_id=payload.document_id,
             title=payload.title,
-            normalized_text=parsed_content.text,
+            normalized_text=parsed_text,
             parser_name=parser.name,
             parser_version=parser.version,
             metadata=parsed_content.metadata,
         )
-        repository.save_document(parsed_document, request=payload)
+        repository.save_document(parsed_document, request=payload, preserve_summary=True)
         trace_builder.add_step(
             name="parse_document",
             status="completed",
@@ -65,6 +70,10 @@ class IngestService:
 
         chunker = self.parent_child_chunker if _chunk_strategy(payload.metadata) == "parent-child" else self.chunker
         chunks = await chunker.chunk(parsed_document=parsed_document, request=payload)
+        if not chunks:
+            raise RuntimeError(
+                f"chunker produced no chunks for document_id={payload.document_id}, parser={parser.name}"
+            )
         repository.save_chunks(payload.document_id, payload.knowledge_base_id, chunks)
         trace_builder.add_step(
             name="chunk_document",
@@ -179,3 +188,7 @@ class IngestService:
 
 def _chunk_strategy(metadata: dict[str, object]) -> str:
     return str(metadata.get("chunk_strategy") or metadata.get("chunkStrategy") or "simple-window").strip().lower()
+
+
+def _sanitize_text_for_storage(text: str) -> str:
+    return text.replace("\x00", "")

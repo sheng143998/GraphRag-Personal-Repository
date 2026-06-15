@@ -1,5 +1,5 @@
 <template>
-  <div class="page-grid">
+  <div class="page-grid coze-two-column">
     <section class="panel">
       <div class="panel-header">
         <h2 class="panel-title">知识库管理</h2>

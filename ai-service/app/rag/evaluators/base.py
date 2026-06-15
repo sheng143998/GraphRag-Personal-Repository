@@ -57,6 +57,13 @@ class SimpleRagEvaluator(BaseRagEvaluator):
         return RagEvaluationResult(
             grounded_score=grounded_score,
             retrieval_score=retrieval_score,
+            recall_at_k=structured_metrics.recall_at_k if structured_metrics is not None else None,
+            precision_at_k=structured_metrics.precision_at_k if structured_metrics is not None else None,
+            mrr=structured_metrics.mrr if structured_metrics is not None else None,
+            citation_hit=structured_metrics.citation_hit if structured_metrics is not None else None,
+            graph_entity_coverage=graph_metrics.entity_coverage if graph_metrics is not None else None,
+            graph_relationship_hit=graph_metrics.relationship_hit if graph_metrics is not None else None,
+            graph_expansion_term_hit=graph_metrics.expansion_term_hit if graph_metrics is not None else None,
             notes=notes,
         )
 

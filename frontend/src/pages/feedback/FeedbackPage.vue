@@ -1,5 +1,5 @@
 <template>
-  <div class="page-grid">
+  <div class="page-grid coze-two-column">
     <section class="panel">
       <div class="panel-header">
         <h2 class="panel-title">用户反馈</h2>
@@ -53,18 +53,32 @@
       </div>
     </section>
 
-    <section v-if="store.lastFeedback" class="panel">
+    <section class="panel">
       <div class="panel-header">
-        <h2 class="panel-title">最近提交</h2>
+        <h2 class="panel-title">{{ store.lastFeedback ? "最近提交" : "反馈上下文" }}</h2>
       </div>
       <div class="panel-body">
-        <article class="item-card">
+        <article v-if="store.lastFeedback" class="item-card">
           <h3 class="item-title">{{ store.lastFeedback.feedbackType }} · {{ store.lastFeedback.rating }} 分</h3>
           <div class="item-meta">ID: {{ store.lastFeedback.id }} · {{ store.lastFeedback.createdAt }}</div>
           <div v-if="store.lastFeedback.comment" class="item-meta" style="margin-top: 0.5rem;">
             {{ store.lastFeedback.comment }}
           </div>
         </article>
+        <div v-else class="metric-list">
+          <div class="metric-row">
+            <span class="metric-label">默认评分</span>
+            <span class="metric-value">{{ form.rating }} 分</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">反馈类型</span>
+            <span class="metric-value">{{ form.feedbackType }}</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Trace</span>
+            <span class="metric-value">{{ store.traceId }}</span>
+          </div>
+        </div>
       </div>
     </section>
   </div>

@@ -178,12 +178,6 @@ function formatDate(value: string): string {
 
 .metadata-block {
   margin: 0;
-  padding: 0.75rem;
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text-muted);
-  background: rgba(15, 23, 42, 0.6);
 }
 
 @keyframes spin {

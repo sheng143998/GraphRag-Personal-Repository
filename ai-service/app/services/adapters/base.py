@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass(slots=True)
@@ -12,6 +13,7 @@ class AdapterCallContext:
     prompt_name: str | None = None
     prompt_version: str | None = None
     strategy_name: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class LLMAdapter:

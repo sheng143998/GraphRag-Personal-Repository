@@ -35,6 +35,7 @@ class DocumentIngestProcessorTest {
         UUID knowledgeBaseId = UUID.randomUUID();
         KnowledgeDocument document = new KnowledgeDocument();
         document.setId(documentId);
+        document.setSummary("notes.md | upload time");
         AiDocumentIngestRequest.FilePayload filePayload = new AiDocumentIngestRequest.FilePayload(
                 "notes.md",
                 "md",
@@ -71,15 +72,17 @@ class DocumentIngestProcessorTest {
         verify(aiServiceGateway).ingestDocument(requestCaptor.capture(), eq("trace-1"));
         assertThat(requestCaptor.getValue().documentId()).isEqualTo(documentId);
         assertThat(requestCaptor.getValue().knowledgeBaseId()).isEqualTo(knowledgeBaseId);
+        assertThat(requestCaptor.getValue().summary()).isEqualTo("notes.md | upload time");
         assertThat(requestCaptor.getValue().file()).isSameAs(filePayload);
     }
 
     @Test
-    void processAsyncMarksDocumentFailedAndStoresErrorSummaryWhenAiIngestFails() {
+    void processAsyncMarksDocumentFailedAndKeepsExistingSummaryWhenAiIngestFails() {
         UUID documentId = UUID.randomUUID();
         UUID knowledgeBaseId = UUID.randomUUID();
         KnowledgeDocument document = new KnowledgeDocument();
         document.setId(documentId);
+        document.setSummary("existing summary");
         RuntimeException failure = new RuntimeException("parser exploded");
 
         when(aiServiceGateway.ingestDocument(any(AiDocumentIngestRequest.class), eq("trace-failed")))
@@ -102,6 +105,37 @@ class DocumentIngestProcessorTest {
         verify(documentRepository).save(documentCaptor.capture());
         KnowledgeDocument savedDocument = documentCaptor.getValue();
         assertThat(savedDocument.getStatus()).isEqualTo("FAILED");
-        assertThat(savedDocument.getSummary()).contains("parser exploded");
+        assertThat(savedDocument.getSummary()).isEqualTo("existing summary");
+    }
+
+    @Test
+    void processAsyncMarksDocumentFailedWhenAiReturnsZeroChunks() {
+        UUID documentId = UUID.randomUUID();
+        UUID knowledgeBaseId = UUID.randomUUID();
+        KnowledgeDocument document = new KnowledgeDocument();
+        document.setId(documentId);
+        document.setSummary("existing summary");
+
+        when(aiServiceGateway.ingestDocument(any(AiDocumentIngestRequest.class), eq("trace-empty")))
+                .thenReturn(new AiDocumentIngestResponse(documentId, 0, "mineru-pdf-adapter", "pdf", null));
+        when(documentRepository.findById(documentId)).thenReturn(Optional.of(document));
+
+        processor.processAsync(
+                documentId,
+                knowledgeBaseId,
+                "Empty PDF",
+                "tech_note",
+                new AiDocumentIngestRequest.FilePayload("empty.pdf", "pdf", null, "ZGF0YQ==", null, "application/pdf"),
+                List.of(),
+                List.of(),
+                Map.of(),
+                "trace-empty"
+        );
+
+        ArgumentCaptor<KnowledgeDocument> documentCaptor = ArgumentCaptor.forClass(KnowledgeDocument.class);
+        verify(documentRepository).save(documentCaptor.capture());
+        KnowledgeDocument savedDocument = documentCaptor.getValue();
+        assertThat(savedDocument.getStatus()).isEqualTo("FAILED");
+        assertThat(savedDocument.getSummary()).isEqualTo("existing summary");
     }
 }

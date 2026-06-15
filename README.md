@@ -1,6 +1,6 @@
-# 本地知识库智能体练习项目
+# 本地知识库 Agent / Advanced RAG 项目
 
-本项目是一个本地知识库智能体与进阶检索增强生成练习项目，采用前端、业务后端、人工智能服务三段式架构。项目目标不是只做一个问答页面，而是逐步沉淀文档入库、向量检索、混合检索、重排、引用、评估和智能体编排等完整能力。
+这是一个用于练习本地知识库、Advanced RAG、Agent 编排和 RAG 评测闭环的三服务项目。项目采用 `Vue 3 + Spring Boot + FastAPI + PostgreSQL/pgvector` 架构，重点不是只做一个问答页面，而是把文档入库、检索、生成、评估、实验对比和可观测性串成完整工程链路。
 
 ## 个人知识库来源
 
@@ -10,64 +10,73 @@
 
 ## 当前状态
 
-当前项目已经具备三服务基础骨架，并优先推进基础检索增强生成主链路。
+- 前端：Vue 3 + TypeScript + Pinia + Vite，已重构为 Coze Studio 风格工作台，覆盖聊天、文档、知识库、实验评测、图谱、反馈和设置页面。
+- Java 后端：Spring Boot 统一暴露 `/api/*`，负责业务 CRUD、数据库迁移、RAG run 持久化、评测集管理、批量评测编排和 AI 服务桥接。
+- Python AI 服务：FastAPI 暴露内部 `/ai/*`，负责文档解析、chunk、embedding、检索、重排、生成、Advanced RAG preset、GraphRAG、Agent 和 evaluator。
+- 数据库：PostgreSQL + pgvector，统一承载业务数据、文档 chunk、embedding、RAG run、retrieval results、评测集、评测历史和图谱事实。
+- 评测平台：已支持评测集管理、单样本评估、批量跑同一批样本对比不同 RAG preset，并结构化记录 `recall@k`、`precision@k`、`MRR`、`citation_hit`、token、成本和分阶段耗时。
 
-已完成的关键能力：
+## 架构边界
 
-- 前端工作台基础结构。
-- Java 业务后端基础接口、数据库迁移和健康检查。
-- Python 人工智能服务基础接口、文档切分、向量写入和基础问答链路。
-- PostgreSQL 与 pgvector 数据库表结构。
-- `POST /api/rag/query` 到 `/ai/rag/query` 的真实跨服务调用链路。
-- RAG 运行记录与检索结果保存。
+```text
+Browser
+-> frontend/src/api/*
+-> Spring Boot /api/*
+-> FastAPI /ai/*
+-> PostgreSQL + pgvector
+```
 
-仍然是占位或待完善的能力：
-
-- 大模型回答生成仍是占位实现。
-- 向量生成仍是本地确定性占位实现。
-- 重排器仍是占位实现。
-- 文件上传、多格式解析、PDF 解析和前端完整联调仍需继续推进。
+- 前端只调用 Spring Boot `/api/*`，不直接调用 FastAPI。
+- Spring Boot 只做业务、桥接和持久化，不实现 RAG / evaluator 算法。
+- FastAPI 负责 RAG、Agent、GraphRAG、文档解析、检索生成和指标计算。
+- 数据库变更必须通过 `backend-java/src/main/resources/db/migration/` 下的 Flyway 迁移脚本。
 
 ## 本地依赖
 
-- Node.js 24 或更高版本。
-- Java 21。
-- Maven 3.9 或更高版本。
-- Python 3.12 或更高版本。
-- PostgreSQL 与 pgvector。
-- Docker 与 Docker Compose，推荐用于本地依赖启动。
+- Node.js 24 或兼容版本
+- Java 21
+- Maven 3.9+
+- Python 3.12
+- PostgreSQL + pgvector
+- Docker / Docker Compose，可用于启动本地依赖
 
 ## 快速开始
 
-1. 复制环境变量模板。
+1. 准备环境变量：
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-2. 启动基础依赖。
+2. 启动基础依赖：
 
 ```powershell
 .\scripts\dev-start.ps1
 ```
 
-3. 启动 Java 后端。
+3. 启动 Java 后端：
 
 ```powershell
 cd backend-java
 mvn spring-boot:run
 ```
 
-4. 启动人工智能服务。
+4. 启动 Python AI 服务：
 
 ```powershell
 cd ai-service
 python -m venv .venv
-.\.venv\bin\python.exe -m pip install -e .
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8001
+```
+
+如果本机虚拟环境是 `bin` 目录，可改用：
+
+```powershell
 .\.venv\bin\python.exe -m uvicorn app.main:app --reload --port 8001
 ```
 
-5. 启动前端。
+5. 启动前端：
 
 ```powershell
 cd frontend
@@ -75,30 +84,36 @@ npm.cmd install
 npm.cmd run dev
 ```
 
+## 常用验证
+
+```powershell
+npm.cmd --prefix frontend run typecheck
+npm.cmd --prefix frontend run build
+mvn.cmd -f backend-java\pom.xml test
+.\ai-service\.venv\bin\pytest.exe ai-service\tests
+```
+
 ## 模块说明
 
-- `frontend/`：前端工作台，负责知识库管理、聊天界面、上传入口和结果展示。
-- `backend-java/`：业务后端，负责对外接口、业务数据、数据库迁移、调用人工智能服务和保存运行记录。
-- `ai-service/`：人工智能服务，负责文档处理、检索增强生成、向量检索、重排、生成和评估能力。
-- `infra/`：基础设施配置，当前重点是 PostgreSQL 与 pgvector 初始化。
-- `scripts/`：本地开发辅助脚本。
-- `docs/`：计划、交接、测试复盘、审查提示和架构说明。
+- `frontend/`：Coze 风格前端工作台，负责知识库、文档、聊天、实验评测、图谱、反馈和设置交互。
+- `backend-java/`：Spring Boot 业务后端，负责 `/api/*`、Flyway 迁移、业务持久化、RAG run 记录和 AI 服务桥接。
+- `ai-service/`：FastAPI AI 服务，负责 `/ai/*`、文档解析、Advanced RAG、GraphRAG、Agent、evaluator 和 trace。
+- `infra/`：本地基础设施配置，当前重点是 PostgreSQL + pgvector。
+- `scripts/`：本地依赖启动、停止、数据库重置和全链路 smoke 辅助脚本。
+- `docs/`：计划、交接、review prompt、失败复盘和架构说明。
 
-## 关键约定
+## 当前重点文档
 
-- 每次开发前先阅读 `PROJECT_CONTEXT.md` 和 `docs/handoff/CURRENT_STATE.md`。
-- 不提交真实密钥、数据库密码、模型令牌或完整认证头。
-- 前端请求统一走 `frontend/src/api/`。
-- 人工智能服务提示词统一放在 `ai-service/app/prompts/`。
-- 数据库变更必须写迁移脚本。
-- 所有检索增强生成、模型、向量和重排调用必须记录追踪信息。
-- 每完成一个接口或关键链路，需要输出审查提示并暂停。
+- 项目上下文：[PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)
+- 当前交接：[docs/handoff/CURRENT_STATE.md](docs/handoff/CURRENT_STATE.md)
+- API 设计：[docs/architecture/api-design.md](docs/architecture/api-design.md)
+- 数据库设计：[docs/architecture/database-design.md](docs/architecture/database-design.md)
+- 当前评测计划：[docs/plans/2026-06-15-advanced-rag-preset-evaluation-runner.md](docs/plans/2026-06-15-advanced-rag-preset-evaluation-runner.md)
 
-## 常用文档
+## 开发约定
 
-- 项目上下文：`PROJECT_CONTEXT.md`
-- 当前交接状态：`docs/handoff/CURRENT_STATE.md`
-- 计划文档：`docs/plans/`
-- 审查提示：`docs/reviews/`
-- 失败复盘：`docs/testing/failures/`
-- 测试策略：`docs/testing/strategy.md`
+- 每次开发前先看 `PROJECT_CONTEXT.md` 和 `docs/handoff/CURRENT_STATE.md`。
+- Prompt 统一放在 `ai-service/app/prompts/`。
+- 前端 API 调用统一放在 `frontend/src/api/`。
+- Java DTO / Entity / migration / 前端类型 / Python schema 需要保持字段契约一致。
+- 不提交真实 API key、数据库密码、模型 token 或完整认证头。

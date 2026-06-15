@@ -10,6 +10,7 @@ public record AiDocumentIngestRequest(
         @JsonProperty("document_id") UUID documentId,
         String title,
         @JsonProperty("document_type") String documentType,
+        String summary,
         FilePayload file,
         List<String> tags,
         @JsonProperty("tech_stack") List<String> techStack,

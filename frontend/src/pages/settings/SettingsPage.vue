@@ -1,5 +1,5 @@
 <template>
-  <div class="page-grid">
+  <div class="page-grid coze-two-column">
     <section class="panel">
       <div class="panel-header">
         <h2 class="panel-title">系统设置</h2>
@@ -12,8 +12,8 @@
             <input v-model="local.apiBaseUrl" class="input" placeholder="/api" />
           </label>
           <label class="form-row">
-            <span class="form-label">AI 服务基础地址</span>
-            <input v-model="local.aiServiceBaseUrl" class="input" placeholder="http://localhost:8001" />
+            <span class="form-label">AI 服务桥接地址（诊断）</span>
+            <input v-model="local.aiServiceBaseUrl" class="input" placeholder="由 Spring Boot 后端桥接使用" />
           </label>
           <label class="form-row">
             <span class="form-label">默认知识库</span>
@@ -44,6 +44,26 @@
             <span v-if="saved" class="item-meta" style="margin-left: 0.75rem;">已保存</span>
           </div>
           <div v-if="store.lastError" class="empty-state">{{ store.lastError }}</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">运行摘要</h2>
+      </div>
+      <div class="panel-body metric-list">
+        <div class="metric-row">
+          <span class="metric-label">默认知识库</span>
+          <span class="metric-value">{{ local.defaultKnowledgeBaseId || "未选择" }}</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">超时</span>
+          <span class="metric-value">{{ local.timeoutMs }} ms</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">Trace 头</span>
+          <span class="metric-value">{{ local.includeTraceHeader ? "开启" : "关闭" }}</span>
         </div>
       </div>
     </section>

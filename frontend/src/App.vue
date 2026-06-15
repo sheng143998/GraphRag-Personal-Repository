@@ -1,9 +1,7 @@
-﻿<template>
-  <ParticleBackground />
+<template>
   <WorkbenchLayout />
 </template>
 
 <script setup lang="ts">
-import ParticleBackground from "./components/ParticleBackground.vue"
-import WorkbenchLayout from "./layouts/WorkbenchLayout.vue"
+import WorkbenchLayout from "./layouts/WorkbenchLayout.vue";
 </script>

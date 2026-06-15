@@ -11,12 +11,15 @@ import com.example.agentknowledge.client.AiServiceGateway;
 import com.example.agentknowledge.client.dto.AiRagEvaluateRequest;
 import com.example.agentknowledge.client.dto.AiRagEvaluateResponse;
 import com.example.agentknowledge.domain.KnowledgeBase;
+import com.example.agentknowledge.domain.RagEvaluationCase;
 import com.example.agentknowledge.domain.RagExperiment;
 import com.example.agentknowledge.domain.RagExperimentEvaluation;
 import com.example.agentknowledge.domain.RagRetrievalResult;
 import com.example.agentknowledge.domain.RagRun;
+import com.example.agentknowledge.dto.rag.EvaluateRagEvaluationCaseRequest;
 import com.example.agentknowledge.dto.rag.EvaluateRagExperimentRequest;
 import com.example.agentknowledge.dto.rag.RagExperimentEvaluationResponse;
+import com.example.agentknowledge.repository.RagEvaluationCaseRepository;
 import com.example.agentknowledge.repository.RagExperimentEvaluationRepository;
 import com.example.agentknowledge.repository.RagExperimentRepository;
 import com.example.agentknowledge.repository.RagRetrievalResultRepository;
@@ -34,19 +37,23 @@ import org.springframework.data.domain.PageRequest;
 class RagExperimentServiceTest {
 
     private final RagExperimentRepository experimentRepository = mock(RagExperimentRepository.class);
+    private final RagEvaluationCaseRepository evaluationCaseRepository = mock(RagEvaluationCaseRepository.class);
     private final RagExperimentEvaluationRepository evaluationRepository = mock(RagExperimentEvaluationRepository.class);
     private final RagRunRepository ragRunRepository = mock(RagRunRepository.class);
     private final RagRetrievalResultRepository retrievalResultRepository = mock(RagRetrievalResultRepository.class);
     private final KnowledgeBaseService knowledgeBaseService = mock(KnowledgeBaseService.class);
     private final AiServiceGateway aiServiceGateway = mock(AiServiceGateway.class);
+    private final RagService ragService = mock(RagService.class);
 
     private final RagExperimentService service = new RagExperimentService(
             experimentRepository,
+            evaluationCaseRepository,
             evaluationRepository,
             ragRunRepository,
             retrievalResultRepository,
             knowledgeBaseService,
-            aiServiceGateway
+            aiServiceGateway,
+            ragService
     );
 
     @Test
@@ -71,7 +78,25 @@ class RagExperimentServiceTest {
         run.setStrategyName("advanced-rag");
         run.setRetrieverType("hybrid");
         run.setModelName("stub-llm");
+        run.setPromptName("rag_answer");
+        run.setPromptVersion("v1");
         run.setLatencyMs(42L);
+        run.setTraceAttributes(Map.of(
+                "token_usage", Map.of(
+                        "prompt_tokens", 120,
+                        "completion_tokens", 30,
+                        "total_tokens", 150,
+                        "estimated_cost", 0.012
+                ),
+                "rag_preset", Map.of("query_rewrite", true),
+                "retrieval_options", Map.of("vectorWeight", 0.7, "keywordWeight", 0.3)
+        ));
+        run.setTraceSteps(List.of(
+                Map.of("name", "embed_query", "payload", Map.of("latency_ms", 11)),
+                Map.of("name", "retrieve", "payload", Map.of("latency_ms", 22)),
+                Map.of("name", "rerank", "payload", Map.of("latency_ms", 33)),
+                Map.of("name", "generate", "payload", Map.of("latency_ms", 44))
+        ));
         run.setCreatedAt(Instant.parse("2026-06-08T16:44:00Z"));
         RagRetrievalResult retrievalResult = new RagRetrievalResult();
         retrievalResult.setRun(run);
@@ -89,6 +114,13 @@ class RagExperimentServiceTest {
                         new AiRagEvaluateResponse.Result(
                                 0.91,
                                 0.82,
+                                1.0,
+                                0.5,
+                                1.0,
+                                1.0,
+                                null,
+                                null,
+                                null,
                                 List.of("Grounded answer with one relevant citation.")
                         ),
                         null
@@ -123,6 +155,10 @@ class RagExperimentServiceTest {
 
         assertThat(response.groundedScore()).isEqualTo(0.91);
         assertThat(response.retrievalScore()).isEqualTo(0.82);
+        assertThat(response.recallAtK()).isEqualTo(1.0);
+        assertThat(response.precisionAtK()).isEqualTo(0.5);
+        assertThat(response.mrr()).isEqualTo(1.0);
+        assertThat(response.citationHit()).isEqualTo(1.0);
         assertThat(response.experiment().status()).isEqualTo("COMPLETED");
         assertThat(response.experiment().precisionScore()).isEqualTo(0.91);
         assertThat(response.experiment().recallScore()).isEqualTo(0.82);
@@ -160,7 +196,98 @@ class RagExperimentServiceTest {
         assertThat(historyRecord.getValue().getRun().getId()).isEqualTo(runId);
         assertThat(historyRecord.getValue().getGroundedScore()).isEqualTo(0.91);
         assertThat(historyRecord.getValue().getRetrievalScore()).isEqualTo(0.82);
+        assertThat(historyRecord.getValue().getRecallAtK()).isEqualTo(1.0);
+        assertThat(historyRecord.getValue().getPrecisionAtK()).isEqualTo(0.5);
+        assertThat(historyRecord.getValue().getMrr()).isEqualTo(1.0);
+        assertThat(historyRecord.getValue().getCitationHit()).isEqualTo(1.0);
+        assertThat(historyRecord.getValue().getPromptTokens()).isEqualTo(120);
+        assertThat(historyRecord.getValue().getCompletionTokens()).isEqualTo(30);
+        assertThat(historyRecord.getValue().getTotalTokens()).isEqualTo(150);
+        assertThat(historyRecord.getValue().getEstimatedCost()).isEqualTo(0.012);
+        assertThat(historyRecord.getValue().getEmbeddingLatencyMs()).isEqualTo(11L);
+        assertThat(historyRecord.getValue().getRetrievalLatencyMs()).isEqualTo(22L);
+        assertThat(historyRecord.getValue().getRerankLatencyMs()).isEqualTo(33L);
+        assertThat(historyRecord.getValue().getLlmLatencyMs()).isEqualTo(44L);
+        assertThat(historyRecord.getValue().getStrategyConfig()).containsEntry("strategyName", "advanced-rag");
         assertThat(historyRecord.getValue().getNotes()).contains("Grounded answer");
+    }
+
+    @Test
+    void evaluateCaseUsesPersistedLabelsAndExpectedAnswerOverride() {
+        UUID caseId = UUID.randomUUID();
+        UUID experimentId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        UUID relevantChunkId = UUID.randomUUID();
+        UUID citationChunkId = UUID.randomUUID();
+        UUID relevantDocumentId = UUID.randomUUID();
+        RagExperiment experiment = new RagExperiment();
+        experiment.setId(experimentId);
+        experiment.setName("Dataset eval");
+        experiment.setStrategyName("advanced-rag");
+        RagEvaluationCase evaluationCase = new RagEvaluationCase();
+        evaluationCase.setId(caseId);
+        evaluationCase.setExperiment(experiment);
+        evaluationCase.setCaseId("case-001");
+        evaluationCase.setQuestion("How does rerank help retrieval?");
+        evaluationCase.setExpectedAnswer("Persisted answer");
+        evaluationCase.setRelevantChunkIds(List.of(relevantChunkId));
+        evaluationCase.setRelevantDocumentIds(List.of(relevantDocumentId));
+        evaluationCase.setExpectedCitationChunkIds(List.of(citationChunkId));
+        evaluationCase.setEvaluationTopK(7);
+        RagRun run = new RagRun();
+        run.setId(runId);
+        run.setQuestion("How does rerank help retrieval?");
+        run.setAnswer("Generated answer");
+        run.setStrategyName("advanced-rag");
+        run.setRetrieverType("hybrid");
+        run.setModelName("stub-llm");
+        run.setLatencyMs(31L);
+        run.setCreatedAt(Instant.parse("2026-06-08T16:44:00Z"));
+
+        when(evaluationCaseRepository.findById(caseId)).thenReturn(Optional.of(evaluationCase));
+        when(experimentRepository.findById(experimentId)).thenReturn(Optional.of(experiment));
+        when(ragRunRepository.findById(runId)).thenReturn(Optional.of(run));
+        when(retrievalResultRepository.findByRunIdOrderByRankAsc(runId)).thenReturn(List.of());
+        when(aiServiceGateway.evaluateRag(any(AiRagEvaluateRequest.class), any())).thenReturn(
+                new AiRagEvaluateResponse(
+                        new AiRagEvaluateResponse.Result(
+                                0.8,
+                                0.7,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                List.of("case evaluated")
+                        ),
+                        null
+                )
+        );
+        when(experimentRepository.save(experiment)).thenReturn(experiment);
+        when(evaluationRepository.save(any(RagExperimentEvaluation.class))).thenAnswer(invocation -> {
+            RagExperimentEvaluation saved = invocation.getArgument(0);
+            saved.setId(UUID.randomUUID());
+            saved.setCreatedAt(Instant.parse("2026-06-08T16:45:00Z"));
+            return saved;
+        });
+        when(evaluationRepository.findByExperiment_IdOrderByCreatedAtDesc(any(UUID.class), any(PageRequest.class)))
+                .thenReturn(List.of());
+
+        service.evaluateCase(
+                caseId,
+                new EvaluateRagEvaluationCaseRequest(runId, "Override answer")
+        );
+
+        ArgumentCaptor<AiRagEvaluateRequest> aiRequest = ArgumentCaptor.forClass(AiRagEvaluateRequest.class);
+        verify(aiServiceGateway).evaluateRag(aiRequest.capture(), any());
+        assertThat(aiRequest.getValue().expectedAnswer()).isEqualTo("Override answer");
+        assertThat(aiRequest.getValue().evaluationCase().caseId()).isEqualTo("case-001");
+        assertThat(aiRequest.getValue().evaluationCase().relevantChunkIds()).containsExactly(relevantChunkId);
+        assertThat(aiRequest.getValue().evaluationCase().relevantDocumentIds()).containsExactly(relevantDocumentId);
+        assertThat(aiRequest.getValue().evaluationCase().expectedCitationChunkIds()).containsExactly(citationChunkId);
+        assertThat(aiRequest.getValue().evaluationCase().topK()).isEqualTo(7);
     }
 
     @Test

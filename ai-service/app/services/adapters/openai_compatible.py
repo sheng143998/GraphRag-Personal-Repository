@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from time import perf_counter
 from typing import Any
 
 import httpx
@@ -41,7 +42,7 @@ class OpenAICompatibleLLMAdapter(LLMAdapter):
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
         }
-        data = await _post_json(
+        data, call_metadata = await _post_json(
             base_url=self.base_url,
             endpoint="/chat/completions",
             api_key=self.api_key,
@@ -49,6 +50,7 @@ class OpenAICompatibleLLMAdapter(LLMAdapter):
             timeout_seconds=self.timeout_seconds,
             max_retries=self.max_retries,
         )
+        _record_call_metadata(context, endpoint="/chat/completions", data=data, call_metadata=call_metadata)
         choices = data.get("choices") or []
         if not choices:
             raise RuntimeError("LLM response has no choices")
@@ -90,13 +92,20 @@ class OpenAICompatibleEmbeddingAdapter(EmbeddingAdapter):
                 "input": batch,
                 "dimensions": self.dimensions,
             }
-            data = await _post_json(
+            data, call_metadata = await _post_json(
                 base_url=self.base_url,
                 endpoint="/embeddings",
                 api_key=self.api_key,
                 payload=payload,
                 timeout_seconds=self.timeout_seconds,
                 max_retries=self.max_retries,
+            )
+            _record_call_metadata(
+                context,
+                endpoint="/embeddings",
+                data=data,
+                call_metadata=call_metadata,
+                batch_size=len(batch),
             )
             embeddings = _extract_embeddings(data)
             for embedding in embeddings:
@@ -143,13 +152,20 @@ class OpenAICompatibleRerankAdapter(RerankAdapter):
             "documents": documents,
             "top_n": min(max(1, self.top_n), len(documents)),
         }
-        data = await _post_json(
+        data, call_metadata = await _post_json(
             base_url=self.base_url,
             endpoint="/reranks",
             api_key=self.api_key,
             payload=payload,
             timeout_seconds=self.timeout_seconds,
             max_retries=self.max_retries,
+        )
+        _record_call_metadata(
+            context,
+            endpoint="/reranks",
+            data=data,
+            call_metadata=call_metadata,
+            document_count=len(documents),
         )
         return _extract_rerank_scores(data, document_count=len(documents))
 
@@ -168,13 +184,14 @@ async def _post_json(
     payload: dict[str, Any],
     timeout_seconds: float,
     max_retries: int = 2,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], dict[str, Any]]:
     if not api_key:
         raise RuntimeError("OpenAI-compatible adapter api_key is required")
 
     last_error: Exception | None = None
     attempts = max(1, max_retries + 1)
     for attempt in range(attempts):
+        started_at = perf_counter()
         try:
             async with httpx.AsyncClient(timeout=timeout_seconds) as client:
                 response = await client.post(
@@ -185,6 +202,7 @@ async def _post_json(
                     },
                     json=payload,
                 )
+            latency_ms = round((perf_counter() - started_at) * 1000, 3)
             if response.status_code in {429, 500, 502, 503, 504} and attempt < attempts - 1:
                 await asyncio.sleep(0.3 * (2**attempt))
                 continue
@@ -193,13 +211,56 @@ async def _post_json(
             data = response.json()
             if not isinstance(data, dict):
                 raise RuntimeError("Model provider response is not a JSON object")
-            return data
+            return data, {
+                "latency_ms": latency_ms,
+                "attempt": attempt + 1,
+                "http_status": response.status_code,
+            }
         except (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError) as exc:
             last_error = exc
             if attempt >= attempts - 1:
                 break
             await asyncio.sleep(0.3 * (2**attempt))
     raise RuntimeError(f"Model provider request failed after {attempts} attempts: {last_error}")
+
+
+def _record_call_metadata(
+    context: AdapterCallContext,
+    *,
+    endpoint: str,
+    data: dict[str, Any],
+    call_metadata: dict[str, Any],
+    batch_size: int | None = None,
+    document_count: int | None = None,
+) -> None:
+    usage = _extract_usage(data)
+    call: dict[str, Any] = {
+        "operation": context.operation,
+        "model_name": context.model_name,
+        "endpoint": endpoint,
+        **call_metadata,
+    }
+    if usage:
+        call["usage"] = usage
+    if batch_size is not None:
+        call["batch_size"] = batch_size
+    if document_count is not None:
+        call["document_count"] = document_count
+
+    calls = context.metadata.setdefault("adapter_calls", [])
+    if isinstance(calls, list):
+        calls.append(call)
+    context.metadata["last_call"] = call
+
+
+def _extract_usage(data: dict[str, Any]) -> dict[str, Any]:
+    usage = data.get("usage")
+    if isinstance(usage, dict):
+        return dict(usage)
+    output = data.get("output")
+    if isinstance(output, dict) and isinstance(output.get("usage"), dict):
+        return dict(output["usage"])
+    return {}
 
 
 def _extract_embeddings(data: dict[str, Any]) -> list[list[float]]:
