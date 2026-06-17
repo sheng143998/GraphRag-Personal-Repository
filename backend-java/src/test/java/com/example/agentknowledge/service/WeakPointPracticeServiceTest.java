@@ -113,6 +113,7 @@ class WeakPointPracticeServiceTest {
                 List.of(),
                 null,
                 List.of(),
+                null,
                 List.of(),
                 List.of(),
                 null,

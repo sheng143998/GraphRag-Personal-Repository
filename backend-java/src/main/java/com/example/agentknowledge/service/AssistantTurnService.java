@@ -95,6 +95,7 @@ public class AssistantTurnService {
                 agentResponse.followUpQuestions(),
                 agentResponse.studyPlan(),
                 agentResponse.reviewCards(),
+                agentResponse.supportPlan(),
                 weakPoints,
                 agentResponse.workflowSteps(),
                 agentResponse.trace(),

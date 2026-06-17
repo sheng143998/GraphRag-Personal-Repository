@@ -44,6 +44,10 @@ class AgentService:
             raise
         trace_builder.set_attribute("question_type", state.question_type)
         trace_builder.set_attribute("selected_strategy_name", state.selected_strategy_name)
+        if state.support_mode:
+            trace_builder.set_attribute("support_mode", True)
+        if state.support_plan is not None:
+            trace_builder.set_attribute("support_plan", state.support_plan.dict())
         if state.rag_trace_id:
             trace_builder.set_attribute("rag_trace_id", state.rag_trace_id)
         if state.rag_trace:
@@ -66,6 +70,7 @@ class AgentService:
             follow_up_questions=state.follow_up_questions,
             study_plan=state.study_plan,
             review_cards=state.review_cards,
+            support_plan=state.support_plan,
             workflow_steps=state.steps,
             trace=trace,
             rag_trace=state.rag_trace,

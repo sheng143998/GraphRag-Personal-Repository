@@ -47,6 +47,7 @@ public class AgentService {
                 aiResponse.followUpQuestions() != null ? aiResponse.followUpQuestions() : List.of(),
                 mapStudyPlan(aiResponse.studyPlan()),
                 mapReviewCards(aiResponse.reviewCards()),
+                mapSupportPlan(aiResponse.supportPlan()),
                 mapWorkflowSteps(aiResponse.workflowSteps()),
                 aiResponse.trace(),
                 aiResponse.ragTrace()
@@ -78,6 +79,61 @@ public class AgentService {
                         card.difficulty() != null ? card.difficulty() : "medium"
                 ))
                 .toList();
+    }
+
+    private static AgentInvokeResponse.SupportPlan mapSupportPlan(AiAgentInvokeResponse.SupportPlan supportPlan) {
+        if (supportPlan == null) {
+            return null;
+        }
+        return new AgentInvokeResponse.SupportPlan(
+                supportPlan.issueSummary(),
+                supportPlan.clarificationQuestions() != null ? supportPlan.clarificationQuestions() : List.of(),
+                supportPlan.evidenceReferences() != null ? supportPlan.evidenceReferences() : List.of(),
+                mapDiagnosticSteps(supportPlan.diagnosticSteps()),
+                mapEscalation(supportPlan.escalation()),
+                supportPlan.riskNotes() != null ? supportPlan.riskNotes() : List.of(),
+                supportPlan.nextActions() != null ? supportPlan.nextActions() : List.of()
+        );
+    }
+
+    private static List<AgentInvokeResponse.DiagnosticStep> mapDiagnosticSteps(
+            List<AiAgentInvokeResponse.DiagnosticStep> diagnosticSteps
+    ) {
+        if (diagnosticSteps == null) {
+            return List.of();
+        }
+        return diagnosticSteps.stream()
+                .map(step -> new AgentInvokeResponse.DiagnosticStep(
+                        step.order(),
+                        step.action(),
+                        step.expectedSignal() != null ? step.expectedSignal() : "",
+                        step.evidenceHint() != null ? step.evidenceHint() : "",
+                        step.fallback() != null ? step.fallback() : ""
+                ))
+                .toList();
+    }
+
+    private static AgentInvokeResponse.EscalationRecommendation mapEscalation(
+            AiAgentInvokeResponse.EscalationRecommendation escalation
+    ) {
+        if (escalation == null) {
+            return new AgentInvokeResponse.EscalationRecommendation(
+                    false,
+                    "low",
+                    "",
+                    "technical-support",
+                    "",
+                    Map.of()
+            );
+        }
+        return new AgentInvokeResponse.EscalationRecommendation(
+                escalation.required() != null ? escalation.required() : false,
+                escalation.severity() != null ? escalation.severity() : "low",
+                escalation.reason() != null ? escalation.reason() : "",
+                escalation.suggestedQueue() != null ? escalation.suggestedQueue() : "technical-support",
+                escalation.ticketSummary() != null ? escalation.ticketSummary() : "",
+                escalation.ticketFields() != null ? escalation.ticketFields() : Map.of()
+        );
     }
 
     private static List<AgentInvokeResponse.WorkflowStep> mapWorkflowSteps(

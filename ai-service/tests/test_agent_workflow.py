@@ -102,12 +102,53 @@ def test_agent_workflow_reuses_request_trace_id_for_nested_rag() -> None:
     assert retrieve_step.payload["rag_rewritten_query"] == response.rag_trace.attributes["rewritten_query"]
 
 
+def test_after_sales_support_agent_generates_structured_support_plan() -> None:
+    response = asyncio.run(
+        _invoke_agent(
+            "kb-agent-support",
+            "客户 P1 大面积不可用，无法登录控制台，请给出售后排障步骤。",
+            agent_name="after-sales-support-agent",
+            variables={"mode": "support"},
+        )
+    )
+
+    assert response.question_type == "troubleshooting"
+    assert response.selected_strategy_name == "advanced-rag"
+    assert response.support_plan is not None
+    assert response.support_plan.clarification_questions
+    assert response.support_plan.diagnostic_steps[0].action.startswith("确认客户影响范围")
+    assert response.support_plan.escalation.required is True
+    assert response.support_plan.escalation.severity == "critical"
+    assert response.support_plan.escalation.suggested_queue == "二线技术支持"
+    assert response.support_plan.evidence_references
+    assert "售后分诊摘要" in response.output
+    assert "澄清问题" in response.output
+    assert "风险提示" in response.output
+    assert response.trace.attributes["support_mode"] is True
+    assert response.trace.attributes["support_escalation_required"] is True
+    assert response.trace.attributes["support_plan"]["escalation"]["severity"] == "critical"
+    assert [step.name for step in response.workflow_steps] == [
+        "detect_support_mode",
+        "classify_question",
+        "select_rag_strategy",
+        "retrieve_and_generate",
+        "cite_sources",
+        "generate_support_plan",
+        "compose_support_response",
+        "generate_follow_up_questions",
+        "generate_study_plan",
+        "generate_review_cards",
+    ]
+
+
 async def _invoke_agent(
     knowledge_base_id: str,
     question: str,
     *,
+    agent_name: str = "study-agent",
     strategy_name: str = "basic-rag",
     retrieval_options: dict[str, object] | None = None,
+    variables: dict[str, object] | None = None,
 ):
     ingest_service = IngestService()
     agent_service = AgentService()
@@ -124,7 +165,9 @@ async def _invoke_agent(
                 content=(
                     "Advanced RAG can rewrite implementation questions, retrieve multiple "
                     "candidate chunks, rerank them, and answer with citations. Basic RAG "
-                    "retrieves context and generates an answer from the selected chunks."
+                    "retrieves context and generates an answer from the selected chunks. "
+                    "售后支持排障要求先确认客户影响范围、错误码、trace id 和业务影响，"
+                    "再按 Runbook 执行安全检查；P1 或大面积不可用必须升级二线技术支持。"
                 ),
             ),
         )
@@ -132,7 +175,7 @@ async def _invoke_agent(
 
     return await agent_service.invoke(
         AgentInvokeRequest(
-            agent_name="study-agent",
+            agent_name=agent_name,
             user_input=question,
             strategy_name=strategy_name,
             top_k=3,
@@ -140,5 +183,6 @@ async def _invoke_agent(
                 knowledge_base_id=knowledge_base_id,
                 retrieval_options=retrieval_options or {},
             ),
+            variables=variables or {},
         )
     )

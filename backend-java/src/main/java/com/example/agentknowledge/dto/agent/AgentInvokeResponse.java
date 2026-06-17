@@ -14,6 +14,7 @@ public record AgentInvokeResponse(
         List<String> followUpQuestions,
         StudyPlan studyPlan,
         List<ReviewCard> reviewCards,
+        SupportPlan supportPlan,
         List<WorkflowStep> workflowSteps,
         AiTraceMetadata trace,
         AiTraceMetadata ragTrace
@@ -30,6 +31,36 @@ public record AgentInvokeResponse(
             String expectedAnswer,
             String sourceHint,
             String difficulty
+    ) {
+    }
+
+    public record SupportPlan(
+            String issueSummary,
+            List<String> clarificationQuestions,
+            List<String> evidenceReferences,
+            List<DiagnosticStep> diagnosticSteps,
+            EscalationRecommendation escalation,
+            List<String> riskNotes,
+            List<String> nextActions
+    ) {
+    }
+
+    public record DiagnosticStep(
+            Integer order,
+            String action,
+            String expectedSignal,
+            String evidenceHint,
+            String fallback
+    ) {
+    }
+
+    public record EscalationRecommendation(
+            Boolean required,
+            String severity,
+            String reason,
+            String suggestedQueue,
+            String ticketSummary,
+            Map<String, Object> ticketFields
     ) {
     }
 

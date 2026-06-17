@@ -79,6 +79,28 @@ class AgentServiceTest {
                                 "source",
                                 "hard"
                         )),
+                        new AiAgentInvokeResponse.SupportPlan(
+                                "售后支持案例：控制台不可用",
+                                List.of("受影响租户是什么？"),
+                                List.of("[1] 控制台故障 Runbook，chunk=chunk-support"),
+                                List.of(new AiAgentInvokeResponse.DiagnosticStep(
+                                        1,
+                                        "确认客户影响范围。",
+                                        "影响范围明确。",
+                                        "[1] 控制台故障 Runbook，chunk=chunk-support",
+                                        "缺少范围时先补充工单。"
+                                )),
+                                new AiAgentInvokeResponse.EscalationRecommendation(
+                                        true,
+                                        "critical",
+                                        "检测到客户大面积不可用。",
+                                        "二线技术支持",
+                                        "CRITICAL 售后支持分诊：控制台不可用",
+                                        Map.of("rag_trace_id", "trace-agent")
+                                ),
+                                List.of("不要在回滚路径不明确时修改生产环境。"),
+                                List.of("先补齐澄清问题。")
+                        ),
                         List.of(new AiAgentInvokeResponse.WorkflowStep(
                                 "select_rag_strategy",
                                 "Selected a strategy.",
@@ -120,6 +142,13 @@ class AgentServiceTest {
         assertThat(response.studyPlan().focusAreas()).contains("implementation", "advanced-rag");
         assertThat(response.reviewCards()).hasSize(1);
         assertThat(response.reviewCards().get(0).expectedAnswer()).contains("end-to-end");
+        assertThat(response.supportPlan()).isNotNull();
+        assertThat(response.supportPlan().issueSummary()).contains("控制台不可用");
+        assertThat(response.supportPlan().diagnosticSteps()).hasSize(1);
+        assertThat(response.supportPlan().diagnosticSteps().get(0).expectedSignal()).contains("影响范围");
+        assertThat(response.supportPlan().escalation().required()).isTrue();
+        assertThat(response.supportPlan().escalation().suggestedQueue()).isEqualTo("二线技术支持");
+        assertThat(response.supportPlan().escalation().ticketFields()).containsEntry("rag_trace_id", "trace-agent");
         assertThat(response.workflowSteps()).hasSize(1);
         assertThat(response.workflowSteps().get(0).payload()).containsEntry("selected_strategy_name", "advanced-rag");
         assertThat(response.trace()).isEqualTo(trace);

@@ -32,6 +32,33 @@ class ReviewCard(BaseModel):
     difficulty: str = "medium"
 
 
+class DiagnosticStep(BaseModel):
+    order: int
+    action: str
+    expected_signal: str = ""
+    evidence_hint: str = ""
+    fallback: str = ""
+
+
+class EscalationRecommendation(BaseModel):
+    required: bool = False
+    severity: str = "low"
+    reason: str = ""
+    suggested_queue: str = "technical-support"
+    ticket_summary: str = ""
+    ticket_fields: dict[str, object] = Field(default_factory=dict)
+
+
+class SupportPlan(BaseModel):
+    issue_summary: str
+    clarification_questions: list[str] = Field(default_factory=list)
+    evidence_references: list[str] = Field(default_factory=list)
+    diagnostic_steps: list[DiagnosticStep] = Field(default_factory=list)
+    escalation: EscalationRecommendation = Field(default_factory=EscalationRecommendation)
+    risk_notes: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+
+
 class AgentInvokeResponse(BaseModel):
     agent_name: str
     output: str
@@ -41,6 +68,7 @@ class AgentInvokeResponse(BaseModel):
     follow_up_questions: list[str] = Field(default_factory=list)
     study_plan: StudyPlan | None = None
     review_cards: list[ReviewCard] = Field(default_factory=list)
+    support_plan: SupportPlan | None = None
     workflow_steps: list[AgentWorkflowStep] = Field(default_factory=list)
     trace: TraceMetadata
     rag_trace: TraceMetadata | None = None

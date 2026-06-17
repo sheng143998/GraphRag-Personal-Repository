@@ -152,6 +152,7 @@ public class AiServiceClient implements AiServiceGateway {
                             "mock-source",
                             "easy"
                     )),
+                    null,
                     List.of(
                             new AiAgentInvokeResponse.WorkflowStep(
                                     "mock_agent_invoke",

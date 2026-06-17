@@ -110,6 +110,7 @@ class AssistantTurnServiceTest {
                         "source",
                         "medium"
                 )),
+                null,
                 List.of(new AgentInvokeResponse.WorkflowStep("select_rag_strategy", "Selected strategy.", Map.of())),
                 agentTrace,
                 ragTrace
@@ -187,6 +188,7 @@ class AssistantTurnServiceTest {
         assertThat(response.studyPlan()).isNotNull();
         assertThat(response.studyPlan().steps()).contains("Practice a project story.");
         assertThat(response.reviewCards()).hasSize(1);
+        assertThat(response.supportPlan()).isNull();
         assertThat(response.reviewCards().get(0).question()).contains("60-second");
         assertThat(response.weakPoints()).hasSize(1);
         assertThat(response.weakPoints().get(0).topic()).contains("60-second");
