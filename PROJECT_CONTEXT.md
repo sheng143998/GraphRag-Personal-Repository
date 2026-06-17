@@ -1,7 +1,7 @@
 ﻿# 本地知识库 Agent 项目上下文
 
-更新时间：2026-06-15
-项目状态：Phase 0-9 已完成工程闭环，覆盖三服务架构、文档入库、基础 RAG、Advanced RAG、Agent 学习闭环、GraphRAG、RAG 实验评估、评测集管理工具、复习辅助与 Coze Studio 风格前端工作台重构；2026-06-15 已补齐 Advanced RAG preset 批量评测、结构化指标持久化、token / cost / latency 可观测维度和对比页展示。前端浏览器请求继续只进入 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑。
+更新时间：2026-06-16
+项目状态：Phase 0-9 已完成工程闭环，覆盖三服务架构、文档入库、基础 RAG、Advanced RAG、Agent 学习闭环、GraphRAG、RAG 实验评估、评测集管理工具、复习辅助与 Coze Studio 风格前端工作台重构；2026-06-16 已完成文档上传入口升级，支持单篇、多篇和文件夹上传，默认使用 Spring `@Async` 本地线程池异步解析，并可通过 RabbitMQ 队列模式提交文档入库任务；同日新增 `frontend-react/` React + TypeScript 并行迁移工作区，按 Stitch RAG Knowledge Studio 设计实现第一版工作台页面。前端浏览器请求继续只进入 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑。
 维护规则：每次开启新的开发对话时，优先提供本文件；每完成一个阶段目标或关键任务后，必须同步更新本文件。本文件只保留项目状态、关键架构决策、当前待办和阶段级变更摘要；接口级实现细节、验证命令和失败复盘放入 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 与 `docs/handoff/`。
 
 ## 1. 项目目标
@@ -1041,13 +1041,32 @@ README 更新规则：
 
 ## 13. 变更记录
 
+### 2026-06-16
+
+- 完成文档上传链路升级：前端上传入口支持单篇、多篇和文件夹上传，文件夹上传会把浏览器 `webkitRelativePath` 传给 Spring Boot 并保存为 `sourcePath`。
+- Spring Boot 新增 `POST /api/documents/upload/batch`，按文件创建多条 `PROCESSING` 文档记录，并保留原有 `POST /api/documents/upload` JSON / multipart 单篇上传兼容。
+- 文档入库任务新增 `DocumentIngestDispatcher`：默认 `DOCUMENT_INGEST_MODE=local` 使用 Spring `@Async` 线程池；配置为 `rabbitmq` 时发布 `DocumentIngestMessage` 到 RabbitMQ 并由 listener 消费。
+- 当前 RabbitMQ 消费者仍在 Spring Boot 内调用 FastAPI `/ai/ingest/document`，FastAPI 继续只负责单文档解析、切分、embedding 与 RAG 派生数据写入；后续可在相同消息结构上替换为 Python Celery/RQ worker。
+- 完成 `RAG相关` 文件夹测评集 chunkId 二次审计：`datasets/processed/rag-folder-evaluation-cases-20260616.json` 已收紧 18 条样例的 `relevantChunkIds` / `expectedCitationChunkIds`，移除目录、图片说明、GraphRAG 关系表和 prompt 示例数据等弱证据 chunk，并通过数据库存在性与文档归属校验。
+- 实验评估页支持导入评测集后自动运行一次 RAG 全链路并写入评估结果；修复本地文件选择后“导入到当前实验”按钮因未选择左侧实验筛选而不可点击的问题，并补充 chunk 证据查询 SQL。
+- 新增 `frontend-react/` React + TypeScript 并行迁移工作区：按 Stitch RAG Knowledge Studio 页面实现 Workbench shell、文档中心、实验评估、评估对比、对话、知识库、图谱、反馈和设置第一版。
+- React 文档中心支持单文件、多文件和文件夹上传，保留 `relativePath` 并通过 Spring Boot `/api/documents/upload/batch` 提交；实验页支持导入 JSON / CSV 测评集后自动触发 batch RAG run。
+- React 迁移已通过 `npm.cmd --prefix frontend-react run typecheck` 与 `npm.cmd --prefix frontend-react run build`；审查 agent 发现的导入后自动运行旧 state 闭包问题已修复。
+- 完成 React 工作台真实链路 QA：修复 Spring Boot CORS 白名单遗漏 `localhost:5174` 导致 React POST 写请求 403 的问题，修复文档中心误用 `default-kb` 兜底导致批量上传传入非法 UUID 的问题；使用真实 Spring Boot + FastAPI stub + PostgreSQL 验证 `RAG相关` 文件夹上传 39 个支持文件并进入异步解析，以及评测集导入后自动 batch RAG run 18/18 成功。
+- 完成 `frontend-react/` Stitch 视觉二次对齐：重做全局 Workbench shell、Material Symbols 图标体系、知识库 Pipeline 卡片、GraphRAG 画布、Chat 三栏 trace 面板，并增强实验页 leaderboard / pipeline health 首屏；文档中心保持既有上传功能并收敛到 Stitch 数据入库布局。验证 `npm.cmd --prefix frontend-react run typecheck` 与 `npm.cmd --prefix frontend-react run build` 通过，并用 Edge headless 截图检查 `/chat`、`/knowledge-base`、`/documents`、`/experiments`、`/graph`。
+- 完成 RAG 评估指标口径升级：评测集 schema 新增 `requiredChunkIds`、`supportingChunkIds`、`acceptableChunkIds`、`citationChunkIds` 并兼容旧 `relevantChunkIds` / `expectedCitationChunkIds`；Evaluator 将 Recall 拆为 `chunkRecallAtK`、`documentRecallAtK`、`evidenceRecallAtK`，旧 `recallAtK` 保持为 evidence recall 兼容别名；`precisionAtK` 分母改为实际返回结果数，避免请求 topK 大于实际 citation 数时被硬性压低。新增 Flyway 迁移落库三类 recall 与分层标注字段，验证 Java / AI evaluator / React typecheck 与 build 通过。
+- 关键文档：`docs/plans/2026-06-16-multi-document-folder-upload-async-queue.md`、`docs/plans/2026-06-16-react-stitch-frontend-rebuild.md`、`docs/reviews/2026-06-16-multi-document-folder-upload-async-queue-review-prompt.md`、`docs/reviews/2026-06-16-react-stitch-frontend-rebuild-review-prompt.md`、`docs/handoff/CURRENT_STATE.md`。
+
 ### 2026-06-15
 
 - 完成 Advanced RAG preset 评测增强：将 `hybrid-rerank`、`metadata-filter`、`parent-child`、`advanced-rag`、`graph-rag` 收敛为统一 preset 配置，并支持按同一批评测样本批量生成 RAG run 后评估。
 - 评测历史新增结构化指标和运行成本维度：`recall@k`、`precision@k`、`MRR`、`citation_hit`、GraphRAG 指标、token usage、estimated cost、embedding / retrieval / rerank / LLM latency。
 - AI 服务 trace 会汇总真实 provider `usage` 和分阶段耗时；Java 只负责从 trace 中提取并持久化，不实现 RAG / evaluator 算法。
 - 前端 RAG 对比页展示策略聚合的 Recall、Precision、MRR、Citation、Tokens、Cost 和阶段耗时，便于做可量化 RAG 优化闭环。
-- 关键文档：`docs/plans/2026-06-15-advanced-rag-preset-evaluation-runner.md`、`docs/reviews/2026-06-15-rag-evaluation-token-cost-observability-review-prompt.md`、`docs/handoff/CURRENT_STATE.md`。
+- 完成默认 chunk 切分升级：`SimpleChunker` 改为 `recursive-overlap` 递归切分，优先按标题、段落、句子和字符窗口切分；`ParentChildChunker` 改为章节感知 parent / child 切分，子块保留 overlap 和章节 metadata；同时保留显式 `simple-window` 兼容路径。
+- chunk metadata 新增 `chunk_algorithm`、`chunk_size`、`chunk_overlap`、`char_start`、`char_end`、`split_level`、`heading_path`、`section_index`、`section_title`、`parent_heading`、`child_index_in_parent` 等字段，便于后续做评测和检索归因。
+- 已补充 `ai-service/tests/test_parent_child_chunker.py` 覆盖默认 recursive-overlap、显式 simple-window 兼容和章节化 parent-child 行为。
+- 关键文档：`docs/plans/2026-06-15-advanced-rag-preset-evaluation-runner.md`、`docs/plans/2026-06-15-recursive-overlap-parent-child-chunking.md`、`docs/reviews/2026-06-15-rag-evaluation-token-cost-observability-review-prompt.md`、`docs/handoff/CURRENT_STATE.md`。
 
 ### 2026-06-10
 

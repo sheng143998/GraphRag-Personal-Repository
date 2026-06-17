@@ -1,0 +1,130 @@
+.ui-button {
+  min-height: 34px;
+  border-radius: var(--radius-lg);
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 650;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.ui-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ui-button--primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.ui-button--primary:hover {
+  background: var(--color-primary-strong);
+}
+
+.ui-button--secondary {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-muted);
+}
+
+.ui-button--secondary:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.ui-button--ghost {
+  background: transparent;
+  color: var(--color-muted);
+}
+
+.ui-button--ghost:hover {
+  background: var(--color-surface-low);
+  color: var(--color-text);
+}
+
+.ui-button--danger {
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
+.ui-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.ui-panel__header {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-soft);
+  background: var(--color-surface-low);
+}
+
+.ui-panel__header h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 20px;
+}
+
+.ui-panel__eyebrow {
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.status-badge__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-badge--success {
+  color: var(--color-success);
+}
+
+.status-badge--warning {
+  color: var(--color-warning);
+}
+
+.status-badge--warning .status-badge__dot {
+  animation: pulse-soft 1.8s ease-in-out infinite;
+}
+
+.status-badge--error {
+  color: var(--color-error);
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.38;
+  }
+}

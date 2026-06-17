@@ -8,6 +8,10 @@ from app.schemas.common import SourceMetadata
 class OfflineEvaluationCase:
     case_id: str
     question: str
+    required_chunk_ids: set[str] = field(default_factory=set)
+    supporting_chunk_ids: set[str] = field(default_factory=set)
+    acceptable_chunk_ids: set[str] = field(default_factory=set)
+    citation_chunk_ids: set[str] = field(default_factory=set)
     relevant_chunk_ids: set[str] = field(default_factory=set)
     relevant_document_ids: set[str] = field(default_factory=set)
     expected_citation_chunk_ids: set[str] = field(default_factory=set)
@@ -25,6 +29,9 @@ class OfflineStrategyRun:
 class RetrievalMetrics:
     recall_at_k: float
     precision_at_k: float
+    chunk_recall_at_k: float
+    document_recall_at_k: float
+    evidence_recall_at_k: float
     mrr: float
     citation_hit: float
 
@@ -73,13 +80,29 @@ def evaluate_run(
         raise ValueError("k must be greater than 0")
 
     top_k = run.retrieved[:k]
-    relevant_total = _relevant_total(case)
+    chunk_targets = _chunk_targets(case)
+    document_targets = case.relevant_document_ids
+    evidence_total = len(chunk_targets) + len(document_targets)
     relevant_hits = sum(1 for source in top_k if _is_relevant(case, source))
     first_relevant_rank = _first_relevant_rank(case, top_k)
+    chunk_hits = {
+        source.chunk_id
+        for source in top_k
+        if source.chunk_id in chunk_targets
+    }
+    document_hits = {
+        source.document_id
+        for source in top_k
+        if source.document_id in document_targets
+    }
+    precision_denominator = len(top_k)
 
     return RetrievalMetrics(
-        recall_at_k=(relevant_hits / relevant_total) if relevant_total else 0.0,
-        precision_at_k=relevant_hits / k,
+        recall_at_k=(relevant_hits / evidence_total) if evidence_total else 0.0,
+        precision_at_k=(relevant_hits / precision_denominator) if precision_denominator else 0.0,
+        chunk_recall_at_k=(len(chunk_hits) / len(chunk_targets)) if chunk_targets else 0.0,
+        document_recall_at_k=(len(document_hits) / len(document_targets)) if document_targets else 0.0,
+        evidence_recall_at_k=(relevant_hits / evidence_total) if evidence_total else 0.0,
         mrr=(1.0 / first_relevant_rank) if first_relevant_rank else 0.0,
         citation_hit=1.0 if any(_is_expected_citation(case, source) for source in run.citations) else 0.0,
     )
@@ -90,6 +113,9 @@ def _average_metrics(values: list[RetrievalMetrics]) -> RetrievalMetrics:
         return RetrievalMetrics(
             recall_at_k=0.0,
             precision_at_k=0.0,
+            chunk_recall_at_k=0.0,
+            document_recall_at_k=0.0,
+            evidence_recall_at_k=0.0,
             mrr=0.0,
             citation_hit=0.0,
         )
@@ -98,6 +124,9 @@ def _average_metrics(values: list[RetrievalMetrics]) -> RetrievalMetrics:
     return RetrievalMetrics(
         recall_at_k=sum(value.recall_at_k for value in values) / total,
         precision_at_k=sum(value.precision_at_k for value in values) / total,
+        chunk_recall_at_k=sum(value.chunk_recall_at_k for value in values) / total,
+        document_recall_at_k=sum(value.document_recall_at_k for value in values) / total,
+        evidence_recall_at_k=sum(value.evidence_recall_at_k for value in values) / total,
         mrr=sum(value.mrr for value in values) / total,
         citation_hit=sum(value.citation_hit for value in values) / total,
     )
@@ -111,14 +140,20 @@ def _first_relevant_rank(case: OfflineEvaluationCase, sources: list[SourceMetada
 
 
 def _is_expected_citation(case: OfflineEvaluationCase, source: SourceMetadata) -> bool:
-    if case.expected_citation_chunk_ids:
-        return source.chunk_id in case.expected_citation_chunk_ids
+    citation_targets = case.citation_chunk_ids or case.expected_citation_chunk_ids
+    if citation_targets:
+        return source.chunk_id in citation_targets
     return _is_relevant(case, source)
 
 
 def _is_relevant(case: OfflineEvaluationCase, source: SourceMetadata) -> bool:
-    return source.chunk_id in case.relevant_chunk_ids or source.document_id in case.relevant_document_ids
+    return source.chunk_id in _chunk_targets(case) or source.document_id in case.relevant_document_ids
 
 
-def _relevant_total(case: OfflineEvaluationCase) -> int:
-    return len(case.relevant_chunk_ids) + len(case.relevant_document_ids)
+def _chunk_targets(case: OfflineEvaluationCase) -> set[str]:
+    layered_targets = (
+        case.required_chunk_ids
+        | case.supporting_chunk_ids
+        | case.acceptable_chunk_ids
+    )
+    return layered_targets or case.relevant_chunk_ids

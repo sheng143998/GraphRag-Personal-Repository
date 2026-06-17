@@ -118,6 +118,9 @@ class RagExperimentServiceTest {
                                 0.5,
                                 1.0,
                                 1.0,
+                                1.0,
+                                1.0,
+                                1.0,
                                 null,
                                 null,
                                 null,
@@ -147,6 +150,10 @@ class RagExperimentServiceTest {
                         "Expected answer",
                         "advanced-rag-rerank",
                         List.of(relevantChunkId),
+                        List.of(),
+                        List.of(),
+                        List.of(relevantChunkId),
+                        List.of(relevantChunkId),
                         List.of(relevantDocumentId),
                         List.of(relevantChunkId),
                         3
@@ -157,6 +164,9 @@ class RagExperimentServiceTest {
         assertThat(response.retrievalScore()).isEqualTo(0.82);
         assertThat(response.recallAtK()).isEqualTo(1.0);
         assertThat(response.precisionAtK()).isEqualTo(0.5);
+        assertThat(response.chunkRecallAtK()).isEqualTo(1.0);
+        assertThat(response.documentRecallAtK()).isEqualTo(1.0);
+        assertThat(response.evidenceRecallAtK()).isEqualTo(1.0);
         assertThat(response.mrr()).isEqualTo(1.0);
         assertThat(response.citationHit()).isEqualTo(1.0);
         assertThat(response.experiment().status()).isEqualTo("COMPLETED");
@@ -185,6 +195,8 @@ class RagExperimentServiceTest {
         assertThat(aiRequest.getValue().context().knowledgeBaseId()).isEqualTo(knowledgeBaseId);
         assertThat(aiRequest.getValue().evaluationCase()).isNotNull();
         assertThat(aiRequest.getValue().evaluationCase().caseId()).isEqualTo("advanced-rag-rerank");
+        assertThat(aiRequest.getValue().evaluationCase().requiredChunkIds()).containsExactly(relevantChunkId);
+        assertThat(aiRequest.getValue().evaluationCase().citationChunkIds()).containsExactly(relevantChunkId);
         assertThat(aiRequest.getValue().evaluationCase().relevantChunkIds()).containsExactly(relevantChunkId);
         assertThat(aiRequest.getValue().evaluationCase().relevantDocumentIds()).containsExactly(relevantDocumentId);
         assertThat(aiRequest.getValue().evaluationCase().expectedCitationChunkIds()).containsExactly(relevantChunkId);
@@ -198,6 +210,9 @@ class RagExperimentServiceTest {
         assertThat(historyRecord.getValue().getRetrievalScore()).isEqualTo(0.82);
         assertThat(historyRecord.getValue().getRecallAtK()).isEqualTo(1.0);
         assertThat(historyRecord.getValue().getPrecisionAtK()).isEqualTo(0.5);
+        assertThat(historyRecord.getValue().getChunkRecallAtK()).isEqualTo(1.0);
+        assertThat(historyRecord.getValue().getDocumentRecallAtK()).isEqualTo(1.0);
+        assertThat(historyRecord.getValue().getEvidenceRecallAtK()).isEqualTo(1.0);
         assertThat(historyRecord.getValue().getMrr()).isEqualTo(1.0);
         assertThat(historyRecord.getValue().getCitationHit()).isEqualTo(1.0);
         assertThat(historyRecord.getValue().getPromptTokens()).isEqualTo(120);
@@ -230,6 +245,8 @@ class RagExperimentServiceTest {
         evaluationCase.setCaseId("case-001");
         evaluationCase.setQuestion("How does rerank help retrieval?");
         evaluationCase.setExpectedAnswer("Persisted answer");
+        evaluationCase.setRequiredChunkIds(List.of(relevantChunkId));
+        evaluationCase.setCitationChunkIds(List.of(citationChunkId));
         evaluationCase.setRelevantChunkIds(List.of(relevantChunkId));
         evaluationCase.setRelevantDocumentIds(List.of(relevantDocumentId));
         evaluationCase.setExpectedCitationChunkIds(List.of(citationChunkId));
@@ -253,6 +270,9 @@ class RagExperimentServiceTest {
                         new AiRagEvaluateResponse.Result(
                                 0.8,
                                 0.7,
+                                null,
+                                null,
+                                null,
                                 null,
                                 null,
                                 null,
@@ -284,6 +304,8 @@ class RagExperimentServiceTest {
         verify(aiServiceGateway).evaluateRag(aiRequest.capture(), any());
         assertThat(aiRequest.getValue().expectedAnswer()).isEqualTo("Override answer");
         assertThat(aiRequest.getValue().evaluationCase().caseId()).isEqualTo("case-001");
+        assertThat(aiRequest.getValue().evaluationCase().requiredChunkIds()).containsExactly(relevantChunkId);
+        assertThat(aiRequest.getValue().evaluationCase().citationChunkIds()).containsExactly(citationChunkId);
         assertThat(aiRequest.getValue().evaluationCase().relevantChunkIds()).containsExactly(relevantChunkId);
         assertThat(aiRequest.getValue().evaluationCase().relevantDocumentIds()).containsExactly(relevantDocumentId);
         assertThat(aiRequest.getValue().evaluationCase().expectedCitationChunkIds()).containsExactly(citationChunkId);

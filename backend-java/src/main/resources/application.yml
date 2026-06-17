@@ -1,6 +1,11 @@
 spring:
   application:
     name: agent-knowledge-backend
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/agent_knowledge}
     username: ${DB_USERNAME:postgres}
@@ -38,3 +43,8 @@ app:
     connect-timeout: ${AI_SERVICE_CONNECT_TIMEOUT:2s}
     read-timeout: ${AI_SERVICE_READ_TIMEOUT:180s}
     mock-enabled: ${AI_SERVICE_MOCK_ENABLED:false}
+  document-ingest:
+    mode: ${DOCUMENT_INGEST_MODE:local}
+    exchange: ${DOCUMENT_INGEST_EXCHANGE:document.ingest.exchange}
+    queue: ${DOCUMENT_INGEST_QUEUE:document.ingest.queue}
+    routing-key: ${DOCUMENT_INGEST_ROUTING_KEY:document.ingest}

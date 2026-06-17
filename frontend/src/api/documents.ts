@@ -1,4 +1,10 @@
-import type { DocumentRecord, UploadPayload, UploadResponse } from "../types";
+import type {
+  BatchUploadPayload,
+  BatchUploadResponse,
+  DocumentRecord,
+  UploadPayload,
+  UploadResponse
+} from "../types";
 import { apiRequest } from "./client";
 
 export function fetchDocuments(): Promise<DocumentRecord[]> {
@@ -30,6 +36,28 @@ export function uploadDocuments(payload: UploadPayload): Promise<UploadResponse>
   return apiRequest<UploadResponse>("/documents/upload", {
     method: "POST",
     body: JSON.stringify(payload)
+  });
+}
+
+export function uploadDocumentsBatch(payload: BatchUploadPayload): Promise<BatchUploadResponse> {
+  const formData = new FormData();
+  formData.set("knowledgeBaseId", payload.knowledgeBaseId);
+  formData.set("documentType", payload.documentType);
+  formData.set("sourceType", payload.sourceType ?? "LOCAL_FOLDER_UPLOAD");
+  formData.set("title", payload.title ?? "");
+  formData.set("summary", payload.summary ?? "");
+  formData.set("metadata", JSON.stringify(payload.metadata ?? {}));
+
+  payload.files.forEach((item) => {
+    formData.append("files", item.file);
+    if (item.relativePath) {
+      formData.append("relativePaths", item.relativePath);
+    }
+  });
+
+  return apiRequest<BatchUploadResponse>("/documents/upload/batch", {
+    method: "POST",
+    body: formData
   });
 }
 

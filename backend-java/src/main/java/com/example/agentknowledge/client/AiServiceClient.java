@@ -91,6 +91,9 @@ public class AiServiceClient implements AiServiceGateway {
                             null,
                             null,
                             null,
+                            null,
+                            null,
+                            null,
                             List.of("Mock evaluator scored persisted RAG run evidence.")
                     ),
                     new AiTraceMetadata(

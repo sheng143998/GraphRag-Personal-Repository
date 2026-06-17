@@ -20,6 +20,7 @@ import type {
   WeakPointPracticeAssessment,
   RagRunDetail,
   RagRunSummary,
+  BatchUploadPayload,
   UploadPayload
 } from "../types";
 import {
@@ -52,6 +53,7 @@ import {
   updateWeakPoint,
   updateExperiment,
   updateKnowledgeBase,
+  uploadDocumentsBatch,
   uploadDocuments
 } from "../api";
 import {
@@ -395,6 +397,25 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     }
   }
 
+  async function submitBatchUpload(payload: BatchUploadPayload): Promise<void> {
+    uploadPending.value = true;
+    lastError.value = "";
+
+    try {
+      const result = await uploadDocumentsBatch(payload);
+      traceId.value = `upload-batch-${result.batchId}`;
+      documents.value = sortByUpdatedAt(await fetchDocuments());
+      result.documents.forEach((item) => {
+        pollDocumentStatus(item.id);
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "批量上传失败，请稍后重试。";
+      lastError.value = message;
+    } finally {
+      uploadPending.value = false;
+    }
+  }
+
   // --- Chat sessions ---
   async function createSession(knowledgeBaseId: string, title: string): Promise<void> {
     sessionsPending.value = true;
@@ -595,7 +616,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     try {
       experiments.value = await fetchExperiments();
     } catch (error) {
-      lastError.value = error instanceof Error ? error.message : "鏃犳硶鍔犺浇瀹為獙鍒楄〃銆?";
+      lastError.value = error instanceof Error ? error.message : "无法加载实验列表。";
     }
   }
 
@@ -770,6 +791,7 @@ export const useWorkbenchStore = defineStore("workbench", () => {
     practiceWeakPoint,
     hydrate,
     submitUpload,
+    submitBatchUpload,
     // sessions
     createSession,
     loadSessions,

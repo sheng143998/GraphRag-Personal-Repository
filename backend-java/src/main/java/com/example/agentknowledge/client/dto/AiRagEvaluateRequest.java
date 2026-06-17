@@ -24,6 +24,10 @@ public record AiRagEvaluateRequest(
 
     public record EvaluationCase(
             @JsonProperty("case_id") String caseId,
+            @JsonProperty("required_chunk_ids") List<UUID> requiredChunkIds,
+            @JsonProperty("supporting_chunk_ids") List<UUID> supportingChunkIds,
+            @JsonProperty("acceptable_chunk_ids") List<UUID> acceptableChunkIds,
+            @JsonProperty("citation_chunk_ids") List<UUID> citationChunkIds,
             @JsonProperty("relevant_chunk_ids") List<UUID> relevantChunkIds,
             @JsonProperty("relevant_document_ids") List<UUID> relevantDocumentIds,
             @JsonProperty("expected_citation_chunk_ids") List<UUID> expectedCitationChunkIds,

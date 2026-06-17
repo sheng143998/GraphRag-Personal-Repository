@@ -2,8 +2,8 @@ package com.example.agentknowledge.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -14,6 +14,7 @@ import com.example.agentknowledge.dto.document.CreateDocumentRequest;
 import com.example.agentknowledge.dto.document.DocumentResponse;
 import com.example.agentknowledge.repository.DocumentChunkRepository;
 import com.example.agentknowledge.repository.KnowledgeDocumentRepository;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -25,13 +26,13 @@ class DocumentServiceTest {
     private final KnowledgeDocumentRepository documentRepository = mock(KnowledgeDocumentRepository.class);
     private final DocumentChunkRepository chunkRepository = mock(DocumentChunkRepository.class);
     private final KnowledgeBaseService knowledgeBaseService = mock(KnowledgeBaseService.class);
-    private final DocumentIngestProcessor ingestProcessor = mock(DocumentIngestProcessor.class);
+    private final DocumentIngestDispatcher ingestDispatcher = mock(DocumentIngestDispatcher.class);
 
     private final DocumentService documentService = new DocumentService(
             documentRepository,
             chunkRepository,
             knowledgeBaseService,
-            ingestProcessor
+            ingestDispatcher
     );
 
     @AfterEach
@@ -43,9 +44,7 @@ class DocumentServiceTest {
     void createStartsIngestWithPersistedDocumentId() {
         UUID knowledgeBaseId = UUID.randomUUID();
         UUID persistedDocumentId = UUID.randomUUID();
-        KnowledgeBase knowledgeBase = new KnowledgeBase();
-        knowledgeBase.setId(knowledgeBaseId);
-        knowledgeBase.setName("Java 知识库");
+        KnowledgeBase knowledgeBase = knowledgeBase(knowledgeBaseId);
         TraceContext.setTraceId("trace-document-create");
 
         when(knowledgeBaseService.getReference(knowledgeBaseId)).thenReturn(knowledgeBase);
@@ -70,18 +69,62 @@ class DocumentServiceTest {
         ));
 
         assertThat(response.id()).isEqualTo(persistedDocumentId);
-        ArgumentCaptor<UUID> documentIdCaptor = ArgumentCaptor.forClass(UUID.class);
-        verify(ingestProcessor).processAsync(
-                documentIdCaptor.capture(),
-                eq(knowledgeBaseId),
-                eq("上传测试"),
-                eq("tech_note"),
-                any(),
-                eq(java.util.List.of()),
-                eq(java.util.List.of()),
-                eq(Map.of()),
-                eq("trace-document-create")
+        ArgumentCaptor<DocumentIngestMessage> messageCaptor = ArgumentCaptor.forClass(DocumentIngestMessage.class);
+        verify(ingestDispatcher).dispatch(messageCaptor.capture());
+        DocumentIngestMessage message = messageCaptor.getValue();
+        assertThat(message.documentId()).isEqualTo(persistedDocumentId);
+        assertThat(message.knowledgeBaseId()).isEqualTo(knowledgeBaseId);
+        assertThat(message.title()).isEqualTo("上传测试");
+        assertThat(message.documentType()).isEqualTo("tech_note");
+        assertThat(message.traceId()).isEqualTo("trace-document-create");
+        assertThat(message.filePayload().filename()).isEqualTo("notes.md");
+        assertThat(message.filePayload().contentBase64()).isEqualTo("IyBOb3Rlcw==");
+    }
+
+    @Test
+    void createBatchSubmitsOneIngestMessagePerDocument() {
+        UUID knowledgeBaseId = UUID.randomUUID();
+        KnowledgeBase knowledgeBase = knowledgeBase(knowledgeBaseId);
+        TraceContext.setTraceId("trace-document-batch");
+
+        when(knowledgeBaseService.getReference(knowledgeBaseId)).thenReturn(knowledgeBase);
+        when(documentRepository.save(any(KnowledgeDocument.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<DocumentResponse> responses = documentService.createBatch(List.of(
+                request(knowledgeBaseId, "first.md", "folder/first.md"),
+                request(knowledgeBaseId, "second.md", "folder/second.md")
+        ));
+
+        assertThat(responses).hasSize(2);
+        ArgumentCaptor<DocumentIngestMessage> messageCaptor = ArgumentCaptor.forClass(DocumentIngestMessage.class);
+        verify(ingestDispatcher, times(2)).dispatch(messageCaptor.capture());
+        assertThat(messageCaptor.getAllValues())
+                .extracting(message -> message.filePayload().sourcePath())
+                .containsExactly("folder/first.md", "folder/second.md");
+        assertThat(messageCaptor.getAllValues())
+                .allSatisfy(message -> assertThat(message.traceId()).isEqualTo("trace-document-batch"));
+    }
+
+    private KnowledgeBase knowledgeBase(UUID knowledgeBaseId) {
+        KnowledgeBase knowledgeBase = new KnowledgeBase();
+        knowledgeBase.setId(knowledgeBaseId);
+        knowledgeBase.setName("Java 知识库");
+        return knowledgeBase;
+    }
+
+    private CreateDocumentRequest request(UUID knowledgeBaseId, String fileName, String sourcePath) {
+        return new CreateDocumentRequest(
+                knowledgeBaseId,
+                fileName.replace(".md", ""),
+                "TECH_NOTE",
+                fileName,
+                "md",
+                "text/markdown",
+                "LOCAL_FOLDER_UPLOAD",
+                sourcePath,
+                "IyBOb3Rlcw==",
+                null,
+                Map.of()
         );
-        assertThat(documentIdCaptor.getValue()).isEqualTo(persistedDocumentId);
     }
 }

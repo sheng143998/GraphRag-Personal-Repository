@@ -5,7 +5,7 @@ from uuid import uuid4
 from app.core.config import settings
 from app.core.tracing import TraceBuilder
 from app.db.repositories import repository
-from app.rag.chunkers.base import ParentChildChunker, SimpleChunker
+from app.rag.chunkers.base import ParentChildChunker, SimpleChunker, SimpleWindowChunker
 from app.rag.graph import RuleBasedGraphExtractor
 from app.rag.loaders.base import InlineContentLoader
 from app.rag.parsers.registry import ParserRegistry
@@ -25,6 +25,7 @@ class IngestService:
     def __init__(self) -> None:
         self.loader = InlineContentLoader()
         self.chunker = SimpleChunker()
+        self.simple_window_chunker = SimpleWindowChunker()
         self.parent_child_chunker = ParentChildChunker()
         self.parser_registry = ParserRegistry()
         self.graph_extractor = RuleBasedGraphExtractor()
@@ -68,7 +69,13 @@ class IngestService:
             payload={"parser_name": parser.name, "parser_version": parser.version},
         )
 
-        chunker = self.parent_child_chunker if _chunk_strategy(payload.metadata) == "parent-child" else self.chunker
+        chunk_strategy = _chunk_strategy(payload.metadata)
+        if chunk_strategy == "parent-child":
+            chunker = self.parent_child_chunker
+        elif chunk_strategy == "simple-window":
+            chunker = self.simple_window_chunker
+        else:
+            chunker = self.chunker
         chunks = await chunker.chunk(parsed_document=parsed_document, request=payload)
         if not chunks:
             raise RuntimeError(
@@ -79,7 +86,11 @@ class IngestService:
             name="chunk_document",
             status="completed",
             detail="Built chunk records for storage.",
-            payload={"chunk_count": len(chunks), "chunk_strategy": _chunk_strategy(payload.metadata)},
+            payload={
+                "chunk_count": len(chunks),
+                "requested_chunk_strategy": chunk_strategy,
+                "stored_chunk_strategy": chunks[0].metadata.get("chunk_strategy") if chunks else None,
+            },
         )
 
         graph_entity_count = 0
@@ -187,7 +198,7 @@ class IngestService:
 
 
 def _chunk_strategy(metadata: dict[str, object]) -> str:
-    return str(metadata.get("chunk_strategy") or metadata.get("chunkStrategy") or "simple-window").strip().lower()
+    return str(metadata.get("chunk_strategy") or metadata.get("chunkStrategy") or "recursive-overlap").strip().lower()
 
 
 def _sanitize_text_for_storage(text: str) -> str:

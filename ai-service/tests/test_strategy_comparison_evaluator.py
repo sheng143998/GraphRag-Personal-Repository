@@ -31,6 +31,41 @@ def test_evaluate_run_scores_recall_precision_mrr_and_citation_hit() -> None:
 
     assert metrics.recall_at_k == 0.5
     assert metrics.precision_at_k == 0.5
+    assert metrics.chunk_recall_at_k == 0.5
+    assert metrics.document_recall_at_k == 0.0
+    assert metrics.evidence_recall_at_k == 0.5
+    assert metrics.mrr == 1.0
+    assert metrics.citation_hit == 1.0
+
+
+def test_evaluate_run_splits_recall_and_uses_actual_return_count_for_precision() -> None:
+    evaluation_case = OfflineEvaluationCase(
+        case_id="layered-evidence",
+        question="How should production RAG score evidence coverage?",
+        required_chunk_ids={"required-a", "required-b"},
+        supporting_chunk_ids={"supporting-a"},
+        acceptable_chunk_ids={"acceptable-a"},
+        citation_chunk_ids={"required-a"},
+        relevant_document_ids={"doc-required"},
+    )
+    run = OfflineStrategyRun(
+        case_id="layered-evidence",
+        strategy_name="advanced-rag",
+        retrieved=[
+            _source("doc-required", "required-a"),
+            _source("other-doc", "noise"),
+            _source("another-doc", "acceptable-a"),
+        ],
+        citations=[_source("doc-required", "required-a")],
+    )
+
+    metrics = evaluate_run(evaluation_case, run, k=8)
+
+    assert metrics.chunk_recall_at_k == 0.5
+    assert metrics.document_recall_at_k == 1.0
+    assert metrics.evidence_recall_at_k == 0.4
+    assert metrics.recall_at_k == metrics.evidence_recall_at_k
+    assert metrics.precision_at_k == pytest.approx(2 / 3)
     assert metrics.mrr == 1.0
     assert metrics.citation_hit == 1.0
 

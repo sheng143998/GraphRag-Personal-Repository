@@ -40,7 +40,7 @@ const router = createRouter({
       component: () => import("../pages/experiments/ExperimentsPage.vue"),
       meta: {
         title: "实验评估",
-        subtitle: "跟踪不同 RAG 策略的精度、召回和最近一次运行。"
+        subtitle: "管理评测集样本，批量对比不同 RAG preset 的检索和生成质量。"
       }
     },
     {
@@ -48,7 +48,7 @@ const router = createRouter({
       name: "experiment-comparison",
       component: () => import("../pages/experiments/ExperimentComparisonPage.vue"),
       meta: {
-        title: "RAG 评估比较",
+        title: "RAG 评估对比",
         subtitle: "按策略和实验聚合最近评估结果，追踪 Advanced RAG 与 GraphRAG 表现。"
       }
     },
@@ -76,7 +76,7 @@ const router = createRouter({
       component: () => import("../pages/settings/SettingsPage.vue"),
       meta: {
         title: "系统设置",
-        subtitle: "配置 API 基地址、默认知识库和请求超时。"
+        subtitle: "配置 API 基础地址、默认知识库和请求超时。"
       }
     }
   ]

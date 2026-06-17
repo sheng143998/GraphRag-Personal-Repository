@@ -185,6 +185,21 @@ export interface UploadPayload {
   metadata?: Record<string, unknown>;
 }
 
+export interface BatchUploadFileItem {
+  file: File;
+  relativePath?: string;
+}
+
+export interface BatchUploadPayload {
+  knowledgeBaseId: string;
+  title?: string;
+  documentType: string;
+  sourceType?: string;
+  files: BatchUploadFileItem[];
+  summary?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface UploadResponse {
   id: string;
   knowledgeBaseId: string;
@@ -195,6 +210,12 @@ export interface UploadResponse {
   fileType: string;
   status: string;
   chunkCount?: number;
+}
+
+export interface BatchUploadResponse {
+  batchId: string;
+  acceptedCount: number;
+  documents: UploadResponse[];
 }
 
 export interface ExperimentRecord {
@@ -409,6 +430,28 @@ export interface RagRunSummary {
   createdAt: string;
 }
 
+export interface RagQueryApiRequest {
+  knowledgeBaseId: string;
+  sessionId?: string | null;
+  messageId?: string | null;
+  question: string;
+  strategyName?: string;
+  retrieverType?: string;
+  metadataFilters?: Record<string, unknown>;
+  retrievalOptions?: Record<string, unknown>;
+  topK?: number;
+}
+
+export interface RagQueryApiResponse {
+  runId: string;
+  traceId: string;
+  status: string;
+  answer: string;
+  citations: string[];
+  strategyName?: string;
+  retrieverType?: string;
+}
+
 // --- Graph Facts Types ---
 
 export interface GraphEntityFact {
@@ -565,6 +608,35 @@ export interface RunEvaluationCasesBatchResponse {
   completedCount: number;
   failedCount: number;
   items: RunEvaluationCasesBatchItem[];
+}
+
+export interface ImportEvaluationCaseItem {
+  caseId: string;
+  question: string;
+  expectedAnswer?: string;
+  relevantChunkIds?: string[];
+  relevantDocumentIds?: string[];
+  expectedCitationChunkIds?: string[];
+  evaluationTopK?: number;
+  notes?: string;
+  status?: string;
+}
+
+export interface ImportEvaluationCasesPayload {
+  experimentId: string;
+  items: ImportEvaluationCaseItem[];
+}
+
+export interface ImportEvaluationCasesResponse {
+  experimentId: string;
+  createdCount: number;
+  updatedCount: number;
+  failedCount: number;
+  items: Array<{
+    caseId: string;
+    status: string;
+    errorMessage?: string | null;
+  }>;
 }
 
 // --- Health ---

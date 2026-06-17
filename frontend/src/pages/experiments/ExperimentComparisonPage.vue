@@ -3,7 +3,7 @@
     <section class="panel">
       <div class="panel-header">
         <h2 class="panel-title">RAG 评估对比</h2>
-        <p class="panel-subtitle">按策略、质量和运行上下文对最近的评估结果排序。</p>
+        <p class="panel-subtitle">按策略、实验和运行上下文对最近的评估结果排序查看。</p>
       </div>
 
       <div class="panel-body stack">
@@ -28,7 +28,7 @@
 
         <div v-if="store.lastError" class="empty-state">{{ store.lastError }}</div>
         <div v-if="summary.evaluationCount === 0" class="empty-state">
-          暂无已持久化的 RAG 评估记录。请先运行一次实验评估。
+          暂无已持久化的 RAG 评估记录。请先运行一轮实验评估。
         </div>
 
         <div v-if="summary.evaluationCount > 0" class="comparison-filter-bar">

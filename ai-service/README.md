@@ -9,7 +9,7 @@
 ## 当前状态
 
 - 已完成 FastAPI 基础工程、health check、文档入库、RAG 查询、检索、评估和 Agent 调用接口。
-- 已完成 MinerU PDF parser、Word parser、基础 chunk / parent-child chunk 和空 chunk 防护。
+- 已完成 MinerU PDF parser、Word parser、`recursive-overlap` 默认切分、章节化 `parent-child` chunk 和空 chunk 防护。
 - 已完成 OpenAI-compatible LLM / embedding / rerank adapter，并保留 stub fallback 便于测试。
 - Advanced RAG 已收敛为 preset 配置：`hybrid-rerank`、`metadata-filter`、`parent-child`、`advanced-rag`、`graph-rag`。
 - evaluator 返回结构化指标：`recall_at_k`、`precision_at_k`、`mrr`、`citation_hit`、GraphRAG entity / relationship / expansion 指标。
@@ -63,6 +63,7 @@ python -m venv .venv
 ```powershell
 .\.venv\bin\python.exe -m py_compile app\services\rag_service.py
 .\.venv\bin\pytest.exe tests
+.\.venv\bin\pytest.exe tests\test_parent_child_chunker.py
 .\.venv\bin\pytest.exe tests\test_strategy_comparison_evaluator.py tests\test_advanced_rag_strategy.py
 ```
 
@@ -113,11 +114,12 @@ Spring Boot
 - `app/services/adapters/openai_compatible.py`：OpenAI-compatible 模型调用和 usage 捕获。
 - `app/core/tracing.py`：trace、token usage 和 latency 汇总。
 - `app/db/repositories.py`：文档、chunk、embedding、run、graph 数据访问。
+- `app/rag/chunkers/base.py`：默认 `recursive-overlap`、兼容 `simple-window` 和章节化 `parent-child` 切分实现。
 - `app/prompts/rag_answer.v1.txt`：RAG 回答 prompt。
 
 ## 后续优化
 
 - 将 provider 不返回 cost 时的估算成本做成可配置模型价格表，并明确标记估算来源。
-- 增加 paragraph-aware / title-aware chunker，支持 chunk 策略实验。
+- 增加按文档类型自动路由 chunker 的策略，例如面试 Q/A、代码块、招聘 JD 和表格行组。
 - 增强 GraphRAG 的关系置信度、社区发现和跨文档推理。
 - 为 adapter metadata 聚合补充更细粒度单元测试。

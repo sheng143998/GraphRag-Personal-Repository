@@ -46,6 +46,10 @@ class RagQueryResponse(BaseModel):
 
 class RagEvaluationCase(BaseModel):
     case_id: str
+    required_chunk_ids: list[str] = Field(default_factory=list)
+    supporting_chunk_ids: list[str] = Field(default_factory=list)
+    acceptable_chunk_ids: list[str] = Field(default_factory=list)
+    citation_chunk_ids: list[str] = Field(default_factory=list)
     relevant_chunk_ids: list[str] = Field(default_factory=list)
     relevant_document_ids: list[str] = Field(default_factory=list)
     expected_citation_chunk_ids: list[str] = Field(default_factory=list)
@@ -67,6 +71,9 @@ class RagEvaluationResult(BaseModel):
     retrieval_score: float
     recall_at_k: float | None = None
     precision_at_k: float | None = None
+    chunk_recall_at_k: float | None = None
+    document_recall_at_k: float | None = None
+    evidence_recall_at_k: float | None = None
     mrr: float | None = None
     citation_hit: float | None = None
     graph_entity_coverage: float | None = None

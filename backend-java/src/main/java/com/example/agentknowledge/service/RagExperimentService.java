@@ -15,6 +15,8 @@ import com.example.agentknowledge.dto.rag.CreateRagEvaluationCaseRequest;
 import com.example.agentknowledge.dto.rag.CreateRagExperimentRequest;
 import com.example.agentknowledge.dto.rag.EvaluateRagEvaluationCaseRequest;
 import com.example.agentknowledge.dto.rag.EvaluateRagExperimentRequest;
+import com.example.agentknowledge.dto.rag.ImportRagEvaluationCasesRequest;
+import com.example.agentknowledge.dto.rag.ImportRagEvaluationCasesResponse;
 import com.example.agentknowledge.dto.rag.RagEvaluationCaseResponse;
 import com.example.agentknowledge.dto.rag.RagExperimentEvaluationResponse;
 import com.example.agentknowledge.dto.rag.RagExperimentEvaluationHistoryResponse;
@@ -114,6 +116,10 @@ public class RagExperimentService {
         evaluationCase.setCaseId(request.caseId());
         evaluationCase.setQuestion(request.question());
         evaluationCase.setExpectedAnswer(request.expectedAnswer());
+        evaluationCase.setRequiredChunkIds(primaryList(request.requiredChunkIds(), request.relevantChunkIds()));
+        evaluationCase.setSupportingChunkIds(emptyIfNull(request.supportingChunkIds()));
+        evaluationCase.setAcceptableChunkIds(emptyIfNull(request.acceptableChunkIds()));
+        evaluationCase.setCitationChunkIds(primaryList(request.citationChunkIds(), request.expectedCitationChunkIds()));
         evaluationCase.setRelevantChunkIds(emptyIfNull(request.relevantChunkIds()));
         evaluationCase.setRelevantDocumentIds(emptyIfNull(request.relevantDocumentIds()));
         evaluationCase.setExpectedCitationChunkIds(emptyIfNull(request.expectedCitationChunkIds()));
@@ -121,6 +127,18 @@ public class RagExperimentService {
         evaluationCase.setNotes(request.notes());
         evaluationCase.setStatus(normalizeCaseStatus(request.status()));
         return toEvaluationCaseResponse(ragEvaluationCaseRepository.save(evaluationCase));
+    }
+
+    @Transactional
+    public ImportRagEvaluationCasesResponse importEvaluationCases(ImportRagEvaluationCasesRequest request) {
+        RagExperiment experiment = getEntity(request.experimentId());
+        List<ImportRagEvaluationCasesResponse.Item> items = request.items().stream()
+                .map(item -> importEvaluationCase(experiment, item))
+                .toList();
+        int created = (int) items.stream().filter(item -> "CREATED".equals(item.status())).count();
+        int updated = (int) items.stream().filter(item -> "UPDATED".equals(item.status())).count();
+        int failed = (int) items.stream().filter(item -> "FAILED".equals(item.status())).count();
+        return new ImportRagEvaluationCasesResponse(experiment.getId(), created, updated, failed, items);
     }
 
     public RagEvaluationCaseResponse updateEvaluationCase(UUID id, UpdateRagEvaluationCaseRequest request) {
@@ -136,6 +154,18 @@ public class RagExperimentService {
         }
         if (request.expectedAnswer() != null) {
             evaluationCase.setExpectedAnswer(request.expectedAnswer());
+        }
+        if (request.requiredChunkIds() != null) {
+            evaluationCase.setRequiredChunkIds(request.requiredChunkIds());
+        }
+        if (request.supportingChunkIds() != null) {
+            evaluationCase.setSupportingChunkIds(request.supportingChunkIds());
+        }
+        if (request.acceptableChunkIds() != null) {
+            evaluationCase.setAcceptableChunkIds(request.acceptableChunkIds());
+        }
+        if (request.citationChunkIds() != null) {
+            evaluationCase.setCitationChunkIds(request.citationChunkIds());
         }
         if (request.relevantChunkIds() != null) {
             evaluationCase.setRelevantChunkIds(request.relevantChunkIds());
@@ -174,6 +204,10 @@ public class RagExperimentService {
                         request.runId(),
                         expectedAnswer,
                         evaluationCase.getCaseId(),
+                        evaluationCase.getRequiredChunkIds(),
+                        evaluationCase.getSupportingChunkIds(),
+                        evaluationCase.getAcceptableChunkIds(),
+                        evaluationCase.getCitationChunkIds(),
                         evaluationCase.getRelevantChunkIds(),
                         evaluationCase.getRelevantDocumentIds(),
                         evaluationCase.getExpectedCitationChunkIds(),
@@ -323,6 +357,9 @@ public class RagExperimentService {
                 retrievalScore,
                 result == null ? null : result.recallAtK(),
                 result == null ? null : result.precisionAtK(),
+                result == null ? null : result.chunkRecallAtK(),
+                result == null ? null : result.documentRecallAtK(),
+                result == null ? null : result.evidenceRecallAtK(),
                 result == null ? null : result.mrr(),
                 result == null ? null : result.citationHit(),
                 notes,
@@ -375,6 +412,42 @@ public class RagExperimentService {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private ImportRagEvaluationCasesResponse.Item importEvaluationCase(
+            RagExperiment experiment,
+            ImportRagEvaluationCasesRequest.Item item
+    ) {
+        try {
+            boolean exists = true;
+            RagEvaluationCase evaluationCase = ragEvaluationCaseRepository
+                    .findByExperiment_IdAndCaseId(experiment.getId(), item.caseId())
+                    .orElseGet(() -> {
+                        RagEvaluationCase created = new RagEvaluationCase();
+                        created.setExperiment(experiment);
+                        created.setCaseId(item.caseId());
+                        return created;
+                    });
+            if (evaluationCase.getId() == null) {
+                exists = false;
+            }
+            evaluationCase.setQuestion(item.question());
+            evaluationCase.setExpectedAnswer(item.expectedAnswer());
+            evaluationCase.setRequiredChunkIds(primaryList(item.requiredChunkIds(), item.relevantChunkIds()));
+            evaluationCase.setSupportingChunkIds(emptyIfNull(item.supportingChunkIds()));
+            evaluationCase.setAcceptableChunkIds(emptyIfNull(item.acceptableChunkIds()));
+            evaluationCase.setCitationChunkIds(primaryList(item.citationChunkIds(), item.expectedCitationChunkIds()));
+            evaluationCase.setRelevantChunkIds(emptyIfNull(item.relevantChunkIds()));
+            evaluationCase.setRelevantDocumentIds(emptyIfNull(item.relevantDocumentIds()));
+            evaluationCase.setExpectedCitationChunkIds(emptyIfNull(item.expectedCitationChunkIds()));
+            evaluationCase.setEvaluationTopK(item.evaluationTopK() == null ? 5 : Math.max(1, item.evaluationTopK()));
+            evaluationCase.setNotes(item.notes());
+            evaluationCase.setStatus(normalizeCaseStatus(item.status()));
+            ragEvaluationCaseRepository.save(evaluationCase);
+            return new ImportRagEvaluationCasesResponse.Item(item.caseId(), exists ? "UPDATED" : "CREATED", null);
+        } catch (RuntimeException exception) {
+            return new ImportRagEvaluationCasesResponse.Item(item.caseId(), "FAILED", exception.getMessage());
+        }
     }
 
     private List<RagEvaluationCase> selectedEvaluationCases(RunEvaluationCasesBatchRequest request) {
@@ -430,6 +503,9 @@ public class RagExperimentService {
                     evaluation.retrievalScore(),
                     evaluation.recallAtK(),
                     evaluation.precisionAtK(),
+                    evaluation.chunkRecallAtK(),
+                    evaluation.documentRecallAtK(),
+                    evaluation.evidenceRecallAtK(),
                     evaluation.mrr(),
                     evaluation.citationHit(),
                     "COMPLETED",
@@ -439,6 +515,9 @@ public class RagExperimentService {
             return new RunEvaluationCasesBatchResponse.Item(
                     evaluationCase.getId(),
                     evaluationCase.getCaseId(),
+                    null,
+                    null,
+                    null,
                     null,
                     null,
                     null,
@@ -466,6 +545,10 @@ public class RagExperimentService {
 
     private List<UUID> emptyIfNull(List<UUID> values) {
         return values == null ? List.of() : values;
+    }
+
+    private List<UUID> primaryList(List<UUID> preferred, List<UUID> fallback) {
+        return preferred == null || preferred.isEmpty() ? emptyIfNull(fallback) : preferred;
     }
 
     private Double average(List<Double> values) {
@@ -508,6 +591,10 @@ public class RagExperimentService {
         if (
                 !hasText(request.evaluationCaseId())
                         && isEmpty(request.relevantChunkIds())
+                        && isEmpty(request.requiredChunkIds())
+                        && isEmpty(request.supportingChunkIds())
+                        && isEmpty(request.acceptableChunkIds())
+                        && isEmpty(request.citationChunkIds())
                         && isEmpty(request.relevantDocumentIds())
                         && isEmpty(request.expectedCitationChunkIds())
         ) {
@@ -515,6 +602,10 @@ public class RagExperimentService {
         }
         return new AiRagEvaluateRequest.EvaluationCase(
                 hasText(request.evaluationCaseId()) ? request.evaluationCaseId() : request.runId().toString(),
+                request.requiredChunkIds() == null ? List.of() : request.requiredChunkIds(),
+                request.supportingChunkIds() == null ? List.of() : request.supportingChunkIds(),
+                request.acceptableChunkIds() == null ? List.of() : request.acceptableChunkIds(),
+                request.citationChunkIds() == null ? List.of() : request.citationChunkIds(),
                 request.relevantChunkIds() == null ? List.of() : request.relevantChunkIds(),
                 request.relevantDocumentIds() == null ? List.of() : request.relevantDocumentIds(),
                 request.expectedCitationChunkIds() == null ? List.of() : request.expectedCitationChunkIds(),
@@ -535,6 +626,10 @@ public class RagExperimentService {
                 evaluationCase.getCaseId(),
                 evaluationCase.getQuestion(),
                 evaluationCase.getExpectedAnswer(),
+                evaluationCase.getRequiredChunkIds(),
+                evaluationCase.getSupportingChunkIds(),
+                evaluationCase.getAcceptableChunkIds(),
+                evaluationCase.getCitationChunkIds(),
                 evaluationCase.getRelevantChunkIds(),
                 evaluationCase.getRelevantDocumentIds(),
                 evaluationCase.getExpectedCitationChunkIds(),
@@ -560,6 +655,9 @@ public class RagExperimentService {
         evaluation.setRetrievalScore(result == null ? null : result.retrievalScore());
         evaluation.setRecallAtK(result == null ? null : result.recallAtK());
         evaluation.setPrecisionAtK(result == null ? null : result.precisionAtK());
+        evaluation.setChunkRecallAtK(result == null ? null : result.chunkRecallAtK());
+        evaluation.setDocumentRecallAtK(result == null ? null : result.documentRecallAtK());
+        evaluation.setEvidenceRecallAtK(result == null ? null : result.evidenceRecallAtK());
         evaluation.setMrr(result == null ? null : result.mrr());
         evaluation.setCitationHit(result == null ? null : result.citationHit());
         evaluation.setGraphEntityCoverage(result == null ? null : result.graphEntityCoverage());
@@ -614,6 +712,9 @@ public class RagExperimentService {
                 evaluation.getRetrievalScore(),
                 evaluation.getRecallAtK(),
                 evaluation.getPrecisionAtK(),
+                evaluation.getChunkRecallAtK(),
+                evaluation.getDocumentRecallAtK(),
+                evaluation.getEvidenceRecallAtK(),
                 evaluation.getMrr(),
                 evaluation.getCitationHit(),
                 evaluation.getGraphEntityCoverage(),

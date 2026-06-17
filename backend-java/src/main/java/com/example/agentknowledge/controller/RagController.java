@@ -6,6 +6,8 @@ import com.example.agentknowledge.dto.rag.CreateRagExperimentRequest;
 import com.example.agentknowledge.dto.rag.CreateRagEvaluationCaseRequest;
 import com.example.agentknowledge.dto.rag.EvaluateRagEvaluationCaseRequest;
 import com.example.agentknowledge.dto.rag.EvaluateRagExperimentRequest;
+import com.example.agentknowledge.dto.rag.ImportRagEvaluationCasesRequest;
+import com.example.agentknowledge.dto.rag.ImportRagEvaluationCasesResponse;
 import com.example.agentknowledge.dto.rag.RagEvaluationCaseResponse;
 import com.example.agentknowledge.dto.rag.RagExperimentEvaluationResponse;
 import com.example.agentknowledge.dto.rag.RagExperimentEvaluationSummaryResponse;
@@ -86,6 +88,13 @@ public class RagController {
             @Valid @RequestBody CreateRagEvaluationCaseRequest request
     ) {
         return ApiResponse.success(ragExperimentService.createEvaluationCase(request), TraceContext.getTraceId());
+    }
+
+    @PostMapping("/evaluation-cases/import")
+    public ApiResponse<ImportRagEvaluationCasesResponse> importEvaluationCases(
+            @Valid @RequestBody ImportRagEvaluationCasesRequest request
+    ) {
+        return ApiResponse.success(ragExperimentService.importEvaluationCases(request), TraceContext.getTraceId());
     }
 
     @PutMapping("/evaluation-cases/{id}")

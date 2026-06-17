@@ -127,7 +127,7 @@ const navigationGroups: Array<{ name: string; items: NavigationEntry[] }> = [
   {
     name: "Evaluation",
     items: [
-      { icon: "E", label: "实验评估", to: "/experiments", description: "实验与 run 评分" },
+      { icon: "E", label: "实验评估", to: "/experiments", description: "评测集与批量评估" },
       { icon: "R", label: "评估对比", to: "/experiments/comparison", description: "策略排行" }
     ]
   },

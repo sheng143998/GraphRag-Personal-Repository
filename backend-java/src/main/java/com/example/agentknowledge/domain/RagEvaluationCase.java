@@ -49,6 +49,18 @@ public class RagEvaluationCase {
     @JdbcTypeCode(SqlTypes.JSON)
     private List<UUID> relevantChunkIds = new ArrayList<>();
 
+    @Column(name = "required_chunk_ids", nullable = false, columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<UUID> requiredChunkIds = new ArrayList<>();
+
+    @Column(name = "supporting_chunk_ids", nullable = false, columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<UUID> supportingChunkIds = new ArrayList<>();
+
+    @Column(name = "acceptable_chunk_ids", nullable = false, columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<UUID> acceptableChunkIds = new ArrayList<>();
+
     @Column(name = "relevant_document_ids", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private List<UUID> relevantDocumentIds = new ArrayList<>();
@@ -56,6 +68,10 @@ public class RagEvaluationCase {
     @Column(name = "expected_citation_chunk_ids", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private List<UUID> expectedCitationChunkIds = new ArrayList<>();
+
+    @Column(name = "citation_chunk_ids", nullable = false, columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<UUID> citationChunkIds = new ArrayList<>();
 
     @Column(name = "evaluation_top_k", nullable = false)
     private Integer evaluationTopK = 5;

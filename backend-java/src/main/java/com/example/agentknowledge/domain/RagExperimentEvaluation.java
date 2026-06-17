@@ -51,6 +51,15 @@ public class RagExperimentEvaluation {
     @Column(name = "precision_at_k")
     private Double precisionAtK;
 
+    @Column(name = "chunk_recall_at_k")
+    private Double chunkRecallAtK;
+
+    @Column(name = "document_recall_at_k")
+    private Double documentRecallAtK;
+
+    @Column(name = "evidence_recall_at_k")
+    private Double evidenceRecallAtK;
+
     @Column(name = "mrr")
     private Double mrr;
 

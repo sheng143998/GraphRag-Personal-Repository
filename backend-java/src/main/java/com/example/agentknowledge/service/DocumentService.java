@@ -6,17 +6,17 @@ import com.example.agentknowledge.common.exception.ResourceNotFoundException;
 import com.example.agentknowledge.domain.DocumentChunk;
 import com.example.agentknowledge.domain.KnowledgeBase;
 import com.example.agentknowledge.domain.KnowledgeDocument;
-import com.example.agentknowledge.dto.document.DocumentChunkResponse;
 import com.example.agentknowledge.dto.document.CreateDocumentRequest;
+import com.example.agentknowledge.dto.document.DocumentChunkResponse;
 import com.example.agentknowledge.dto.document.DocumentResponse;
 import com.example.agentknowledge.repository.DocumentChunkRepository;
 import com.example.agentknowledge.repository.KnowledgeDocumentRepository;
 import jakarta.transaction.Transactional;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -31,46 +31,52 @@ public class DocumentService {
     private final KnowledgeDocumentRepository knowledgeDocumentRepository;
     private final DocumentChunkRepository documentChunkRepository;
     private final KnowledgeBaseService knowledgeBaseService;
-    private final DocumentIngestProcessor ingestProcessor;
+    private final DocumentIngestDispatcher ingestDispatcher;
 
     public DocumentService(
             KnowledgeDocumentRepository knowledgeDocumentRepository,
             DocumentChunkRepository documentChunkRepository,
             KnowledgeBaseService knowledgeBaseService,
-            DocumentIngestProcessor ingestProcessor
+            DocumentIngestDispatcher ingestDispatcher
     ) {
         this.knowledgeDocumentRepository = knowledgeDocumentRepository;
         this.documentChunkRepository = documentChunkRepository;
         this.knowledgeBaseService = knowledgeBaseService;
-        this.ingestProcessor = ingestProcessor;
+        this.ingestDispatcher = ingestDispatcher;
     }
 
     public DocumentResponse create(CreateDocumentRequest request) {
+        return createOne(request, TraceContext.getTraceId());
+    }
+
+    public List<DocumentResponse> createBatch(List<CreateDocumentRequest> requests) {
+        String traceId = TraceContext.getTraceId();
+        return requests.stream()
+                .map(request -> createOne(request, traceId))
+                .toList();
+    }
+
+    private DocumentResponse createOne(CreateDocumentRequest request, String traceId) {
         KnowledgeBase knowledgeBase = knowledgeBaseService.getReference(request.knowledgeBaseId());
-        UUID documentId = UUID.randomUUID();
         String fileType = normalizeFileType(request.fileType(), request.fileName());
         Map<String, Object> metadata = request.metadata() == null ? Map.of() : request.metadata();
 
-        String contentBase64 = request.content();
-
-        KnowledgeDocument document = createInitialDocument(request, knowledgeBase, documentId, fileType);
+        KnowledgeDocument document = createInitialDocument(request, knowledgeBase, UUID.randomUUID(), fileType);
         document = knowledgeDocumentRepository.save(document);
         UUID persistedDocumentId = document.getId();
-        log.info("文档元数据已保存，准备提交异步入库任务: documentId={}, knowledgeBaseId={}, title={}, fileName={}, fileType={}",
+        log.info("文档元数据已保存，准备提交入库任务: documentId={}, knowledgeBaseId={}, title={}, fileName={}, fileType={}",
                 persistedDocumentId, knowledgeBase.getId(), request.title(), request.fileName(), fileType);
 
         AiDocumentIngestRequest.FilePayload filePayload = new AiDocumentIngestRequest.FilePayload(
                 request.fileName(),
                 fileType,
                 null,
-                contentBase64,
+                request.content(),
                 request.sourcePath(),
                 request.mimeType()
         );
 
-        String traceId = TraceContext.getTraceId();
-
-        ingestProcessor.processAsync(
+        ingestDispatcher.dispatch(new DocumentIngestMessage(
                 persistedDocumentId,
                 knowledgeBase.getId(),
                 request.title(),
@@ -80,8 +86,8 @@ public class DocumentService {
                 List.of(),
                 metadata,
                 traceId
-        );
-        log.info("文档异步入库任务已提交: documentId={}, traceId={}", persistedDocumentId, traceId);
+        ));
+        log.info("文档入库任务已提交: documentId={}, traceId={}", persistedDocumentId, traceId);
 
         return toResponse(document, 0, List.of());
     }
@@ -102,7 +108,9 @@ public class DocumentService {
         document.setMimeType(request.mimeType());
         document.setSourceType(request.sourceType() == null || request.sourceType().isBlank() ? "LOCAL_UPLOAD" : request.sourceType());
         document.setSourcePath(request.sourcePath());
-        document.setSummary(buildSummary(request.fileName()));
+        document.setSummary(request.summary() == null || request.summary().isBlank()
+                ? buildSummary(request.fileName())
+                : request.summary());
         document.setMetadata("{}");
         document.setStatus("PROCESSING");
         return document;

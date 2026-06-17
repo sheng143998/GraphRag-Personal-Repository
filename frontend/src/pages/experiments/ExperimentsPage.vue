@@ -12,6 +12,43 @@
       </div>
 
       <div class="panel-body stack">
+        <section class="panel panel-nested">
+          <div class="panel-header compact">
+            <div>
+              <h3 class="section-title">导入评测集</h3>
+              <p class="panel-subtitle">支持 JSON 数组或 CSV 表格，字段名使用 caseId、question、expectedAnswer。</p>
+            </div>
+          </div>
+          <div class="panel-body stack">
+            <label class="form-row">
+              <span class="form-label">导入目标实验</span>
+              <select v-model="importExperimentId" class="input">
+                <option value="" disabled>请选择实验</option>
+                <option v-for="experiment in store.experiments" :key="experiment.id" :value="experiment.id">
+                  {{ experiment.name }}
+                </option>
+              </select>
+            </label>
+            <input class="input" type="file" accept=".json,.csv,.txt" @change="handleImportFile" />
+            <textarea
+              v-model="importText"
+              class="textarea import-textarea"
+              placeholder="也可以直接粘贴 JSON / CSV。CSV 表头示例：caseId,question,expectedAnswer,relevantChunkIds,relevantDocumentIds,expectedCitationChunkIds,evaluationTopK,notes"
+            />
+            <label class="checkbox-row">
+              <input v-model="autoRunAfterImport" type="checkbox" />
+              <span>导入后自动运行一次 RAG 全链路并生成评估结果</span>
+            </label>
+            <div class="button-row">
+              <button class="button button-primary" type="button" :disabled="importPending || !canImportDataset" @click="importDataset">
+                导入到当前实验
+              </button>
+              <button class="button button-secondary" type="button" @click="fillImportExample">填入示例</button>
+            </div>
+            <div v-if="importStatus" class="empty-state">{{ importStatus }}</div>
+          </div>
+        </section>
+
         <div class="evaluation-dashboard">
           <div class="dashboard-metric">
             <span class="metric-label">样本数</span>
@@ -95,7 +132,7 @@
         <div>
           <h2 class="panel-title">评测样本工作台</h2>
           <p class="panel-subtitle">
-            维护人工标注，绑定历史 RAG run，按单样本或批量执行评估。
+            维护人工标注，绑定历史 RAG run，并按单样本或批量执行评估。
           </p>
         </div>
         <div class="button-row">
@@ -112,6 +149,81 @@
       </div>
 
       <div class="panel-body stack">
+        <section class="panel panel-nested">
+          <div class="panel-header compact">
+            <div>
+              <h3 class="section-title">直接运行 RAG</h3>
+              <p class="panel-subtitle">在实验页先跑一次真实 RAG，再把结果保存为评测样本或用于当前样本评估。</p>
+            </div>
+          </div>
+          <div class="panel-body form-grid">
+            <div class="form-grid split">
+              <label class="form-row">
+                <span class="form-label">知识库</span>
+                <select v-model="ragForm.knowledgeBaseId" class="input">
+                  <option value="" disabled>请选择知识库</option>
+                  <option v-for="kb in store.knowledgeBases" :key="kb.id" :value="kb.id">
+                    {{ kb.name }}
+                  </option>
+                </select>
+              </label>
+              <label class="form-row">
+                <span class="form-label">策略 / preset</span>
+                <select v-model="ragForm.strategy" class="input">
+                  <option v-for="strategy in store.ragStrategyOptions" :key="strategy.value" :value="strategy.value">
+                    {{ strategy.label }}
+                  </option>
+                </select>
+              </label>
+            </div>
+            <div class="form-grid split">
+              <label class="form-row">
+                <span class="form-label">Retriever</span>
+                <select v-model="ragForm.retrieverType" class="input">
+                  <option value="hybrid">hybrid</option>
+                  <option value="vector">vector</option>
+                  <option value="keyword">keyword</option>
+                </select>
+              </label>
+              <label class="form-row">
+                <span class="form-label">Top K</span>
+                <input v-model.number="ragForm.topK" class="input" type="number" min="1" />
+              </label>
+            </div>
+            <label class="form-row">
+              <span class="form-label">问题</span>
+              <textarea v-model="ragForm.question" class="textarea" placeholder="输入要测试的 RAG 问题" />
+            </label>
+            <div class="button-row">
+              <button class="button button-primary" type="button" :disabled="ragPending || !canRunRag" @click="runRagFromExperiment">
+                运行 RAG
+              </button>
+              <button class="button button-secondary" type="button" :disabled="!latestRunId" @click="useLatestRunAsCase">
+                保存为评测样本
+              </button>
+              <button class="button button-ghost" type="button" :disabled="!latestRunId || !selectedCase" @click="evaluateLatestRunAgainstSelectedCase">
+                用该 Run 评估当前样本
+              </button>
+            </div>
+            <div v-if="ragStatus" class="empty-state">{{ ragStatus }}</div>
+            <div v-if="latestRagAnswer" class="panel panel-nested">
+              <div class="panel-body stack">
+                <div class="label-block">
+                  <span class="form-label">回答预览</span>
+                  <p class="item-description">{{ latestRagAnswer }}</p>
+                </div>
+                <div class="label-block">
+                  <span class="form-label">引用</span>
+                  <div class="tag-row">
+                    <span v-for="source in latestRagSources" :key="source" class="tag">{{ summarize(source, 36) }}</span>
+                    <span v-if="latestRagSources.length === 0" class="item-meta">暂无引用</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <div v-if="caseFormVisible" class="panel panel-nested">
           <div class="panel-header compact">
             <div>
@@ -296,7 +408,7 @@
                     </select>
                   </label>
                   <label class="form-row">
-                    <span class="form-label">Batch topK</span>
+                    <span class="form-label">批量 topK</span>
                     <input v-model.number="batchTopK" class="input" type="number" min="1" />
                   </label>
                 </div>
@@ -311,7 +423,7 @@
                   <button class="button button-ghost" type="button" :disabled="!selectedRunId" @click="useTopRetrievalAsCase">
                     从首条召回生成样本
                   </button>
-                  <button class="button button-primary" type="button" :disabled="evaluationPending || batchCandidateCases.length === 0" @click="runBatchPreset">
+                  <button class="button button-primary" type="button" :disabled="evaluationPending || !selectedExperimentId || batchCandidateCases.length === 0" @click="runBatchPreset">
                     Run preset {{ batchStrategyName }}
                   </button>
                 </div>
@@ -369,17 +481,22 @@ import { computed, onMounted, reactive, ref, watch } from "vue";
 import type {
   CreateEvaluationCaseRequest,
   EvaluationCaseRecord,
+  ImportEvaluationCaseItem,
+  RagQueryApiResponse,
   RagRunSummary
 } from "../../types";
 import { useWorkbenchStore } from "../../stores/workbench";
 import {
+  createExperiment,
   createEvaluationCase,
   deleteEvaluationCase,
   evaluateEvaluationCase,
   fetchEvaluationCases,
+  importEvaluationCases,
   runEvaluationCasesBatch,
   updateEvaluationCase
 } from "../../api/experiments";
+import { runRagQuery } from "../../api/rag";
 
 const store = useWorkbenchStore();
 const selectedExperimentId = ref("");
@@ -393,9 +510,26 @@ const caseFormVisible = ref(false);
 const editingCaseId = ref<string | null>(null);
 const caseFormSubmitting = ref(false);
 const evaluationPending = ref(false);
+const importPending = ref(false);
+const ragPending = ref(false);
 const batchStatus = ref("");
+const importStatus = ref("");
+const ragStatus = ref("");
+const importText = ref("");
+const importExperimentId = ref("");
+const autoRunAfterImport = ref(true);
+const latestRunId = ref("");
+const latestRagAnswer = ref("");
+const latestRagSources = ref<string[]>([]);
 const batchStrategyName = ref("advanced-rag");
 const batchTopK = ref(5);
+const ragForm = reactive({
+  knowledgeBaseId: "",
+  strategy: "advanced-rag",
+  retrieverType: "hybrid",
+  topK: 5,
+  question: ""
+});
 
 const caseForm = reactive<CreateEvaluationCaseRequest>({
   experimentId: "",
@@ -448,22 +582,40 @@ const runOptionsForSelectedCase = computed(() => {
 });
 
 const batchCandidateCases = computed(() => {
-  if (!selectedRunId.value) return [];
   return filteredCases.value.filter((item) => item.status === "ACTIVE");
 });
 
+const importTargetExperimentId = computed(() =>
+  importExperimentId.value
+  || selectedExperimentId.value
+  || selectedCase.value?.experimentId
+  || store.experiments[0]?.id
+  || ""
+);
+
+const canImportDataset = computed(() =>
+  Boolean(importText.value.trim())
+);
+
 const canSubmitCase = computed(() =>
   Boolean(caseForm.experimentId && caseForm.caseId.trim() && caseForm.question.trim())
+);
+const canRunRag = computed(() =>
+  Boolean(ragForm.knowledgeBaseId && ragForm.question.trim() && ragForm.strategy)
 );
 
 watch(selectedExperimentId, () => {
   selectedCaseId.value = "";
   batchStatus.value = "";
+  importStatus.value = "";
+  syncImportExperiment();
+  syncDefaultKnowledgeBase();
 });
 
 watch(selectedCase, (value) => {
   selectedRunId.value = "";
   expectedAnswerOverride.value = value?.expectedAnswer ?? "";
+  syncImportExperiment();
 });
 
 function resetFilters(): void {
@@ -482,11 +634,153 @@ function reloadAll(): void {
   ]);
 }
 
+function syncDefaultKnowledgeBase(): void {
+  ragForm.knowledgeBaseId =
+    selectedExperiment.value?.knowledgeBaseId
+    || store.selectedKnowledgeBase?.id
+    || store.knowledgeBases[0]?.id
+    || "";
+}
+
+function syncImportExperiment(): void {
+  if (importExperimentId.value && store.experiments.some((item) => item.id === importExperimentId.value)) {
+    return;
+  }
+  importExperimentId.value =
+    selectedExperimentId.value
+    || selectedCase.value?.experimentId
+    || store.experiments[0]?.id
+    || "";
+}
+
+const selectedExperiment = computed(() =>
+  store.experiments.find((item) => item.id === selectedExperimentId.value)
+);
+
 async function loadCases(): Promise<void> {
   evaluationCases.value = await fetchEvaluationCases();
   if (!selectedCaseId.value || !evaluationCases.value.some((item) => item.id === selectedCaseId.value)) {
     selectedCaseId.value = filteredCases.value[0]?.id ?? evaluationCases.value[0]?.id ?? "";
   }
+}
+
+async function handleImportFile(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  importText.value = await file.text();
+  importStatus.value = `已读取 ${file.name}，请确认后导入。`;
+  input.value = "";
+}
+
+function fillImportExample(): void {
+  importText.value = JSON.stringify([
+    {
+      caseId: "advanced-rag-demo-001",
+      question: "Advanced RAG 如何提升召回质量？",
+      expectedAnswer: "应说明 query rewrite、multi-query、hybrid retrieval、rerank 等机制。",
+      relevantChunkIds: [],
+      relevantDocumentIds: [],
+      expectedCitationChunkIds: [],
+      evaluationTopK: 5,
+      notes: "示例样本"
+    }
+  ], null, 2);
+}
+
+async function importDataset(): Promise<void> {
+  if (!canImportDataset.value) return;
+  importPending.value = true;
+  importStatus.value = "";
+  try {
+    const targetExperimentId = await resolveImportExperimentId();
+    const items = parseImportItems(importText.value);
+    if (items.length === 0) {
+      importStatus.value = "未解析到可导入的样本。";
+      return;
+    }
+    selectedExperimentId.value = targetExperimentId;
+    importExperimentId.value = targetExperimentId;
+    const result = await importEvaluationCases({
+      experimentId: targetExperimentId,
+      items
+    });
+    await loadCases();
+    await store.loadExperiments();
+    const importedCaseIds = resolveImportedCaseIds(targetExperimentId, result.items);
+    importStatus.value = `导入完成：新增 ${result.createdCount}，更新 ${result.updatedCount}，失败 ${result.failedCount}。`;
+    if (autoRunAfterImport.value && importedCaseIds.length > 0) {
+      await runImportedCases(targetExperimentId, importedCaseIds);
+    }
+  } catch (error) {
+    importStatus.value = error instanceof Error ? error.message : "导入失败，请检查 JSON / CSV 格式。";
+  } finally {
+    importPending.value = false;
+  }
+}
+
+async function resolveImportExperimentId(): Promise<string> {
+  const existingId = importTargetExperimentId.value;
+  if (existingId) return existingId;
+  const knowledgeBaseId = ragForm.knowledgeBaseId
+    || store.selectedKnowledgeBase?.id
+    || store.knowledgeBases[0]?.id;
+  if (!knowledgeBaseId) {
+    throw new Error("请先创建或选择知识库，再导入评测集。");
+  }
+  importStatus.value = "当前没有可用实验，正在自动创建默认实验...";
+  const created = await createExperiment({
+    knowledgeBaseId,
+    name: `导入评测集 ${new Date().toLocaleString("zh-CN", { hour12: false })}`,
+    description: "由评测集导入流程自动创建。",
+    strategy: batchStrategyName.value,
+    datasetName: "imported-evaluation-cases",
+    status: "PLANNED",
+    notes: "导入评测集时自动创建的实验。"
+  });
+  store.experiments.unshift(created);
+  return created.id;
+}
+
+function resolveImportedCaseIds(
+  experimentId: string,
+  items: Array<{ caseId: string; status: string }>
+): string[] {
+  const successfulCaseIds = new Set(
+    items
+      .filter((item) => item.status === "CREATED" || item.status === "UPDATED")
+      .map((item) => item.caseId)
+  );
+  return evaluationCases.value
+    .filter((item) =>
+      item.experimentId === experimentId
+      && item.status === "ACTIVE"
+      && successfulCaseIds.has(item.caseId)
+    )
+    .map((item) => item.id);
+}
+
+async function runImportedCases(experimentId: string, caseIds: string[]): Promise<void> {
+  batchStatus.value = `导入后自动运行 RAG：0/${caseIds.length}`;
+  const result = await runEvaluationCasesBatch({
+    experimentId,
+    caseIds,
+    strategyName: batchStrategyName.value,
+    retrieverType: "hybrid",
+    topK: Math.max(1, Number(batchTopK.value) || 5)
+  });
+  await Promise.all([
+    store.loadExperiments(),
+    store.loadExperimentEvaluationSummary(50),
+    store.loadRagRuns(50)
+  ]);
+  const firstCompleted = result.items.find((item) => item.runId);
+  if (firstCompleted?.runId) {
+    latestRunId.value = firstCompleted.runId;
+    selectedRunId.value = firstCompleted.runId;
+  }
+  batchStatus.value = `导入后自动运行完成：${result.completedCount}/${result.requestedCount}，失败 ${result.failedCount}。`;
+  importStatus.value += ` 已自动跑完 RAG 全链路：${result.completedCount}/${result.requestedCount}。`;
 }
 
 function selectCase(id: string): void {
@@ -536,6 +830,55 @@ function openCaseForm(target?: EvaluationCaseRecord | null): void {
     citationIdsText.value = "";
   }
   caseFormVisible.value = true;
+}
+
+async function runRagFromExperiment(): Promise<void> {
+  if (!canRunRag.value) return;
+  ragPending.value = true;
+  ragStatus.value = "";
+  latestRunId.value = "";
+  latestRagAnswer.value = "";
+  latestRagSources.value = [];
+  try {
+    const result = await runRagQuery({
+      knowledgeBaseId: ragForm.knowledgeBaseId,
+      question: ragForm.question.trim(),
+      strategyName: ragForm.strategy,
+      retrieverType: ragForm.retrieverType,
+      topK: Math.max(1, Number(ragForm.topK) || 5)
+    });
+    applyRagResult(result);
+    await store.loadRagRuns(50);
+    ragStatus.value = `RAG 运行完成，runId=${shortId(result.runId)}。`;
+  } catch (error) {
+    ragStatus.value = error instanceof Error ? error.message : "RAG 运行失败。";
+  } finally {
+    ragPending.value = false;
+  }
+}
+
+function applyRagResult(result: RagQueryApiResponse): void {
+  latestRunId.value = result.runId;
+  selectedRunId.value = result.runId;
+  latestRagAnswer.value = result.answer;
+  latestRagSources.value = result.citations ?? [];
+  store.traceId = result.traceId || store.traceId;
+}
+
+function useLatestRunAsCase(): void {
+  if (!latestRunId.value) return;
+  openCaseForm();
+  caseForm.caseId = `eval-${shortId(latestRunId.value)}`;
+  caseForm.question = ragForm.question;
+  caseForm.expectedAnswer = latestRagAnswer.value;
+  caseForm.evaluationTopK = Math.max(1, Number(ragForm.topK) || 5);
+  selectedRunId.value = latestRunId.value;
+}
+
+async function evaluateLatestRunAgainstSelectedCase(): Promise<void> {
+  if (!latestRunId.value || !selectedCase.value) return;
+  selectedRunId.value = latestRunId.value;
+  await evaluateSelectedCase();
 }
 
 function closeCaseForm(): void {
@@ -631,7 +974,7 @@ async function evaluateBatch(): Promise<void> {
 async function runBatchPreset(): Promise<void> {
   if (!selectedExperimentId.value || batchCandidateCases.value.length === 0) return;
   evaluationPending.value = true;
-  batchStatus.value = `Running ${batchStrategyName.value} for ${batchCandidateCases.value.length} cases...`;
+  batchStatus.value = `正在用 ${batchStrategyName.value} 运行 ${batchCandidateCases.value.length} 条样本...`;
   try {
     const result = await runEvaluationCasesBatch({
       experimentId: selectedExperimentId.value,
@@ -645,7 +988,7 @@ async function runBatchPreset(): Promise<void> {
       store.loadExperimentEvaluationSummary(50),
       store.loadRagRuns(50)
     ]);
-    batchStatus.value = `Preset ${result.strategyName ?? batchStrategyName.value} completed: ${result.completedCount}/${result.requestedCount}, failed ${result.failedCount}.`;
+    batchStatus.value = `Preset ${result.strategyName ?? batchStrategyName.value} 完成：${result.completedCount}/${result.requestedCount}，失败 ${result.failedCount}。`;
   } finally {
     evaluationPending.value = false;
   }
@@ -670,6 +1013,102 @@ async function useTopRetrievalAsCase(): Promise<void> {
   chunkIdsText.value = topResult.chunkId;
   documentIdsText.value = topResult.documentId ?? "";
   citationIdsText.value = topResult.chunkId;
+}
+
+function parseImportItems(raw: string): ImportEvaluationCaseItem[] {
+  const text = raw.trim();
+  if (!text) return [];
+  if (text.startsWith("[") || text.startsWith("{")) {
+    const parsed = JSON.parse(text) as unknown;
+    const rows = Array.isArray(parsed) ? parsed : [parsed];
+    return rows.map((row, index) => normalizeImportRow(row, index));
+  }
+  return parseCsvImport(text).map((row, index) => normalizeImportRow(row, index));
+}
+
+function normalizeImportRow(row: unknown, index: number): ImportEvaluationCaseItem {
+  if (typeof row !== "object" || row === null) {
+    throw new Error(`第 ${index + 1} 行不是有效对象。`);
+  }
+  const record = row as Record<string, unknown>;
+  const question = stringField(record, "question", "问题");
+  if (!question) {
+    throw new Error(`第 ${index + 1} 行缺少 question。`);
+  }
+  return {
+    caseId: stringField(record, "caseId", "case_id", "样本ID") || `case-${index + 1}`,
+    question,
+    expectedAnswer: stringField(record, "expectedAnswer", "expected_answer", "标准答案"),
+    relevantChunkIds: parseListField(record, "relevantChunkIds", "relevant_chunk_ids", "相关ChunkIDs"),
+    relevantDocumentIds: parseListField(record, "relevantDocumentIds", "relevant_document_ids", "相关DocumentIDs"),
+    expectedCitationChunkIds: parseListField(record, "expectedCitationChunkIds", "expected_citation_chunk_ids", "期望引用ChunkIDs"),
+    evaluationTopK: numberField(record, "evaluationTopK", "evaluation_top_k", "topK") ?? 5,
+    notes: stringField(record, "notes", "备注"),
+    status: stringField(record, "status", "状态") || "ACTIVE"
+  };
+}
+
+function parseCsvImport(text: string): Record<string, string>[] {
+  const lines = text.split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2) return [];
+  const headers = splitCsvLine(lines[0]).map((item) => item.trim());
+  return lines.slice(1).map((line) => {
+    const values = splitCsvLine(line);
+    return Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""]));
+  });
+}
+
+function splitCsvLine(line: string): string[] {
+  const values: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const next = line[index + 1];
+    if (char === "\"" && next === "\"") {
+      current += "\"";
+      index += 1;
+    } else if (char === "\"") {
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      values.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  values.push(current.trim());
+  return values;
+}
+
+function stringField(record: Record<string, unknown>, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string") return value.trim();
+    if (value != null) return String(value).trim();
+  }
+  return "";
+}
+
+function parseListField(record: Record<string, unknown>, ...keys: string[]): string[] {
+  for (const key of keys) {
+    const value = record[key];
+    if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+    if (typeof value === "string") return parseIds(value.split(";").join(","));
+  }
+  return [];
+}
+
+function numberField(record: Record<string, unknown>, ...keys: string[]): number | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number") return value;
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+  }
+  return undefined;
 }
 
 function parseIds(value: string): string[] {
@@ -717,6 +1156,12 @@ onMounted(() => {
     store.loadExperiments(),
     store.loadExperimentEvaluationSummary(50),
     store.loadRagRuns(50)
-  ]).then(() => loadCases());
+  ]).then(() => {
+    syncDefaultKnowledgeBase();
+    syncImportExperiment();
+    return loadCases();
+  }).then(() => {
+    syncImportExperiment();
+  });
 });
 </script>

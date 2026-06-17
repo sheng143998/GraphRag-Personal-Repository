@@ -31,6 +31,11 @@ public class DocumentIngestProcessor {
     }
 
     @Async
+    public void processAsync(DocumentIngestMessage message) {
+        process(message);
+    }
+
+    @Async
     public void processAsync(
             UUID documentId,
             UUID knowledgeBaseId,
@@ -42,31 +47,55 @@ public class DocumentIngestProcessor {
             Map<String, Object> metadata,
             String traceId
     ) {
-        TraceContext.setTraceId(traceId);
+        process(new DocumentIngestMessage(
+                documentId,
+                knowledgeBaseId,
+                title,
+                documentType,
+                filePayload,
+                tags,
+                techStack,
+                metadata,
+                traceId
+        ));
+    }
+
+    public void process(DocumentIngestMessage message) {
+        TraceContext.setTraceId(message.traceId());
         try {
-            log.info("开始异步处理文档入库: documentId={}, knowledgeBaseId={}, title={}, fileName={}, fileType={}, traceId={}",
-                    documentId, knowledgeBaseId, title, filePayload.filename(), filePayload.fileType(), traceId);
-            String summary = documentRepository.findById(documentId)
+            AiDocumentIngestRequest.FilePayload filePayload = message.filePayload();
+            log.info("开始处理文档入库任务: documentId={}, knowledgeBaseId={}, title={}, fileName={}, fileType={}, traceId={}",
+                    message.documentId(), message.knowledgeBaseId(), message.title(), filePayload.filename(), filePayload.fileType(), message.traceId());
+
+            String summary = documentRepository.findById(message.documentId())
                     .map(KnowledgeDocument::getSummary)
                     .filter(value -> value != null && !value.isBlank())
                     .orElse(filePayload.filename());
             AiDocumentIngestRequest ingestRequest = new AiDocumentIngestRequest(
-                    knowledgeBaseId, documentId, title, documentType, summary,
-                    filePayload, tags, techStack, metadata
+                    message.knowledgeBaseId(),
+                    message.documentId(),
+                    message.title(),
+                    message.documentType(),
+                    summary,
+                    filePayload,
+                    safeList(message.tags()),
+                    safeList(message.techStack()),
+                    safeMap(message.metadata())
             );
 
-            log.info("准备调用 AI 文档入库接口: documentId={}, path=/ai/ingest/document, traceId={}", documentId, traceId);
-            AiDocumentIngestResponse response = aiServiceGateway.ingestDocument(ingestRequest, traceId);
+            log.info("准备调用 AI 文档入库接口: documentId={}, path=/ai/ingest/document, traceId={}",
+                    message.documentId(), message.traceId());
+            AiDocumentIngestResponse response = aiServiceGateway.ingestDocument(ingestRequest, message.traceId());
             if (response == null) {
                 throw new IllegalStateException("AI document ingest returned empty response");
             }
             if (response.chunkCount() == null || response.chunkCount() <= 0) {
-                throw new IllegalStateException("AI document ingest returned no chunks for documentId=" + documentId);
+                throw new IllegalStateException("AI document ingest returned no chunks for documentId=" + message.documentId());
             }
             log.info("AI 文档入库接口返回成功: documentId={}, responseDocumentId={}, chunks={}, parser={}, fileType={}, traceId={}",
-                    documentId, response.documentId(), response.chunkCount(), response.parserName(), response.fileType(), traceId);
+                    message.documentId(), response.documentId(), response.chunkCount(), response.parserName(), response.fileType(), message.traceId());
 
-            KnowledgeDocument document = documentRepository.findById(documentId).orElse(null);
+            KnowledgeDocument document = documentRepository.findById(message.documentId()).orElse(null);
             if (document != null) {
                 document.setStatus("INDEXED");
                 document.setParserName(response.parserName());
@@ -74,23 +103,33 @@ public class DocumentIngestProcessor {
                     document.setParserVersion("v1");
                 }
                 documentRepository.save(document);
-                log.info("文档异步入库完成，状态已更新为 INDEXED: documentId={}, chunks={}, parser={}, traceId={}",
-                        documentId, response.chunkCount(), response.parserName(), traceId);
+                log.info("文档入库完成，状态已更新为 INDEXED: documentId={}, chunks={}, parser={}, traceId={}",
+                        message.documentId(), response.chunkCount(), response.parserName(), message.traceId());
             } else {
-                log.warn("AI 入库已完成，但 Java 文档记录不存在，无法更新状态 documentId={}, traceId={}", documentId, traceId);
+                log.warn("AI 入库已完成，但 Java 文档记录不存在，无法更新状态: documentId={}, traceId={}",
+                        message.documentId(), message.traceId());
             }
         } catch (Exception e) {
-            log.error("文档异步入库失败: documentId={}, traceId={}", documentId, traceId, e);
-            KnowledgeDocument document = documentRepository.findById(documentId).orElse(null);
+            log.error("文档入库任务失败: documentId={}, traceId={}", message.documentId(), message.traceId(), e);
+            KnowledgeDocument document = documentRepository.findById(message.documentId()).orElse(null);
             if (document != null) {
                 document.setStatus("FAILED");
                 documentRepository.save(document);
-                log.info("文档状态已更新为 FAILED: documentId={}, traceId={}", documentId, traceId);
+                log.info("文档状态已更新为 FAILED: documentId={}, traceId={}", message.documentId(), message.traceId());
             } else {
-                log.warn("文档异步入库失败，但 Java 文档记录不存在，无法写入 FAILED 状态 documentId={}, traceId={}", documentId, traceId);
+                log.warn("文档入库任务失败，但 Java 文档记录不存在，无法写入 FAILED 状态: documentId={}, traceId={}",
+                        message.documentId(), message.traceId());
             }
         } finally {
             TraceContext.clear();
         }
+    }
+
+    private List<String> safeList(List<String> values) {
+        return values == null ? List.of() : values;
+    }
+
+    private Map<String, Object> safeMap(Map<String, Object> values) {
+        return values == null ? Map.of() : values;
     }
 }

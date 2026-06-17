@@ -42,7 +42,9 @@ class SimpleRagEvaluator(BaseRagEvaluator):
         else:
             notes.append(
                 "Structured evaluation case scored "
-                f"recall@k={structured_metrics.recall_at_k:.2f}, "
+                f"evidence_recall@k={structured_metrics.evidence_recall_at_k:.2f}, "
+                f"chunk_recall@k={structured_metrics.chunk_recall_at_k:.2f}, "
+                f"document_recall@k={structured_metrics.document_recall_at_k:.2f}, "
                 f"precision@k={structured_metrics.precision_at_k:.2f}, "
                 f"mrr={structured_metrics.mrr:.2f}, "
                 f"citation_hit={structured_metrics.citation_hit:.2f}."
@@ -59,6 +61,9 @@ class SimpleRagEvaluator(BaseRagEvaluator):
             retrieval_score=retrieval_score,
             recall_at_k=structured_metrics.recall_at_k if structured_metrics is not None else None,
             precision_at_k=structured_metrics.precision_at_k if structured_metrics is not None else None,
+            chunk_recall_at_k=structured_metrics.chunk_recall_at_k if structured_metrics is not None else None,
+            document_recall_at_k=structured_metrics.document_recall_at_k if structured_metrics is not None else None,
+            evidence_recall_at_k=structured_metrics.evidence_recall_at_k if structured_metrics is not None else None,
             mrr=structured_metrics.mrr if structured_metrics is not None else None,
             citation_hit=structured_metrics.citation_hit if structured_metrics is not None else None,
             graph_entity_coverage=graph_metrics.entity_coverage if graph_metrics is not None else None,
@@ -107,8 +112,12 @@ def _structured_retrieval_metrics(payload: RagEvaluateRequest):
         return None
     if (
         not evaluation_case.relevant_chunk_ids
+        and not evaluation_case.required_chunk_ids
+        and not evaluation_case.supporting_chunk_ids
+        and not evaluation_case.acceptable_chunk_ids
         and not evaluation_case.relevant_document_ids
         and not evaluation_case.expected_citation_chunk_ids
+        and not evaluation_case.citation_chunk_ids
     ):
         return None
 
@@ -116,6 +125,10 @@ def _structured_retrieval_metrics(payload: RagEvaluateRequest):
         OfflineEvaluationCase(
             case_id=evaluation_case.case_id,
             question=payload.question,
+            required_chunk_ids=set(evaluation_case.required_chunk_ids),
+            supporting_chunk_ids=set(evaluation_case.supporting_chunk_ids),
+            acceptable_chunk_ids=set(evaluation_case.acceptable_chunk_ids),
+            citation_chunk_ids=set(evaluation_case.citation_chunk_ids),
             relevant_chunk_ids=set(evaluation_case.relevant_chunk_ids),
             relevant_document_ids=set(evaluation_case.relevant_document_ids),
             expected_citation_chunk_ids=set(evaluation_case.expected_citation_chunk_ids),

@@ -1,5 +1,7 @@
 import type {
   CreateEvaluationCaseRequest,
+  ImportEvaluationCasesPayload,
+  ImportEvaluationCasesResponse,
   ExperimentEvaluationRequest,
   ExperimentEvaluationResponse,
   ExperimentEvaluationSummary,
@@ -93,5 +95,14 @@ export function runEvaluationCasesBatch(
   return apiRequest<RunEvaluationCasesBatchResponse>("/rag/evaluation-cases/run-batch", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export function importEvaluationCases(
+  payload: ImportEvaluationCasesPayload
+): Promise<ImportEvaluationCasesResponse> {
+  return apiRequest<ImportEvaluationCasesResponse>("/rag/evaluation-cases/import", {
+    method: "POST",
+    body: JSON.stringify(payload)
   });
 }
