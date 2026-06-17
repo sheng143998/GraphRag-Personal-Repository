@@ -44,14 +44,14 @@ export function ExperimentComparison(): JSX.Element {
     () =>
       recentRows.filter(
         (item) =>
-          (!selectedStrategy || (item.runStrategyName ?? "unknown") === selectedStrategy) &&
+          (!selectedStrategy || (item.runStrategyName ?? "未知策略") === selectedStrategy) &&
           (!selectedExperimentId || item.experimentId === selectedExperimentId)
       ),
     [recentRows, selectedExperimentId, selectedStrategy]
   );
 
   const strategyOptions = useMemo(
-    () => [...new Set(recentRows.map((item) => item.runStrategyName ?? "unknown"))].sort(),
+    () => [...new Set(recentRows.map((item) => item.runStrategyName ?? "未知策略"))].sort(),
     [recentRows]
   );
 
@@ -64,7 +64,7 @@ export function ExperimentComparison(): JSX.Element {
   }, [experiments, recentRows]);
 
   const strategyRows = useMemo(
-    () => aggregateRows(filteredRows, (item) => item.runStrategyName ?? "unknown").sort(sortByQuality),
+    () => aggregateRows(filteredRows, (item) => item.runStrategyName ?? "未知策略").sort(sortByQuality),
     [filteredRows]
   );
 
@@ -98,8 +98,8 @@ export function ExperimentComparison(): JSX.Element {
     <div className="experiments-page">
       <section className="page-title-row">
         <div>
-          <h1>RAG Strategy Comparison</h1>
-          <p>按最近评估记录聚合 Recall、Precision、MRR、Citation、Tokens、Cost 和延迟。</p>
+          <h1>RAG 策略对比</h1>
+          <p>按最近评估记录聚合召回、精确率、MRR、引用覆盖、令牌成本和延迟。</p>
         </div>
         <button className="button secondary" type="button" onClick={() => void loadData()} disabled={loading}>
           刷新对比
@@ -154,7 +154,7 @@ export function ExperimentComparison(): JSX.Element {
       </section>
 
       {summary.evaluationCount === 0 ? (
-        <section className="panel empty-state">暂无持久化评估记录，请先在实验页导入评测集并运行 batch。</section>
+        <section className="panel empty-state">暂无持久化评估记录，请先在实验页导入评测集并运行批量评测。</section>
       ) : (
         <div className="comparison-grid">
           <section className="panel">
@@ -169,15 +169,15 @@ export function ExperimentComparison(): JSX.Element {
                     <strong>{row.strategy}</strong>
                     <span>{row.count} 次评估</span>
                   </div>
-                  <ScoreBar label="Grounded" value={row.averageGrounded} />
-                  <ScoreBar label="Retrieval" value={row.averageRetrieval} />
+                  <ScoreBar label="可信度" value={row.averageGrounded} />
+                  <ScoreBar label="检索分" value={row.averageRetrieval} />
                   <div className="metric-chip-row">
-                    <span>Evidence R {formatScore(row.averageEvidenceRecallAtK ?? row.averageRecallAtK)}</span>
-                    <span>Chunk R {formatScore(row.averageChunkRecallAtK)}</span>
-                    <span>Doc R {formatScore(row.averageDocumentRecallAtK)}</span>
-                    <span>Precision {formatScore(row.averagePrecisionAtK)}</span>
+                    <span>证据召回 {formatScore(row.averageEvidenceRecallAtK ?? row.averageRecallAtK)}</span>
+                    <span>片段召回 {formatScore(row.averageChunkRecallAtK)}</span>
+                    <span>文档召回 {formatScore(row.averageDocumentRecallAtK)}</span>
+                    <span>精确率 {formatScore(row.averagePrecisionAtK)}</span>
                     <span>MRR {formatScore(row.averageMrr)}</span>
-                    <span>Citation {formatScore(row.averageCitationHit)}</span>
+                    <span>引用覆盖 {formatScore(row.averageCitationHit)}</span>
                   </div>
                   <p className="item-meta">
                     最近 {formatDate(row.latestAt)} / 延迟 {row.averageLatencyMs ? Math.round(row.averageLatencyMs) : "-"}ms
@@ -232,7 +232,7 @@ export function ExperimentComparison(): JSX.Element {
 
       <section className="panel">
         <div className="panel-header">
-          <h2>Recent Evaluations</h2>
+          <h2>最近评估</h2>
           <span>{filteredRows.length} 条</span>
         </div>
         <div className="evaluation-table">
@@ -241,7 +241,7 @@ export function ExperimentComparison(): JSX.Element {
             <span>策略</span>
             <span>问题</span>
             <span>质量</span>
-            <span>Retrieval</span>
+            <span>检索</span>
             <span>运行成本</span>
           </div>
           {filteredRows.map((evaluation) => (
@@ -251,8 +251,8 @@ export function ExperimentComparison(): JSX.Element {
                 <small>{formatDate(evaluation.createdAt)}</small>
               </span>
               <span>
-                {evaluation.runStrategyName ?? "unknown"}
-                <small>{evaluation.runRetrieverType ?? "retriever 未记录"}</small>
+                {evaluation.runStrategyName ?? "未知策略"}
+                <small>{evaluation.runRetrieverType ?? "检索器未记录"}</small>
               </span>
               <span>{summarize(evaluation.runQuestion, 96)}</span>
               <span>
@@ -333,7 +333,7 @@ function aggregateRows(
         averageCitationHit
       ]),
       latestAt: latest.createdAt,
-      latestStrategy: latest.runStrategyName ?? "unknown"
+      latestStrategy: latest.runStrategyName ?? "未知策略"
     };
   });
 }

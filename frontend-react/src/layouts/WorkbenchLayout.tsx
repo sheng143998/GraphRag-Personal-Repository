@@ -1,12 +1,12 @@
 import { NavLink, Outlet, useMatches } from "react-router-dom";
 
 const navItems = [
-  { to: "/chat", label: "Chat", icon: "chat" },
-  { to: "/knowledge-base", label: "Knowledge Base", icon: "database" },
-  { to: "/documents", label: "Documents", icon: "description" },
-  { to: "/experiments", label: "Experiments", icon: "biotech" },
-  { to: "/graph", label: "Graph", icon: "account_tree" },
-  { to: "/feedback", label: "Feedback", icon: "rate_review" }
+  { to: "/chat", label: "支持问答", icon: "support_agent" },
+  { to: "/knowledge-base", label: "知识库", icon: "database" },
+  { to: "/documents", label: "文档入库", icon: "description" },
+  { to: "/experiments", label: "评测实验", icon: "biotech" },
+  { to: "/graph", label: "图谱事实", icon: "account_tree" },
+  { to: "/feedback", label: "质检反馈", icon: "rate_review" }
 ];
 
 interface RouteHandle {
@@ -19,22 +19,22 @@ interface RouteHandle {
 export function WorkbenchLayout() {
   const matches = useMatches();
   const current = [...matches].reverse().find((match) => Boolean(match.handle))?.handle as RouteHandle | undefined;
-  const title = current?.title ?? "RAG Workbench";
-  const subtitle = current?.subtitle ?? "Knowledge studio";
-  const searchPlaceholder = current?.searchPlaceholder ?? "Search knowledge, documents, runs...";
+  const title = current?.title ?? "售后知识库工作台";
+  const subtitle = current?.subtitle ?? "企业售后技术支持知识库 Agent";
+  const searchPlaceholder = current?.searchPlaceholder ?? "搜索知识库、文档、工单线索或评测记录";
 
   return (
     <div className="app-shell">
       <aside className="workbench-sidebar">
         <div className="workbench-brand">
-          <h1 className="workbench-brand__title">RAG Workbench</h1>
-          <div className="workbench-brand__meta">v2.4.0-stable</div>
+          <h1 className="workbench-brand__title">售后知识库 Agent</h1>
+          <div className="workbench-brand__meta">技术支持工作台</div>
         </div>
         <NavLink className="pipeline-button" to="/knowledge-base">
           <span className="material-symbols-outlined fill-icon">add</span>
-          <span>New Pipeline</span>
+          <span>新建知识库</span>
         </NavLink>
-        <nav className="workbench-nav" aria-label="Main navigation">
+        <nav className="workbench-nav" aria-label="主导航">
           {navItems.map((item) => (
             <NavLink
               className={({ isActive }) => `workbench-nav__link${isActive ? " is-active" : ""}`}
@@ -49,13 +49,13 @@ export function WorkbenchLayout() {
         <div className="workbench-nav__footer">
           <NavLink className={({ isActive }) => `workbench-nav__link${isActive ? " is-active" : ""}`} to="/settings">
             <span className="material-symbols-outlined">settings</span>
-            <span>Settings</span>
+            <span>系统设置</span>
           </NavLink>
           <div className="sidebar-user">
-            <div className="avatar-dot">A</div>
+            <div className="avatar-dot">支</div>
             <div>
-              <strong>Admin Dev</strong>
-              <span>Standard Tier</span>
+              <strong>支持工程师</strong>
+              <span>本地联调环境</span>
             </div>
           </div>
         </div>
@@ -73,11 +73,11 @@ export function WorkbenchLayout() {
               <span className="material-symbols-outlined">search</span>
               <input placeholder={searchPlaceholder} />
             </label>
-            <span className="system-health"><i /> System: Healthy</span>
-            <button className="topbar-icon" type="button" aria-label="Notifications">
+            <span className="system-health"><i /> 接口链路正常</span>
+            <button className="topbar-icon" type="button" aria-label="通知">
               <span className="material-symbols-outlined">notifications</span>
             </button>
-            <button className="topbar-icon" type="button" aria-label="Help">
+            <button className="topbar-icon" type="button" aria-label="帮助">
               <span className="material-symbols-outlined">help_outline</span>
             </button>
           </div>

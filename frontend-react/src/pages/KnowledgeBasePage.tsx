@@ -5,7 +5,7 @@ import { formatDateTime, formatNumber } from "../utils/format";
 import "./pages.css";
 
 const modelNames = ["text-embedding-3-small", "bge-large-zh-v1.5", "text-embedding-ada-002"];
-const chunkStrategies = ["Recursive Char (512/64)", "Semantic (Agent-based)", "Parent Child (1024/128)"];
+const chunkStrategies = ["递归切分 512/64", "语义切分", "父子块 1024/128"];
 
 export function KnowledgeBasePage() {
   const [items, setItems] = useState<KnowledgeBaseSummary[]>([]);
@@ -89,11 +89,11 @@ export function KnowledgeBasePage() {
           <button type="button">所有类型 <span className="material-symbols-outlined">expand_more</span></button>
           <button type="button">最近更新 <span className="material-symbols-outlined">swap_vert</span></button>
           <span className="filter-divider" />
-          <span className="filter-chip active">ACTIVE ({items.length})</span>
-          <span className="filter-chip">ARCHIVED (0)</span>
+          <span className="filter-chip active">启用中（{items.length}）</span>
+          <span className="filter-chip">已归档（0）</span>
         </div>
         <div className="kb-storage">
-          <span>TOTAL VECTOR STORAGE</span>
+          <span>向量存储占用</span>
           <strong>{formatNumber(Math.max(1, Math.round(totals.chunks / 1000)))} MB / 5 GB</strong>
         </div>
       </section>
@@ -127,34 +127,34 @@ export function KnowledgeBasePage() {
                 </div>
               </div>
               <div className="kb-toggle">
-                <span>Active</span>
+                <span>启用中</span>
                 <i><b /></i>
               </div>
             </div>
 
             <div className="kb-model-box">
               <div>
-                <span>Vector Model</span>
+                <span>向量模型</span>
                 <code>{modelNames[index % modelNames.length]}</code>
               </div>
               <div>
-                <span>Chunking Strategy</span>
+                <span>切分策略</span>
                 <strong>{chunkStrategies[index % chunkStrategies.length]}</strong>
               </div>
             </div>
 
             <div className="kb-mini-stats">
-              <span>Docs <strong>{formatNumber(item.documentCount)}</strong></span>
-              <span>Chunks <strong>{formatNumber(item.chunkCount)}</strong></span>
-              <span>Latency <strong>{item.chunkCount ? "18ms" : "--"}</strong></span>
+              <span>文档 <strong>{formatNumber(item.documentCount)}</strong></span>
+              <span>片段 <strong>{formatNumber(item.chunkCount)}</strong></span>
+              <span>延迟 <strong>{item.chunkCount ? "18ms" : "--"}</strong></span>
             </div>
 
             <div className="kb-card-footer">
-              <span>Last updated: {formatDateTime(item.updatedAt)}</span>
+              <span>最近更新：{formatDateTime(item.updatedAt)}</span>
               <div>
-                <button title="Re-index" type="button"><span className="material-symbols-outlined">sync</span></button>
-                <button title="Settings" type="button"><span className="material-symbols-outlined">settings</span></button>
-                <button title="Delete" type="button" onClick={() => void remove(item.id)}>
+                <button title="重新索引" type="button"><span className="material-symbols-outlined">sync</span></button>
+                <button title="设置" type="button"><span className="material-symbols-outlined">settings</span></button>
+                <button title="删除" type="button" onClick={() => void remove(item.id)}>
                   <span className="material-symbols-outlined">delete</span>
                 </button>
               </div>
@@ -171,23 +171,23 @@ export function KnowledgeBasePage() {
 
       <section className="kb-bottom-grid">
         <article className="kb-analytics-card">
-          <h3><span className="material-symbols-outlined">monitoring</span> SEARCH RELEVANCE TREND</h3>
+          <h3><span className="material-symbols-outlined">monitoring</span> 检索相关性趋势</h3>
           <div className="trend-bars">
             {[40, 56, 45, 70, 85, 80, 95].map((height, index) => (
               <i key={index} style={{ height: `${height}%` }} />
             ))}
           </div>
-          <div className="trend-labels"><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span></div>
+          <div className="trend-labels"><span>周一</span><span>周二</span><span>周三</span><span>周四</span><span>周五</span><span>周六</span><span>周日</span></div>
         </article>
         <article className="kb-activity-card">
           <div className="kb-activity-head">
-            <h3><span className="material-symbols-outlined">history</span> RECENT ACTIVITIES</h3>
+            <h3><span className="material-symbols-outlined">history</span> 最近活动</h3>
             <button type="button">查看全部</button>
           </div>
           <div className="kb-activity-list">
-            <Activity color="green" text={`当前共有 ${formatNumber(totals.documents)} 份文档可用于检索`} time="now" />
-            <Activity color="primary" text={`向量 chunk 总量 ${formatNumber(totals.chunks)}，可继续通过文档中心扩充`} time="today" />
-            <Activity color="orange" text="默认策略已收敛到 hybrid-rerank 与 parent-child 评测链路" time="recent" />
+            <Activity color="green" text={`当前共有 ${formatNumber(totals.documents)} 份文档可用于检索`} time="刚刚" />
+            <Activity color="primary" text={`向量片段总量 ${formatNumber(totals.chunks)}，可继续通过文档中心扩充`} time="今日" />
+            <Activity color="orange" text="默认策略已纳入混合召回与父子块评测链路" time="近期" />
           </div>
         </article>
       </section>

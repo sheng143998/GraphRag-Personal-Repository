@@ -1,9 +1,13 @@
 import { createServer } from "vite";
 import react from "@vitejs/plugin-react";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const backendTarget = process.env.VITE_BACKEND_PROXY_TARGET ?? "http://localhost:8080";
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const server = await createServer({
+  root,
   configFile: false,
   plugins: [react()],
   optimizeDeps: {

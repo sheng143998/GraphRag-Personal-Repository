@@ -24,7 +24,7 @@ h1,
 h2,
 h3 {
   margin: 0;
-  font-family: "Hanken Grotesk", Inter, sans-serif;
+  font-family: var(--font-display);
   letter-spacing: 0;
 }
 
@@ -120,7 +120,7 @@ p {
 }
 
 .metric-card strong {
-  font-family: "Hanken Grotesk", Inter, sans-serif;
+  font-family: var(--font-display);
   font-size: 22px;
 }
 
@@ -139,13 +139,13 @@ p {
 }
 
 .leaderboard-panel .panel-header span {
-  border-radius: 999px;
+  border-radius: var(--radius-lg);
   background: var(--primary-fixed);
   color: var(--primary);
   padding: 3px 8px;
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
 }
 
 .leaderboard-table {
@@ -168,8 +168,7 @@ p {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 .leaderboard-row {
@@ -199,7 +198,7 @@ p {
 
 .leaderboard-row i.hot {
   background: var(--primary);
-  box-shadow: 0 0 0 4px rgba(53, 37, 205, 0.12);
+  box-shadow: 0 0 0 4px rgba(15, 107, 117, 0.14);
 }
 
 .health-panel {
@@ -276,8 +275,7 @@ p {
   color: var(--muted);
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 .panel-header > div {
@@ -488,7 +486,6 @@ p {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
-  text-transform: uppercase;
 }
 
 .table-row {

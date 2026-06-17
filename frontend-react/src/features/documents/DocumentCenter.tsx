@@ -52,7 +52,7 @@ const DOCUMENT_TYPES = [
   { value: "project_experience", label: "项目经验" },
   { value: "interview_experience", label: "面试经验" },
   { value: "code_snippet", label: "代码片段" },
-  { value: "job_description", label: "招聘 JD" }
+  { value: "job_description", label: "招聘需求" }
 ];
 
 const ALLOWED_FILE_TYPES = new Set(["md", "txt", "csv", "html", "json", "log", "docx", "pdf", "xlsx", "xls"]);
@@ -110,10 +110,10 @@ function fileIcon(fileType?: string) {
 }
 
 function statusMeta(status: DocumentProcessStatus | string) {
-  if (status === "INDEXED") return { label: "INDEXED", className: "status-indexed", icon: CheckCircle2 };
-  if (status === "PROCESSING") return { label: "PROCESSING", className: "status-processing", icon: Loader2 };
-  if (status === "UPLOADED") return { label: "UPLOADED", className: "status-uploaded", icon: Upload };
-  if (status === "FAILED") return { label: "FAILED", className: "status-failed", icon: AlertCircle };
+  if (status === "INDEXED") return { label: "已索引", className: "status-indexed", icon: CheckCircle2 };
+  if (status === "PROCESSING") return { label: "解析中", className: "status-processing", icon: Loader2 };
+  if (status === "UPLOADED") return { label: "已提交", className: "status-uploaded", icon: Upload };
+  if (status === "FAILED") return { label: "失败", className: "status-failed", icon: AlertCircle };
   return { label: status, className: "status-muted", icon: File };
 }
 
@@ -421,10 +421,10 @@ function UploadSection(props: {
     <section className="upload-grid">
       <div className="section-heading">
         <div>
-          <h2>Data Ingestion</h2>
-          <p>导入本地文档，进入 Spring Boot `/api/*` 文档入库链路。</p>
+          <h2>资料入库</h2>
+          <p>导入产品手册、常见问题、故障案例和日志说明，统一进入业务后端入库链路。</p>
         </div>
-        <div className="mode-switch" aria-label="Upload mode">
+        <div className="mode-switch" aria-label="上传模式">
           {(["single", "multiple", "folder"] as UploadMode[]).map((mode) => (
             <button
               className={uploadMode === mode ? "selected" : ""}
@@ -447,7 +447,7 @@ function UploadSection(props: {
           <div className="dropzone-icon">
             <Upload size={23} />
           </div>
-          <h3>Drag & drop files here</h3>
+          <h3>拖拽文件到这里</h3>
           <p>支持 PDF、MD、TXT、DOCX、CSV、HTML、JSON、Excel，单文件最大 50MB。</p>
 
           <div className="upload-controls">
@@ -481,7 +481,7 @@ function UploadSection(props: {
           <div className="button-row">
             <button className="primary-button" type="button" onClick={() => currentInputRef.current?.click()}>
               {uploadMode === "folder" ? <FolderOpen size={16} /> : <FileText size={16} />}
-              {uploadMode === "folder" ? "Select Folder" : "Select Files"}
+              {uploadMode === "folder" ? "选择文件夹" : "选择文件"}
             </button>
             <button className="secondary-button" type="button" disabled={props.isUploading} onClick={submit}>
               {props.isUploading ? <Loader2 className="spin" size={16} /> : <Upload size={16} />}
@@ -542,7 +542,7 @@ function UploadSection(props: {
 function CurrentActivity(props: { activityItems: UploadResponse[]; queueCount: number }) {
   return (
     <aside className="activity-panel">
-      <h4>Current Activity</h4>
+      <h4>当前入库活动</h4>
       {props.activityItems.length ? (
         <div className="activity-list">
           {props.activityItems.slice(0, 4).map((item) => {
@@ -554,12 +554,12 @@ function CurrentActivity(props: { activityItems: UploadResponse[]; queueCount: n
                     <FileText size={14} />
                     {item.fileName || item.title}
                   </span>
-                  <span className="activity-state">{item.status}</span>
+                  <span className="activity-state">{statusMeta(item.status).label}</span>
                 </div>
                 <div className="progress-track">
                   <span className={isProcessing ? "progress-fill animated" : "progress-fill done"} />
                 </div>
-                <span className="activity-hint">{isProcessing ? "CHUNKING & EMBEDDING..." : `${item.chunkCount ?? 0} chunks`}</span>
+                <span className="activity-hint">{isProcessing ? "切分与向量化中..." : `${item.chunkCount ?? 0} 个片段`}</span>
               </div>
             );
           })}
@@ -568,7 +568,7 @@ function CurrentActivity(props: { activityItems: UploadResponse[]; queueCount: n
         <div className="activity-empty">暂无新的上传任务。</div>
       )}
       <div className="activity-footer">
-        <span>Queue Size: {props.queueCount} files</span>
+        <span>队列中：{props.queueCount} 个文件</span>
       </div>
     </aside>
   );
@@ -591,16 +591,16 @@ function DocumentTable(props: {
         <div className="table-tools-left">
           <div className="select-wrap">
             <select value={props.statusFilter} onChange={(event) => props.onStatusFilterChange(event.target.value as StatusFilter)}>
-              <option value="ALL">All Documents</option>
-              <option value="INDEXED">Status: Indexed</option>
-              <option value="PROCESSING">Status: Processing</option>
-              <option value="FAILED">Status: Failed</option>
-              <option value="UPLOADED">Status: Uploaded</option>
+              <option value="ALL">全部文档</option>
+              <option value="INDEXED">状态：已索引</option>
+              <option value="PROCESSING">状态：解析中</option>
+              <option value="FAILED">状态：失败</option>
+              <option value="UPLOADED">状态：已提交</option>
             </select>
           </div>
-          <span className="showing-count">Showing {props.documents.length} of {props.totalCount} items</span>
+          <span className="showing-count">显示 {props.documents.length} / {props.totalCount} 条</span>
         </div>
-        <button className="icon-button" type="button" onClick={props.onRefresh} aria-label="Refresh documents">
+        <button className="icon-button" type="button" onClick={props.onRefresh} aria-label="刷新文档">
           <RefreshCw size={17} className={props.isLoading ? "spin" : ""} />
         </button>
       </div>
@@ -610,13 +610,13 @@ function DocumentTable(props: {
           <thead>
             <tr>
               <th>
-                <span>Name <ArrowDown size={12} /></span>
+                <span>名称 <ArrowDown size={12} /></span>
               </th>
-              <th>Type</th>
-              <th>Status</th>
-              <th>Chunks</th>
-              <th>Updated</th>
-              <th className="actions-column">Actions</th>
+              <th>类型</th>
+              <th>状态</th>
+              <th>片段</th>
+              <th>更新时间</th>
+              <th className="actions-column">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -647,7 +647,7 @@ function DocumentTable(props: {
           <button className="current" type="button">1</button>
           <button disabled type="button"><ChevronRight size={16} /></button>
         </div>
-        <span>Rows per page: 25</span>
+        <span>每页 25 行</span>
       </div>
     </section>
   );
@@ -684,10 +684,10 @@ function DocumentRow(props: {
       <td>{formatDate(props.document.updatedAt)}</td>
       <td className="actions-column">
         <div className="row-actions">
-          <button className="row-action" type="button" onClick={() => props.onSelect(props.document)} title="Preview">
+          <button className="row-action" type="button" onClick={() => props.onSelect(props.document)} title="预览">
             <FileText size={16} />
           </button>
-          <button className="row-action danger" type="button" onClick={() => props.onDelete(props.document)} title="Delete">
+          <button className="row-action danger" type="button" onClick={() => props.onDelete(props.document)} title="删除">
             <Trash2 size={16} />
           </button>
         </div>
@@ -707,13 +707,13 @@ function DocumentDetailDrawer(props: { document: DocumentRecord | null; onClose:
   const chunks = props.document.chunks ?? [];
 
   return (
-    <aside className="detail-drawer" aria-label="Document detail">
+    <aside className="detail-drawer" aria-label="文档详情">
       <div className="drawer-header">
         <div>
           <h3>{props.document.title}</h3>
           <p>{props.document.sourcePath || props.document.fileName}</p>
         </div>
-        <button className="icon-button" type="button" onClick={props.onClose} aria-label="Close preview">
+        <button className="icon-button" type="button" onClick={props.onClose} aria-label="关闭预览">
           <X size={17} />
         </button>
       </div>
@@ -724,7 +724,7 @@ function DocumentDetailDrawer(props: { document: DocumentRecord | null; onClose:
           <strong>{props.document.status}</strong>
         </div>
         <div>
-          <span>Chunks</span>
+          <span>片段</span>
           <strong>{props.document.chunkCount ?? chunks.length}</strong>
         </div>
         <div>
@@ -736,32 +736,32 @@ function DocumentDetailDrawer(props: { document: DocumentRecord | null; onClose:
       {props.document.summary ? <p className="drawer-summary">{props.document.summary}</p> : null}
 
       <dl className="metadata-grid">
-        <dt>Knowledge Base</dt>
+        <dt>知识库</dt>
         <dd>{props.document.knowledgeBaseName || props.document.knowledgeBaseId}</dd>
-        <dt>Document Type</dt>
+        <dt>文档类型</dt>
         <dd>{props.document.documentType}</dd>
-        <dt>Source Type</dt>
+        <dt>来源类型</dt>
         <dd>{props.document.sourceType || "--"}</dd>
-        <dt>Updated</dt>
+        <dt>更新时间</dt>
         <dd>{formatDate(props.document.updatedAt)}</dd>
       </dl>
 
       <div className="chunk-preview-heading">
-        <h4>Chunk Preview</h4>
+        <h4>片段预览</h4>
       </div>
       {chunks.length ? (
         <div className="chunk-list">
           {chunks.map((chunk) => (
             <article className="chunk-card" key={chunk.id}>
               <div className="chunk-title">
-                <strong>Chunk {chunk.chunkIndex}</strong>
-                <span>{chunk.chunkStrategy || "default"}</span>
+                <strong>片段 {chunk.chunkIndex}</strong>
+                <span>{chunk.chunkStrategy || "默认策略"}</span>
               </div>
               <p>{chunk.contentPreview}</p>
               <small>
-                {chunk.pageNumber ? `Page ${chunk.pageNumber}` : ""}
-                {chunk.sheetName ? ` Sheet ${chunk.sheetName}` : ""}
-                {chunk.rowRange ? ` Row ${chunk.rowRange}` : ""}
+                {chunk.pageNumber ? `第 ${chunk.pageNumber} 页` : ""}
+                {chunk.sheetName ? ` 工作表 ${chunk.sheetName}` : ""}
+                {chunk.rowRange ? ` 行 ${chunk.rowRange}` : ""}
               </small>
             </article>
           ))}

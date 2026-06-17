@@ -112,10 +112,12 @@ export async function sendAssistantTurn(sessionId: string, payload: ChatRequest,
     traceId,
     body: JSON.stringify({
       userInput: payload.question,
+      agentName: payload.agentName,
       strategyName: payload.strategy,
       topK: payload.topK ?? 5,
       metadataFilters: payload.metadataFilters,
       retrievalOptions: payload.retrievalOptions,
+      variables: payload.variables,
     })
   });
   return mapAssistantTurnResponse(response, payload.strategy);
@@ -142,6 +144,7 @@ function mapAssistantTurnResponse(response: AssistantTurnResponse, fallbackStrat
     followUpQuestions: response.followUpQuestions,
     studyPlan: response.studyPlan,
     reviewCards: response.reviewCards,
+    supportPlan: response.supportPlan,
     weakPoints: response.weakPoints,
     workflowSteps: response.workflowSteps
   };

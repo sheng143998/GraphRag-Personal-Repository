@@ -80,7 +80,7 @@ export function ExperimentsWorkspace(): JSX.Element {
   const strategyRows = useMemo(() => {
     const grouped = new Map<string, { count: number; evidence: number; chunk: number; document: number; precision: number; mrr: number; citation: number; grounded: number }>();
     recentEvaluations.forEach((item) => {
-      const key = item.runStrategyName || "unknown";
+      const key = item.runStrategyName || "未知策略";
       const current = grouped.get(key) ?? { count: 0, evidence: 0, chunk: 0, document: 0, precision: 0, mrr: 0, citation: 0, grounded: 0 };
       current.count += 1;
       current.evidence += evidenceRecall(item) ?? 0;
@@ -182,7 +182,7 @@ export function ExperimentsWorkspace(): JSX.Element {
       );
 
       if (autoRun && successfulCaseIds.length > 0) {
-        setStatusText(`导入完成，正在自动触发 batch RAG run：0/${successfulCaseIds.length}`);
+        setStatusText(`导入完成，正在自动触发批量评测：0/${successfulCaseIds.length}`);
         const batch = await runEvaluationCasesBatch({
           experimentId,
           caseIds: successfulCaseIds,
@@ -208,7 +208,7 @@ export function ExperimentsWorkspace(): JSX.Element {
     if (!selectedExperimentId || activeCaseIds.length === 0) return;
     setImporting(true);
     setErrorText("");
-    setStatusText(`正在对当前筛选的 ${activeCaseIds.length} 条样本执行 batch RAG run...`);
+    setStatusText(`正在对当前筛选的 ${activeCaseIds.length} 条样本执行批量评测...`);
     try {
       const batch = await runEvaluationCasesBatch({
         experimentId: selectedExperimentId,
@@ -219,7 +219,7 @@ export function ExperimentsWorkspace(): JSX.Element {
       });
       setLastBatch(batch);
       await loadAll(selectedExperimentId);
-      setStatusText(`Batch 完成：${batch.completedCount}/${batch.requestedCount} 成功，${batch.failedCount} 失败。`);
+      setStatusText(`批量评测完成：${batch.completedCount}/${batch.requestedCount} 成功，${batch.failedCount} 失败。`);
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : "批量运行失败。");
       setStatusText("");
@@ -288,7 +288,7 @@ export function ExperimentsWorkspace(): JSX.Element {
     <div className="experiments-page">
       <section className="page-title-row">
         <div>
-          <h1>Experiment Evaluation</h1>
+          <h1>评测实验</h1>
           <p>导入本地 JSON/CSV 评测集，绑定当前实验，并自动触发 RAG 全链路评估。</p>
         </div>
         <div className="page-actions">
@@ -298,7 +298,7 @@ export function ExperimentsWorkspace(): JSX.Element {
           </button>
           <button className="button primary" type="button" onClick={() => void handleRunSelected()} disabled={!selectedExperimentId || importing || activeCaseIds.length === 0}>
             <span className="material-symbols-outlined">batch_prediction</span>
-            Batch Evaluate
+            批量评测
           </button>
         </div>
       </section>
@@ -306,12 +306,12 @@ export function ExperimentsWorkspace(): JSX.Element {
       <section className="experiment-dashboard-grid">
         <article className="panel leaderboard-panel">
           <div className="panel-header">
-            <h2>RAG Strategy Leaderboard</h2>
-            <span>Top Performer: {strategyRows[0]?.name ?? "waiting"}</span>
+            <h2>检索策略排行榜</h2>
+            <span>当前最佳：{strategyRows[0]?.name ?? "等待评测"}</span>
           </div>
           <div className="leaderboard-table">
             <div className="leaderboard-head">
-              <span>Strategy</span><span>Evidence R</span><span>Chunk R</span><span>Doc R</span><span>Prec@K</span><span>MRR</span><span>Grounded</span>
+              <span>策略</span><span>证据召回</span><span>片段召回</span><span>文档召回</span><span>精确率</span><span>MRR</span><span>可信度</span>
             </div>
             {strategyRows.map((row, index) => (
               <div className="leaderboard-row" key={row.name}>
@@ -329,16 +329,16 @@ export function ExperimentsWorkspace(): JSX.Element {
 
         <article className="panel health-panel">
           <div className="panel-header compact">
-            <h2>Pipeline Health</h2>
-            <span>OPTIMIZED</span>
+            <h2>链路健康度</h2>
+            <span>已优化</span>
           </div>
-          <HealthMetric label="Average groundedness" value={summary.averageGrounded ?? 0} />
-          <HealthMetric label="Average retrieval" value={summary.averageRetrieval ?? 0} />
-          <HealthMetric label="Citation coverage" value={strategyRows[0]?.citation ?? 0} />
+          <HealthMetric label="平均可信度" value={summary.averageGrounded ?? 0} />
+          <HealthMetric label="平均检索分" value={summary.averageRetrieval ?? 0} />
+          <HealthMetric label="引用覆盖率" value={strategyRows[0]?.citation ?? 0} />
           <div className="health-kpis">
-            <div><strong>{summary.evaluationCount}</strong><span>Evaluations</span></div>
-            <div><strong>{formatScore(summary.averageGrounded)}</strong><span>Faithfulness</span></div>
-            <div><strong>{filteredCases.length}</strong><span>Samples</span></div>
+            <div><strong>{summary.evaluationCount}</strong><span>评估次数</span></div>
+            <div><strong>{formatScore(summary.averageGrounded)}</strong><span>证据一致性</span></div>
+            <div><strong>{filteredCases.length}</strong><span>样本数</span></div>
           </div>
         </article>
       </section>
@@ -379,7 +379,7 @@ export function ExperimentsWorkspace(): JSX.Element {
             className="dataset-textarea"
             value={datasetText}
             onChange={(event) => setDatasetText(event.target.value)}
-            placeholder="Paste JSON array: caseId, question, expectedAnswer, requiredChunkIds, supportingChunkIds, acceptableChunkIds, citationChunkIds, evaluationTopK"
+            placeholder="粘贴 JSON 数组，兼容样本编号、问题、标准答案和证据片段字段"
           />
           <div className="two-fields">
             <label className="field">
@@ -393,13 +393,13 @@ export function ExperimentsWorkspace(): JSX.Element {
               </select>
             </label>
             <label className="field">
-              <span>Top K</span>
+              <span>召回数量</span>
               <input type="number" min={1} value={topK} onChange={(event) => setTopK(Number(event.target.value) || 5)} />
             </label>
           </div>
           <label className="check-row">
             <input type="checkbox" checked={autoRun} onChange={(event) => setAutoRun(event.target.checked)} />
-            <span>导入后自动触发 batch RAG run</span>
+            <span>导入后自动触发批量 RAG 评测</span>
           </label>
           <div className="button-row">
             <button className="button primary" type="button" onClick={() => void handleImport()} disabled={!canImport}>
@@ -421,7 +421,7 @@ export function ExperimentsWorkspace(): JSX.Element {
               className="search-input"
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
-              placeholder="搜索 caseId / question / notes"
+              placeholder="搜索样本编号 / 问题 / 备注"
             />
           </div>
           <div className="sample-list">
@@ -457,15 +457,15 @@ export function ExperimentsWorkspace(): JSX.Element {
               <dl>
                 <dt>标准答案</dt>
                 <dd>{selectedCase.expectedAnswer || "未填写"}</dd>
-                <dt>Required chunks</dt>
+                <dt>必需片段</dt>
                 <dd>{formatIds(selectedCase.requiredChunkIds, selectedCase.relevantChunkIds)}</dd>
-                <dt>Supporting chunks</dt>
+                <dt>支撑片段</dt>
                 <dd>{formatIds(selectedCase.supportingChunkIds)}</dd>
-                <dt>Acceptable chunks</dt>
+                <dt>可接受片段</dt>
                 <dd>{formatIds(selectedCase.acceptableChunkIds)}</dd>
-                <dt>Citation chunks</dt>
+                <dt>引用片段</dt>
                 <dd>{formatIds(selectedCase.citationChunkIds, selectedCase.expectedCitationChunkIds)}</dd>
-                <dt>Relevant documents</dt>
+                <dt>相关文档</dt>
                 <dd>{formatIds(selectedCase.relevantDocumentIds)}</dd>
               </dl>
             </div>
@@ -476,7 +476,7 @@ export function ExperimentsWorkspace(): JSX.Element {
 
         <section className="panel">
           <div className="panel-header">
-            <h2>Batch 运行结果</h2>
+            <h2>批量运行结果</h2>
             <span>{lastBatch ? `${lastBatch.completedCount}/${lastBatch.requestedCount}` : "等待运行"}</span>
           </div>
           {lastBatch ? (
@@ -488,7 +488,7 @@ export function ExperimentsWorkspace(): JSX.Element {
                     <span>{item.status}</span>
                   </div>
                   <p>
-                    run {shortId(item.runId)} / eval {shortId(item.evaluationId)}
+                    运行 {shortId(item.runId)} / 评估 {shortId(item.evaluationId)}
                   </p>
                   <small>
                     E {formatDecimal(evidenceRecall(item))} / C {formatDecimal(item.chunkRecallAtK)} / D {formatDecimal(item.documentRecallAtK)} / P {formatDecimal(item.precisionAtK)} / MRR {formatDecimal(item.mrr)}
@@ -499,7 +499,7 @@ export function ExperimentsWorkspace(): JSX.Element {
             </div>
           ) : (
             <div className="empty-state">
-              导入评测集并勾选自动运行后，这里会展示每条 case 的 runId、evaluationId 和指标。
+              导入评测集并勾选自动运行后，这里会展示每条样本的运行编号、评估编号和指标。
             </div>
           )}
         </section>
@@ -507,7 +507,7 @@ export function ExperimentsWorkspace(): JSX.Element {
 
       <section className="panel">
         <div className="panel-header">
-          <h2>Recent Evaluations</h2>
+          <h2>最近评估</h2>
           <span>{lastImport ? `最近导入失败 ${lastImport.failedCount}` : "最近 60 条"}</span>
         </div>
         <div className="evaluation-table">
@@ -526,8 +526,8 @@ export function ExperimentsWorkspace(): JSX.Element {
                 <small>{formatDate(item.createdAt)}</small>
               </span>
               <span>
-                {item.runStrategyName ?? "unknown"}
-                <small>{item.runRetrieverType ?? "retriever 未记录"}</small>
+                {item.runStrategyName ?? "未知策略"}
+                <small>{item.runRetrieverType ?? "检索器未记录"}</small>
               </span>
               <span>{summarize(item.runQuestion, 90)}</span>
               <span>{formatScore(item.groundedScore)}</span>
@@ -563,7 +563,7 @@ function evidenceRecall(item: { recallAtK?: number | null; evidenceRecallAtK?: n
 
 function formatIds(values: string[] | undefined, fallback?: string[]): string {
   const source = values && values.length ? values : fallback ?? [];
-  return source.length ? source.map(shortId).join(", ") : "unlabeled";
+  return source.length ? source.map(shortId).join(", ") : "未标注";
 }
 
 function HealthMetric({ label, value }: { label: string; value: number }): JSX.Element {

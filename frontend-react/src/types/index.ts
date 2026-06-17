@@ -112,10 +112,12 @@ export interface ChatRequest {
   sessionId?: string;
   messageId?: string;
   question: string;
+  agentName?: string;
   strategy: string;
   retrieverType?: string;
   metadataFilters?: Record<string, unknown>;
   retrievalOptions?: Record<string, unknown>;
+  variables?: Record<string, unknown>;
   topK?: number;
 }
 
@@ -130,6 +132,7 @@ export interface ChatResponse {
   followUpQuestions?: string[];
   studyPlan?: StudyPlan | null;
   reviewCards?: ReviewCard[];
+  supportPlan?: SupportPlan | null;
   weakPoints?: LearningWeakPoint[];
   workflowSteps?: AgentWorkflowStep[];
 }
@@ -177,6 +180,33 @@ export interface ReviewCard {
   difficulty: string;
 }
 
+export interface DiagnosticStep {
+  order?: number | null;
+  action: string;
+  expectedSignal?: string | null;
+  evidenceHint?: string | null;
+  fallback?: string | null;
+}
+
+export interface EscalationRecommendation {
+  required?: boolean | null;
+  severity?: string | null;
+  reason?: string | null;
+  suggestedQueue?: string | null;
+  ticketSummary?: string | null;
+  ticketFields?: Record<string, unknown> | null;
+}
+
+export interface SupportPlan {
+  issueSummary: string;
+  clarificationQuestions: string[];
+  evidenceReferences: string[];
+  diagnosticSteps: DiagnosticStep[];
+  escalation?: EscalationRecommendation | null;
+  riskNotes: string[];
+  nextActions: string[];
+}
+
 export interface AgentWorkflowStep {
   name: string;
   detail?: string;
@@ -192,6 +222,7 @@ export interface AssistantTurnResponse {
   followUpQuestions: string[];
   studyPlan?: StudyPlan | null;
   reviewCards: ReviewCard[];
+  supportPlan?: SupportPlan | null;
   weakPoints: LearningWeakPoint[];
   workflowSteps: AgentWorkflowStep[];
   trace?: { traceId?: string; trace_id?: string; attributes?: Record<string, unknown> } | null;

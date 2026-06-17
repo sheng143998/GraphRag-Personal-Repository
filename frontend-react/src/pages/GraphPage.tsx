@@ -127,35 +127,35 @@ export function GraphPage(): JSX.Element {
         </div>
 
         <div className="graph-status">
-          <span>Entities: {graph.entityCount}</span>
-          <span>Relationships: {graph.relationshipCount}</span>
-          <span>Layout: radial deterministic</span>
-          <span>Source: Spring Boot /api/graph/facts</span>
+          <span>实体：{graph.entityCount}</span>
+          <span>关系：{graph.relationshipCount}</span>
+          <span>布局：径向固定</span>
+          <span>来源：图谱事实接口</span>
         </div>
       </section>
 
       <aside className="graph-detail">
         <section className="graph-side-card">
           <div className="graph-side-head">
-            <h2>Entity Details</h2>
+            <h2>实体详情</h2>
             <span className="material-symbols-outlined">close</span>
           </div>
           {selectedNode ? (
             <div className="entity-detail">
               <div className="entity-avatar">{selectedNode.name.slice(0, 1).toUpperCase()}</div>
               <h3>{selectedNode.name}</h3>
-              <span>{selectedNode.entityType || "Entity"}</span>
+              <span>{selectedNode.entityType || "实体"}</span>
               <dl>
-                <dt>Normalized</dt>
+                <dt>标准名称</dt>
                 <dd>{selectedNode.normalizedName}</dd>
-                <dt>Document</dt>
+                <dt>文档</dt>
                 <dd>{selectedNode.documentId || "--"}</dd>
-                <dt>Chunk</dt>
+                <dt>片段</dt>
                 <dd>{selectedNode.chunkId || "--"}</dd>
               </dl>
             </div>
           ) : (
-            <div className="graph-panel-empty">Select a node to inspect metadata.</div>
+            <div className="graph-panel-empty">选择节点后查看元数据。</div>
           )}
         </section>
 

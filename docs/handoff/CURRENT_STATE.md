@@ -10,6 +10,9 @@
 - 企业售后技术支持知识库 Agent 第一版编排已完成：support / after-sales / technical-support 场景会进入售后模式，默认使用 `advanced-rag`，并返回结构化 `supportPlan`。
 - `supportPlan` 覆盖澄清问题、证据引用、诊断步骤、升级建议、风险提示和下一步动作；输出文案已调整为中文优先。
 - Spring Boot 已透传 `supportPlan` 到 `AgentInvokeResponse` 和 `AssistantTurnResponse`，Java 仍只做桥接和持久化，不实现 RAG 或售后诊断逻辑。
+- `frontend-react/` 已完成售后支持工作台中文化和美学优化：对话页可选择知识库、显式触发售后 Agent 变量，并结构化展示 `supportPlan` 的澄清问题、诊断步骤、升级建议、风险提示和下一步动作。
+- 前端全局 token 已从旧紫色 RAG Studio 风格收敛到冷灰 / 深青 / 告警橙的企业支持台风格；导航、文档中心、评测页、图谱页和设置页继续中文化。
+- `frontend-react/scripts/dev.mjs` 与 `scripts/build.mjs` 已显式设置 Vite root，避免从仓库根目录使用 `npm --prefix frontend-react run dev` 时 dev server 指错入口。
 - 文档上传入口支持单篇、多篇和文件夹上传。
 - Spring Boot 新增 `POST /api/documents/upload/batch`，按文件创建多条 `PROCESSING` 文档记录，并保留文件夹相对路径到 `sourcePath`。
 - 文档入库任务新增 `DocumentIngestDispatcher`，默认走 Spring `@Async` 本地线程池；配置 `DOCUMENT_INGEST_MODE=rabbitmq` 后可发布到 RabbitMQ 并由 listener 消费。
@@ -40,6 +43,9 @@
 - `cd ai-service; .\.venv\bin\python.exe -m pytest tests\test_ragas_bridge.py tests\test_ragas_testset_generation.py tests\test_strategy_comparison_evaluator.py -q --basetemp ..\.tmp\pytest-ragas`（13 passed；pytest cache 权限 warning 不影响结果）
 - `cd ai-service; .\.venv\bin\python.exe -m pytest tests\test_agent_workflow.py -q --basetemp ..\.tmp\pytest-agent`（5 passed；pytest cache 权限 warning 不影响结果）
 - `mvn.cmd -f backend-java\pom.xml test "-Dtest=AgentServiceTest,AssistantTurnServiceTest,WeakPointPracticeServiceTest"`（3 tests，BUILD SUCCESS）
+- `npm.cmd --prefix frontend-react run typecheck`
+- `npm.cmd --prefix frontend-react run build`
+- Playwright + system Edge stub 后端验证：`/chat` 桌面对话首屏、发送示例问题后的 `supportPlan` 诊断卡片、`/documents` 桌面文档表、`/chat` 移动端首屏均通过；控制台仅有 React Router v7 future flag warning。
 - `mvn.cmd -f backend-java/pom.xml test`
 - `npm.cmd --prefix frontend run typecheck`
 - `mvn.cmd -f backend-java/pom.xml -q -DskipTests compile`
@@ -85,6 +91,15 @@
 - `backend-java/src/main/java/com/example/agentknowledge/service/AssistantTurnService.java`
 - `docs/plans/2026-06-17-after-sales-support-agent-orchestration.md`
 - `docs/reviews/2026-06-17-after-sales-support-agent-orchestration-review-prompt.md`
+- `frontend-react/src/pages/ChatPage.tsx`
+- `frontend-react/src/pages/chat-page.css`
+- `frontend-react/src/api/chat.ts`
+- `frontend-react/src/types/index.ts`
+- `frontend-react/src/styles/tokens.css`
+- `frontend-react/scripts/dev.mjs`
+- `frontend-react/scripts/build.mjs`
+- `docs/plans/2026-06-17-frontend-support-workbench-aesthetic-optimization.md`
+- `docs/reviews/2026-06-17-frontend-support-workbench-aesthetic-optimization-review-prompt.md`
 - `frontend/src/components/UploadEntry.vue`
 - `frontend/src/api/documents.ts`
 - `frontend/src/stores/workbench.ts`
@@ -120,7 +135,7 @@
 - `docs/reviews/2026-06-17-mineru-standard-batch-polling-timeout-review-prompt.md`
 
 ## 下一步
-- 继续完成 `frontend-react/` 中文化和美学优化，并使用前端验证循环单独提交推送。
+- 如需让历史会话重新打开后仍展示结构化售后诊断方案，可在后端为消息或 trace 增加 `supportPlan` 持久化/回查字段。
 - 如需验证 RabbitMQ 模式，启动 RabbitMQ 后设置 `DOCUMENT_INGEST_MODE=rabbitmq`，再上传多文件观察消息发布与消费日志。
 - 如果要进一步增强第三阶段，可新增数据库任务表或死信队列重试策略，避免消费失败只依赖 RabbitMQ 默认行为。
 - 启动前端并验证实验页新入口的实际渲染与交互。
