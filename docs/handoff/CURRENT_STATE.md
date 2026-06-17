@@ -3,6 +3,10 @@
 更新时间：2026-06-17
 
 ## 已完成
+- RAGAS 评估体系第一阶段已接入：新增 RAGAS bridge，可把现有 `RagEvaluateRequest` 导出为 RAGAS `SingleTurnSample` 兼容 JSONL，并保持 RAGAS 依赖懒加载，避免影响 FastAPI/Pydantic v1 主服务。
+- 新增自动测评集草稿生成：可从已上传文档入库后的 `document_chunks` 或离线 chunk JSON 生成 `DRAFT` 评测样本 JSON，字段对齐现有 Spring Boot `rag_evaluation_cases` 导入 schema。
+- 新增人工半自动审核产物：生成脚本会同步输出 UTF-8 BOM CSV，包含 `humanDecision` / `humanNotes`，便于人工审核问题、标准答案和 required/supporting/citation chunk ids。
+- 新增离线 RAGAS 执行入口：`export_ragas_dataset.py`、`run_ragas_evaluation.py` 和根目录 PowerShell 包装脚本支持独立 RAGAS venv 运行 ID-based / LLM-as-judge 指标。
 - 文档上传入口支持单篇、多篇和文件夹上传。
 - Spring Boot 新增 `POST /api/documents/upload/batch`，按文件创建多条 `PROCESSING` 文档记录，并保留文件夹相对路径到 `sourcePath`。
 - 文档入库任务新增 `DocumentIngestDispatcher`，默认走 Spring `@Async` 本地线程池；配置 `DOCUMENT_INGEST_MODE=rabbitmq` 后可发布到 RabbitMQ 并由 listener 消费。
@@ -30,6 +34,7 @@
 - 新增 `docs/experiments/2026-06-16-rag-evaluation-chunk-lookup.sql`，用于按 `relevant_chunk_ids` 和 `expected_citation_chunk_ids` 展开查询真实 chunk 内容。
 
 ## 已验证
+- `cd ai-service; .\.venv\bin\python.exe -m pytest tests\test_ragas_bridge.py tests\test_ragas_testset_generation.py tests\test_strategy_comparison_evaluator.py -q --basetemp ..\.tmp\pytest-ragas`（13 passed；pytest cache 权限 warning 不影响结果）
 - `mvn.cmd -f backend-java/pom.xml test`
 - `npm.cmd --prefix frontend run typecheck`
 - `mvn.cmd -f backend-java/pom.xml -q -DskipTests compile`
@@ -53,6 +58,17 @@
 - `mvn.cmd -f backend-java\pom.xml test -Dtest=RagExperimentServiceTest`
 
 ## 重点文件
+- `ai-service/app/rag/evaluators/ragas_bridge.py`
+- `ai-service/app/rag/evaluators/testset_generation.py`
+- `ai-service/scripts/generate_ragas_testset_draft.py`
+- `ai-service/scripts/export_ragas_dataset.py`
+- `ai-service/scripts/run_ragas_evaluation.py`
+- `scripts/generate-ragas-testset-draft.ps1`
+- `scripts/run-ragas-evaluation.ps1`
+- `ai-service/tests/test_ragas_bridge.py`
+- `ai-service/tests/test_ragas_testset_generation.py`
+- `docs/plans/2026-06-17-ragas-evaluation-architecture.md`
+- `docs/reviews/2026-06-17-ragas-evaluation-architecture-review-prompt.md`
 - `frontend/src/components/UploadEntry.vue`
 - `frontend/src/api/documents.ts`
 - `frontend/src/stores/workbench.ts`
@@ -88,6 +104,8 @@
 - `docs/reviews/2026-06-17-mineru-standard-batch-polling-timeout-review-prompt.md`
 
 ## 下一步
+- 继续完成企业售后技术支持知识库 Agent 编排，并在验证后单独提交推送。
+- 继续完成 `frontend-react/` 中文化和美学优化，并使用前端验证循环单独提交推送。
 - 如需验证 RabbitMQ 模式，启动 RabbitMQ 后设置 `DOCUMENT_INGEST_MODE=rabbitmq`，再上传多文件观察消息发布与消费日志。
 - 如果要进一步增强第三阶段，可新增数据库任务表或死信队列重试策略，避免消费失败只依赖 RabbitMQ 默认行为。
 - 启动前端并验证实验页新入口的实际渲染与交互。
