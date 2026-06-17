@@ -35,14 +35,16 @@ class SimpleRetriever(BaseRetriever):
                 continue
             if filters and any(chunk.metadata.get(key) != value for key, value in filters.items()):
                 continue
-            score = float(chunk.content.lower().count(lowered_query)) if lowered_query else 0.0
+            search_text = _search_text(chunk)
+            score = float(search_text.lower().count(lowered_query)) if lowered_query else 0.0
+            score *= _quality_score(chunk.metadata)
             candidates.append(
                 SourceMetadata(
                     document_id=chunk.document_id,
                     chunk_id=chunk.chunk_id,
                     title=f"{chunk.document_id}#{chunk.chunk_index}",
                     score=score,
-                    metadata=chunk.metadata,
+                    metadata=_source_metadata(chunk),
                 )
             )
         candidates.sort(key=lambda item: item.score or 0.0, reverse=True)
@@ -64,11 +66,12 @@ class SimpleRetriever(BaseRetriever):
                 continue
             if filters and any(chunk.metadata.get(key) != value for key, value in filters.items()):
                 continue
-            content = chunk.content.lower()
+            search_text = _search_text(chunk)
+            content = search_text.lower()
             exact_hits = content.count(lowered_query) if lowered_query else 0
             term_hits = sum(content.count(term) for term in query_terms)
-            score = float(exact_hits * 2 + term_hits)
-            metadata = {**chunk.metadata, "content_preview": chunk.content[:600]}
+            score = float(exact_hits * 2 + term_hits) * _quality_score(chunk.metadata)
+            metadata = _source_metadata(chunk)
             candidates.append(
                 SourceMetadata(
                     document_id=chunk.document_id,
@@ -111,3 +114,23 @@ class DatabaseRetriever(BaseRetriever):
             filters=filters,
             retrieval_options=retrieval_options or {},
         )
+
+
+def _search_text(chunk: ChunkRecord) -> str:
+    value = chunk.metadata.get("embedding_text")
+    return str(value) if isinstance(value, str) and value.strip() else chunk.content
+
+
+def _source_metadata(chunk: ChunkRecord) -> dict[str, object]:
+    metadata = {**chunk.metadata, "content_preview": chunk.content[:600]}
+    if chunk.parent_chunk_id:
+        metadata["parent_chunk_id"] = chunk.parent_chunk_id
+    return metadata
+
+
+def _quality_score(metadata: dict[str, object]) -> float:
+    try:
+        score = float(metadata.get("quality_score", 1.0))
+    except (TypeError, ValueError):
+        return 1.0
+    return max(0.05, min(score, 1.0))

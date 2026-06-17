@@ -5,13 +5,66 @@ import { formatDateTime } from "../utils/format";
 import "./chat-page.css";
 import "./pages.css";
 
+type RawCitation = Partial<CitationSource> & {
+  documentId?: string | null;
+  document_id?: string | null;
+  chunkId?: string | null;
+  chunk_id?: string | null;
+  sourcePath?: string | null;
+  source_path?: string | null;
+  score?: number | null;
+  rerankScore?: number | null;
+  rerank_score?: number | null;
+  metadata?: Record<string, unknown> | null;
+  pageNumber?: number | null;
+  page_number?: number | null;
+  sheetName?: string | null;
+  sheet_name?: string | null;
+};
+
+function textValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function normalizeCitation(value: string | RawCitation, index: number): CitationSource {
+  if (typeof value === "string") {
+    return {
+      id: `citation-${index + 1}`,
+      title: value,
+      location: value,
+      strategy: "history",
+      score: 0,
+      snippet: value
+    };
+  }
+
+  const metadata = value.metadata ?? {};
+  const chunkId = textValue(value.chunkId) ?? textValue(value.chunk_id);
+  const documentId = textValue(value.documentId) ?? textValue(value.document_id);
+  const sourcePath = textValue(value.sourcePath) ?? textValue(value.source_path);
+  const title = textValue(value.title) ?? sourcePath ?? documentId ?? chunkId ?? `Source ${index + 1}`;
+  const preview = textValue(metadata.content_preview) ?? textValue(metadata.preview) ?? textValue(value.snippet);
+  const pageNumber = value.pageNumber ?? value.page_number;
+  const sheetName = textValue(value.sheetName) ?? textValue(value.sheet_name);
+  const location = textValue(value.location) ?? sourcePath ?? sheetName ?? (pageNumber ? `page ${pageNumber}` : undefined) ?? chunkId ?? title;
+
+  return {
+    id: textValue(value.id) ?? chunkId ?? documentId ?? `citation-${index + 1}`,
+    title,
+    location,
+    strategy: textValue(value.strategy) ?? "agent",
+    score: value.rerankScore ?? value.rerank_score ?? value.score ?? 0,
+    snippet: preview ?? title
+  };
+}
+
 function parseCitations(value?: string | null): CitationSource[] {
   if (!value) return [];
   try {
-    const parsed = JSON.parse(value) as CitationSource[];
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed = JSON.parse(value) as Array<string | RawCitation>;
+    return Array.isArray(parsed) ? parsed.map(normalizeCitation) : [];
   } catch {
-    return [{ id: "citation-1", title: value, location: value, strategy: "history", score: 0, snippet: value }];
+    return [normalizeCitation(value, 0)];
   }
 }
 

@@ -47,10 +47,10 @@ class AdvancedRagStrategy:
         preset = resolve_rag_preset(strategy_name)
         use_rewrite = preset.query_rewrite
         use_multi_query = preset.multi_query
-        use_parent_child = preset.parent_child
         use_graph = preset.graph_expand
         active_filters = filters if preset.metadata_filter else {}
         active_retrieval_options = retrieval_options or {}
+        use_parent_child = preset.parent_child and _parent_child_context_enabled(active_retrieval_options)
         trace_builder.set_attribute(
             "rag_preset",
             {
@@ -64,6 +64,10 @@ class AdvancedRagStrategy:
         )
         if active_retrieval_options:
             trace_builder.set_attribute("retrieval_options", active_retrieval_options)
+            trace_builder.set_attribute(
+                "enable_parent_child_context",
+                use_parent_child,
+            )
 
         rewrite_payload: dict[str, object] = {"original_query": query}
         if use_rewrite:
@@ -227,12 +231,26 @@ class AdvancedRagStrategy:
             },
         )
 
-        fused = _fuse_by_chunk_id(retrieved)[:per_query_limit]
+        fused = (
+            _fuse_by_parent_group(retrieved)
+            if use_parent_child
+            else _fuse_by_chunk_id(retrieved)
+        )[:per_query_limit]
         trace_builder.add_step(
             name="fusion",
-            status="completed" if use_multi_query else "skipped",
-            detail="Fused multi-query retrieval results." if use_multi_query else "Single-query retrieval does not need fusion.",
-            payload={"input_count": len(retrieved), "result_count": len(fused), "fusion_method": "chunk_id_max_score"},
+            status="completed" if use_multi_query or use_parent_child else "skipped",
+            detail=(
+                "Fused retrieval results by parent group."
+                if use_parent_child
+                else "Fused multi-query retrieval results."
+                if use_multi_query
+                else "Single-query retrieval does not need fusion."
+            ),
+            payload={
+                "input_count": len(retrieved),
+                "result_count": len(fused),
+                "fusion_method": "parent_group_score" if use_parent_child else "chunk_id_max_score",
+            },
         )
 
         contextualized = repository.hydrate_parent_context(fused) if use_parent_child else fused
@@ -355,6 +373,30 @@ def _context_compression_stats(sources: list[SourceMetadata]) -> dict[str, objec
         "context_compressed_chars": compressed_chars,
     }
 
+
+def _parent_child_context_enabled(retrieval_options: dict[str, object]) -> bool:
+    value = retrieval_options.get(
+        "enable_parent_child_context",
+        retrieval_options.get("enableParentChildContext", True),
+    )
+    return _bool_option(value, default=True)
+
+
+def _bool_option(value: object, *, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "y", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "n", "off"}:
+            return False
+    return default
+
 def _fuse_by_chunk_id(sources: list[SourceMetadata]) -> list[SourceMetadata]:
     fused: dict[str, SourceMetadata] = {}
     for source in sources:
@@ -372,3 +414,38 @@ def _fuse_by_chunk_id(sources: list[SourceMetadata]) -> list[SourceMetadata]:
         metadata["fusion_method"] = "chunk_id_max_score"
         fused[source.chunk_id] = existing.copy(update={"metadata": metadata})
     return sorted(fused.values(), key=lambda item: item.score or 0.0, reverse=True)
+
+
+def _fuse_by_parent_group(sources: list[SourceMetadata]) -> list[SourceMetadata]:
+    grouped: dict[str, list[SourceMetadata]] = {}
+    for source in sources:
+        parent_chunk_id = source.metadata.get("parent_chunk_id")
+        group_key = str(parent_chunk_id or source.chunk_id)
+        grouped.setdefault(group_key, []).append(source)
+
+    fused: list[SourceMetadata] = []
+    for group_key, group_sources in grouped.items():
+        best = max(group_sources, key=lambda item: item.score or 0.0)
+        matched_queries: list[str] = []
+        child_ids: list[str] = []
+        for source in group_sources:
+            if source.chunk_id not in child_ids:
+                child_ids.append(source.chunk_id)
+            for query in source.metadata.get("matched_queries") or []:
+                if query not in matched_queries:
+                    matched_queries.append(str(query))
+
+        max_score = best.score or 0.0
+        aggregate_bonus = 0.05 * max(0, len(child_ids) - 1)
+        metadata = {
+            **best.metadata,
+            "matched_queries": matched_queries,
+            "fusion_method": "parent_group_score",
+            "parent_group_id": group_key,
+            "parent_child_matched_child_count": len(child_ids),
+            "parent_child_matched_child_chunk_ids": child_ids,
+            "parent_child_aggregate_bonus": round(aggregate_bonus, 6),
+        }
+        fused.append(best.copy(update={"score": round(max_score + aggregate_bonus, 6), "metadata": metadata}))
+
+    return sorted(fused, key=lambda item: item.score or 0.0, reverse=True)

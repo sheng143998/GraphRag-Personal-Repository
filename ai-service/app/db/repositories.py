@@ -323,7 +323,15 @@ class PostgresDocumentRepository(BaseDocumentRepository):
                             chunk.chunk_id,
                             embedding_model,
                             _vector_literal(embedding),
-                            json.dumps({"source": "stub-embedding"}, ensure_ascii=False),
+                            json.dumps(
+                                {
+                                    "source": "document-ingest",
+                                    "embedding_text_mode": chunk.metadata.get("embedding_text_mode"),
+                                    "block_type": chunk.metadata.get("block_type"),
+                                    "quality_score": chunk.metadata.get("quality_score", 1.0),
+                                },
+                                ensure_ascii=False,
+                            ),
                         ),
                     )
 
@@ -404,16 +412,26 @@ class PostgresDocumentRepository(BaseDocumentRepository):
                     SELECT
                         c.id AS chunk_id,
                         c.document_id,
+                        c.parent_chunk_id,
                         d.title AS document_title,
                         d.source_path,
                         c.title AS chunk_title,
                         c.chunk_index,
                         c.content,
+                        COALESCE(c.metadata ->> 'embedding_text', c.content) AS search_text,
                         c.page_number,
                         c.sheet_name,
                         c.metadata,
                         1 - (e.embedding <=> %s::vector) AS vector_score,
-                        ts_rank_cd(to_tsvector('simple', c.content), plainto_tsquery('simple', %s)) AS keyword_score,
+                        ts_rank_cd(to_tsvector('simple', COALESCE(c.metadata ->> 'embedding_text', c.content)), plainto_tsquery('simple', %s)) AS keyword_score,
+                        LEAST(GREATEST(
+                            CASE
+                                WHEN (c.metadata ->> 'quality_score') ~ '^-?[0-9]+(\\.[0-9]+)?$'
+                                THEN (c.metadata ->> 'quality_score')::double precision
+                                ELSE 1.0
+                            END,
+                            0.05
+                        ), 1.0) AS quality_score,
                         %s::double precision AS vector_weight,
                         %s::double precision AS keyword_weight
                     FROM document_chunks c
@@ -425,8 +443,16 @@ class PostgresDocumentRepository(BaseDocumentRepository):
                       AND COALESCE(c.metadata ->> 'chunk_level', 'child') <> 'parent'
                     {filter_sql}
                     ORDER BY
-                        (COALESCE(1 - (e.embedding <=> %s::vector), 0) * %s::double precision
-                         + COALESCE(ts_rank_cd(to_tsvector('simple', c.content), plainto_tsquery('simple', %s)), 0) * %s::double precision) DESC,
+                        ((COALESCE(1 - (e.embedding <=> %s::vector), 0) * %s::double precision
+                         + COALESCE(ts_rank_cd(to_tsvector('simple', COALESCE(c.metadata ->> 'embedding_text', c.content)), plainto_tsquery('simple', %s)), 0) * %s::double precision)
+                         * LEAST(GREATEST(
+                            CASE
+                                WHEN (c.metadata ->> 'quality_score') ~ '^-?[0-9]+(\\.[0-9]+)?$'
+                                THEN (c.metadata ->> 'quality_score')::double precision
+                                ELSE 1.0
+                            END,
+                            0.05
+                         ), 1.0)) DESC,
                         c.created_at DESC
                     LIMIT %s
                     """,
@@ -703,10 +729,13 @@ def _row_to_source(row: dict[str, Any]) -> SourceMetadata:
     metadata["keyword_score"] = float(row["keyword_score"] or 0.0)
     metadata["vector_weight"] = float(row.get("vector_weight") or 0.7)
     metadata["keyword_weight"] = float(row.get("keyword_weight") or 0.3)
+    metadata["quality_score"] = float(row.get("quality_score") or metadata.get("quality_score") or 1.0)
+    if row.get("parent_chunk_id"):
+        metadata["parent_chunk_id"] = str(row["parent_chunk_id"])
     score = (
         metadata["vector_score"] * metadata["vector_weight"]
         + metadata["keyword_score"] * metadata["keyword_weight"]
-    )
+    ) * metadata["quality_score"]
     return SourceMetadata(
         document_id=str(row["document_id"]),
         chunk_id=str(row["chunk_id"]),

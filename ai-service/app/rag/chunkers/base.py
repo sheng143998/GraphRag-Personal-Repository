@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import re
 from dataclasses import dataclass
 from uuid import uuid4
@@ -32,6 +33,14 @@ class TextSegment:
     heading_path: list[str]
     section_index: int
     section_title: str | None
+
+
+@dataclass(slots=True)
+class TableData:
+    header: list[str]
+    rows: list[list[str]]
+    header_row_number: int
+    data_start_row_number: int
 
 
 _HEADING_RE = re.compile(r"(?m)^(#{1,6})\s+(.+?)\s*$")
@@ -163,6 +172,75 @@ class SimpleChunker(BaseChunker):
                             "heading_path": segment.heading_path,
                             "section_index": segment.section_index,
                             "section_title": segment.section_title,
+                        },
+                    ),
+                )
+            )
+        return chunks
+
+
+class TableRowGroupChunker(BaseChunker):
+    async def chunk(
+        self,
+        *,
+        parsed_document: ParsedDocument,
+        request: DocumentIngestRequest,
+    ) -> list[ChunkRecord]:
+        text = parsed_document.normalized_text
+        if not text:
+            return []
+
+        table = _parse_table_text(text)
+        if table is None or not table.rows:
+            return await SimpleChunker().chunk(parsed_document=parsed_document, request=request)
+
+        row_group_size = _bounded_int(
+            request.metadata.get("table_row_group_size"),
+            default=25,
+            minimum=1,
+            maximum=100,
+        )
+        sheet_name = _table_sheet_name(parsed_document=parsed_document, request=request)
+        chunks: list[ChunkRecord] = []
+        for group_index, offset in enumerate(range(0, len(table.rows), row_group_size)):
+            row_group = table.rows[offset : offset + row_group_size]
+            row_start = table.data_start_row_number + offset
+            row_end = row_start + len(row_group) - 1
+            content = _table_group_content(
+                sheet_name=sheet_name,
+                columns=table.header,
+                rows=row_group,
+                row_start=row_start,
+            )
+            chunks.append(
+                ChunkRecord(
+                    chunk_id=str(uuid4()),
+                    document_id=request.document_id,
+                    knowledge_base_id=request.knowledge_base_id,
+                    title=f"{parsed_document.title} / {sheet_name} rows {row_start}-{row_end}",
+                    chunk_index=len(chunks),
+                    content=content,
+                    metadata=_chunk_metadata(
+                        parsed_document=parsed_document,
+                        request=request,
+                        content=content,
+                        chunk_strategy="table-row-group",
+                        chunk_level="child",
+                        extra={
+                            "chunk_algorithm": "table-row-group",
+                            "chunk_size": row_group_size,
+                            "chunk_overlap": 0,
+                            "split_level": "table-row-group",
+                            "block_type": "table_rows",
+                            "sheet_name": sheet_name,
+                            "row_range": f"{row_start}-{row_end}",
+                            "row_start": row_start,
+                            "row_end": row_end,
+                            "row_count": len(row_group),
+                            "row_group_index": group_index,
+                            "header_row": table.header_row_number,
+                            "column_names": table.header,
+                            "table_index": 0,
                         },
                     ),
                 )
@@ -616,6 +694,100 @@ def _merge_short_segments(
     return merged
 
 
+def _parse_table_text(text: str) -> TableData | None:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if not lines:
+        return None
+    if _looks_like_markdown_pipe_table(lines):
+        return _parse_pipe_table(lines)
+    return _parse_delimited_table(text)
+
+
+def _looks_like_markdown_pipe_table(lines: list[str]) -> bool:
+    pipe_lines = sum(1 for line in lines[:10] if line.count("|") >= 2)
+    return pipe_lines >= 2
+
+
+def _parse_pipe_table(lines: list[str]) -> TableData | None:
+    rows: list[list[str]] = []
+    for line in lines:
+        if re.fullmatch(r"\|?[-:| ]{3,}\|?", line):
+            continue
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        if any(cells):
+            rows.append(cells)
+    return _table_from_rows(rows)
+
+
+def _parse_delimited_table(text: str) -> TableData | None:
+    sample = "\n".join(text.splitlines()[:20])
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters=",\t;")
+    except csv.Error:
+        dialect = csv.excel
+    rows = [
+        [cell.strip() for cell in row]
+        for row in csv.reader(text.splitlines(), dialect)
+        if any(str(cell).strip() for cell in row)
+    ]
+    return _table_from_rows(rows)
+
+
+def _table_from_rows(rows: list[list[str]]) -> TableData | None:
+    if not rows:
+        return None
+    width = max(len(row) for row in rows)
+    normalized_rows = [_pad_row(row, width) for row in rows]
+    header = [_clean_column_name(value, index) for index, value in enumerate(normalized_rows[0])]
+    data_rows = normalized_rows[1:] if len(normalized_rows) > 1 else normalized_rows
+    if len(normalized_rows) == 1:
+        header = [f"column_{index + 1}" for index in range(width)]
+    data_rows = [row for row in data_rows if any(cell.strip() for cell in row)]
+    if not data_rows:
+        return None
+    return TableData(
+        header=header,
+        rows=data_rows,
+        header_row_number=1 if len(normalized_rows) > 1 else 0,
+        data_start_row_number=2 if len(normalized_rows) > 1 else 1,
+    )
+
+
+def _pad_row(row: list[str], width: int) -> list[str]:
+    return [str(value).strip() for value in row] + [""] * max(0, width - len(row))
+
+
+def _clean_column_name(value: str, index: int) -> str:
+    text = str(value).strip()
+    return text or f"column_{index + 1}"
+
+
+def _table_sheet_name(*, parsed_document: ParsedDocument, request: DocumentIngestRequest) -> str:
+    explicit = request.metadata.get("sheet_name") or request.metadata.get("sheetName")
+    if explicit:
+        return str(explicit).strip() or "Sheet1"
+    parsed_sheet = parsed_document.metadata.get("sheet_name") or parsed_document.metadata.get("sheetName")
+    if parsed_sheet:
+        return str(parsed_sheet).strip() or "Sheet1"
+    return "Sheet1"
+
+
+def _table_group_content(*, sheet_name: str, columns: list[str], rows: list[list[str]], row_start: int) -> str:
+    lines = [
+        f"Sheet: {sheet_name}",
+        "Columns: " + " | ".join(columns),
+    ]
+    for index, row in enumerate(rows):
+        row_number = row_start + index
+        values = [
+            f"{column}={value}"
+            for column, value in zip(columns, row, strict=False)
+            if str(value).strip()
+        ]
+        lines.append(f"Row {row_number}: " + " | ".join(values))
+    return "\n".join(lines)
+
+
 def _trim_text_range(text: str, absolute_start: int, absolute_end: int) -> tuple[int, int, str] | None:
     if not text or not text.strip():
         return None
@@ -656,6 +828,23 @@ def _chunk_metadata(
     chunk_level: str,
     extra: dict[str, object] | None = None,
 ) -> dict[str, object]:
+    extra_values = extra or {}
+    heading_path = _string_list(extra_values.get("heading_path"))
+    section_title = _string_value(extra_values.get("section_title"))
+    block_type, quality_score, quality_reasons = _classify_block_quality(
+        content=content,
+        title=parsed_document.title,
+        file_type=str(request.file.file_type),
+        heading_path=heading_path,
+        chunk_level=chunk_level,
+    )
+    embedding_text = _embedding_text(
+        title=parsed_document.title,
+        heading_path=heading_path,
+        section_title=section_title,
+        content=content,
+        chunk_level=chunk_level,
+    )
     metadata: dict[str, object] = {
         **parsed_document.metadata,
         **request.metadata,
@@ -665,13 +854,169 @@ def _chunk_metadata(
         "file_type": request.file.file_type,
         "chunk_strategy": chunk_strategy,
         "chunk_level": chunk_level,
+        "block_type": block_type,
+        "quality_score": quality_score,
+        "low_quality_reasons": quality_reasons,
+        "embedding_text": embedding_text,
+        "embedding_text_mode": "heading-aware",
         "content_preview": content[:600],
         "tags": request.tags,
         "tech_stack": request.tech_stack,
     }
-    if extra:
-        metadata.update({key: value for key, value in extra.items() if value is not None})
+    if extra_values:
+        metadata.update({key: value for key, value in extra_values.items() if value is not None})
     return metadata
+
+
+def _embedding_text(
+    *,
+    title: str,
+    heading_path: list[str],
+    section_title: str | None,
+    content: str,
+    chunk_level: str,
+) -> str:
+    parts = [f"Document: {title}"]
+    if heading_path:
+        parts.append("Heading path: " + " > ".join(heading_path))
+    elif section_title:
+        parts.append(f"Section: {section_title}")
+    parts.append(f"Chunk level: {chunk_level}")
+    parts.append("Content:")
+    parts.append(content)
+    return "\n".join(parts)
+
+
+def _classify_block_quality(
+    *,
+    content: str,
+    title: str,
+    file_type: str,
+    heading_path: list[str],
+    chunk_level: str,
+) -> tuple[str, float, list[str]]:
+    stripped = content.strip()
+    lowered = stripped.lower()
+    reasons: list[str] = []
+    block_type = "paragraph"
+    quality_score = 1.0
+
+    if chunk_level == "parent":
+        block_type = "mixed"
+
+    if re.fullmatch(r"(```[\s\S]*```|~~~[\s\S]*~~~)", stripped):
+        block_type = "code"
+    elif _looks_like_table(stripped):
+        block_type = "table"
+    elif _looks_like_list(stripped):
+        block_type = "list"
+    elif _looks_like_image_caption(stripped):
+        block_type = "image_caption"
+        quality_score = min(quality_score, 0.35)
+        reasons.append("image_or_attachment_reference")
+    elif _looks_like_toc(stripped, heading_path):
+        block_type = "table_of_contents"
+        quality_score = min(quality_score, 0.45)
+        reasons.append("table_of_contents")
+
+    if _looks_like_prompt_example(stripped, title):
+        block_type = "prompt_example" if block_type == "paragraph" else block_type
+        quality_score = min(quality_score, 0.65)
+        reasons.append("prompt_example")
+
+    if _looks_like_weak_ocr(stripped):
+        quality_score = min(quality_score, 0.4)
+        reasons.append("weak_ocr_or_symbol_noise")
+
+    if file_type.lower().endswith("image"):
+        quality_score = min(quality_score, 0.5)
+        reasons.append("image_file_type")
+
+    if len(stripped) < 40 and block_type not in {"code", "table"}:
+        quality_score = min(quality_score, 0.7)
+        reasons.append("very_short_chunk")
+
+    if "prompt" in lowered and ("example" in lowered or "示例" in stripped):
+        quality_score = min(quality_score, 0.75)
+        if "prompt_example" not in reasons:
+            reasons.append("prompt_example")
+
+    return block_type, round(quality_score, 3), reasons
+
+
+def _looks_like_table(content: str) -> bool:
+    lines = [line.strip() for line in content.splitlines() if line.strip()]
+    if len(lines) < 2:
+        return False
+    pipe_lines = sum(1 for line in lines if line.count("|") >= 2)
+    return pipe_lines >= 2 or any(re.fullmatch(r"[-:| ]{6,}", line) for line in lines)
+
+
+def _looks_like_list(content: str) -> bool:
+    lines = [line.strip() for line in content.splitlines() if line.strip()]
+    if len(lines) < 2:
+        return False
+    list_lines = sum(1 for line in lines if re.match(r"^([-*+]|\d+[.)])\s+", line))
+    return list_lines / len(lines) >= 0.6
+
+
+def _looks_like_image_caption(content: str) -> bool:
+    image_refs = re.findall(r"!\[[^\]]*]\([^)]+\)|!\[\[[^\]]+]]|\[\[[^\]]+\.(?:png|jpg|jpeg|gif|webp|svg)]]", content, re.I)
+    if not image_refs:
+        return False
+    text_without_refs = re.sub(r"!\[[^\]]*]\([^)]+\)|!\[\[[^\]]+]]|\[\[[^\]]+\.(?:png|jpg|jpeg|gif|webp|svg)]]", "", content, flags=re.I).strip()
+    return len(text_without_refs) < 80
+
+
+def _looks_like_toc(content: str, heading_path: list[str]) -> bool:
+    lowered_headings = " ".join(heading_path).lower()
+    if any(term in lowered_headings for term in ("目录", "table of contents", "toc")):
+        return True
+    lines = [line.strip() for line in content.splitlines() if line.strip()]
+    if len(lines) < 4:
+        return False
+    link_like = sum(1 for line in lines if re.search(r"\[[^\]]+]\([^)]+\)|\[\[[^\]]+]]|^#{1,6}\s+", line))
+    return link_like / len(lines) >= 0.7
+
+
+def _looks_like_prompt_example(content: str, title: str) -> bool:
+    combined = f"{title}\n{content}".lower()
+    markers = [
+        "-goal-",
+        "-steps-",
+        "few-shot",
+        "example input",
+        "example output",
+        "output:",
+        "you are an ai assistant",
+        "prompts/",
+    ]
+    marker_hits = sum(1 for marker in markers if marker in combined)
+    return marker_hits >= 2 or "extract_graph" in combined or "community_report" in combined
+
+
+def _looks_like_weak_ocr(content: str) -> bool:
+    if len(content) < 80:
+        return False
+    visible = [char for char in content if not char.isspace()]
+    if not visible:
+        return True
+    symbol_count = sum(1 for char in visible if not char.isalnum() and not "\u4e00" <= char <= "\u9fff")
+    replacement_count = content.count("�")
+    return replacement_count >= 3 or symbol_count / len(visible) > 0.45
+
+
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _string_value(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def _bounded_int(value: object, *, default: int, minimum: int, maximum: int) -> int:

@@ -27,7 +27,12 @@ def test_advanced_rag_applies_rewrite_filters_fusion_parent_context_and_rerank()
     assert response.trace.attributes["rewritten_query"] == (
         "How should retrieval augmented generation use metadata filters and rerank evidence?"
     )
-    assert response.trace.attributes["retrieval_options"] == {"vectorWeight": 0.6, "keywordWeight": 0.4}
+    assert response.trace.attributes["retrieval_options"] == {
+        "vectorWeight": 0.6,
+        "keywordWeight": 0.4,
+        "question_type": "conceptual",
+        "enable_parent_child_context": True,
+    }
 
     rewrite_step = next(step for step in response.trace.steps if step.name == "query_rewrite")
     expand_step = next(step for step in response.trace.steps if step.name == "multi_query_expand")
@@ -47,7 +52,9 @@ def test_advanced_rag_applies_rewrite_filters_fusion_parent_context_and_rerank()
 
     top_source = response.citations[0]
     assert top_source.rerank_score is not None
-    assert top_source.metadata["parent_child_mode"] == "neighbor-window"
+    assert top_source.metadata["parent_child_mode"] == "parent-child"
+    assert top_source.metadata["parent_child_matched_child_count"] >= 1
+    assert top_source.metadata["fusion_method"] == "parent_group_score"
     assert top_source.metadata["context_compression_mode"] == "query-aware-sentence-pack"
     assert len(top_source.metadata["context_source_chunk_ids"]) >= 2
     assert top_source.metadata["matched_queries"]
@@ -67,6 +74,29 @@ def test_advanced_rag_uses_llm_query_transformer_by_default() -> None:
     )
     assert "Advanced RAG metadata rerank retrieval evidence" in expand_step.payload["queries"]
     assert response.citations
+
+
+def test_advanced_rag_skips_parent_child_context_for_fact_lookup_question() -> None:
+    response = asyncio.run(_advanced_fact_lookup_query())
+
+    assert response.citations
+    assert response.trace.attributes["question_type"] == "fact_lookup"
+    assert response.trace.attributes["enable_parent_child_context"] is False
+    step_statuses = {step.name: step.status for step in response.trace.steps}
+    assert step_statuses["parent_child_context"] == "skipped"
+    assert response.citations[0].metadata.get("parent_child_mode") is None
+    assert response.citations[0].metadata["fusion_method"] == "chunk_id_max_score"
+
+
+def test_advanced_rag_allows_parent_child_context_override_for_fact_lookup_question() -> None:
+    response = asyncio.run(_advanced_fact_lookup_query(enable_parent_child_context=True))
+
+    assert response.citations
+    assert response.trace.attributes["question_type"] == "fact_lookup"
+    assert response.trace.attributes["enable_parent_child_context"] is True
+    step_statuses = {step.name: step.status for step in response.trace.steps}
+    assert step_statuses["parent_child_context"] == "completed"
+    assert response.citations[0].metadata["parent_child_mode"] == "parent-child"
 
 
 def test_adapter_query_transformer_falls_back_when_llm_output_is_invalid() -> None:
@@ -428,6 +458,49 @@ async def _advanced_query_with_llm_transform():
             context=RagRequestContext(
                 knowledge_base_id="kb-test-llm-transform",
                 metadata_filters={"topic": "advanced-rag"},
+            ),
+        )
+    )
+
+
+async def _advanced_fact_lookup_query(enable_parent_child_context: bool | None = None):
+    _clear_in_memory_repository()
+    ingest_service = IngestService()
+    rag_service = RagService()
+    rag_service.advanced_strategy.adapter_query_transformer = AdapterBackedQueryTransformer(
+        llm_adapter=FakeLLMAdapter([
+            "REWRITTEN_QUERY: parent child retrieval aggregate bonus",
+            "QUERY: parent child retrieval aggregate bonus",
+        ])
+    )
+
+    await ingest_service.ingest_document(
+        _document(
+            knowledge_base_id="kb-test-question-router",
+            document_id="66666666-6666-6666-6666-666666666666",
+            title="Question Router Notes",
+            topic="question-router",
+            content=(
+                "Parent child retrieval aggregate bonus is 0.05 for each extra matched child. "
+                "Parent context should be enabled only for broad explanation questions. "
+                * 12
+            ),
+        )
+    )
+
+    retrieval_options: dict[str, object] = {}
+    if enable_parent_child_context is not None:
+        retrieval_options["enableParentChildContext"] = enable_parent_child_context
+
+    return await rag_service.query(
+        RagQueryRequest(
+            question="parent child retrieval aggregate bonus",
+            top_k=2,
+            strategy_name="advanced-rag",
+            context=RagRequestContext(
+                knowledge_base_id="kb-test-question-router",
+                metadata_filters={"topic": "question-router"},
+                retrieval_options=retrieval_options,
             ),
         )
     )

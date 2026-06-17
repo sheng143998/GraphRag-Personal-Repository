@@ -53,6 +53,15 @@ class RagService:
             strategy_name=payload.strategy_name,
             model_name=get_embedding_model_name(),
         )
+        retrieval_options = _route_retrieval_options(
+            question=payload.query,
+            retrieval_options=payload.context.retrieval_options,
+        )
+        trace_builder.set_attribute("question_type", retrieval_options["question_type"])
+        trace_builder.set_attribute(
+            "enable_parent_child_context",
+            retrieval_options["enable_parent_child_context"],
+        )
         embed_context = AdapterCallContext(
             trace_id=trace_builder.trace.trace_id,
             run_id=trace_builder.trace.run_id,
@@ -71,7 +80,7 @@ class RagService:
             top_k=payload.top_k,
             trace_builder=trace_builder,
             filters=payload.context.metadata_filters,
-            retrieval_options=payload.context.retrieval_options,
+            retrieval_options=retrieval_options,
             knowledge_base_id=payload.context.knowledge_base_id,
             query_embedding=query_embeddings[0],
             embedding_model=get_embedding_model_name(),
@@ -91,6 +100,15 @@ class RagService:
             prompt_name=settings.default_prompt_name,
             prompt_version=settings.default_prompt_version,
             model_name=get_llm_model_name(),
+        )
+        retrieval_options = _route_retrieval_options(
+            question=payload.question,
+            retrieval_options=payload.context.retrieval_options,
+        )
+        trace_builder.set_attribute("question_type", retrieval_options["question_type"])
+        trace_builder.set_attribute(
+            "enable_parent_child_context",
+            retrieval_options["enable_parent_child_context"],
         )
         embed_context = AdapterCallContext(
             trace_id=trace_builder.trace.trace_id,
@@ -121,7 +139,7 @@ class RagService:
             top_k=payload.top_k,
             trace_builder=trace_builder,
             filters=payload.context.metadata_filters,
-            retrieval_options=payload.context.retrieval_options,
+            retrieval_options=retrieval_options,
             knowledge_base_id=payload.context.knowledge_base_id,
             query_embedding=query_embeddings[0],
             embedding_model=get_embedding_model_name(),
@@ -205,3 +223,70 @@ def _build_context_str(citations) -> str:
             f"摘要: {snippet}"
         )
     return "\n\n".join(blocks)
+
+
+def _route_retrieval_options(
+    *,
+    question: str,
+    retrieval_options: dict[str, object] | None,
+) -> dict[str, object]:
+    routed = dict(retrieval_options or {})
+    question_type = str(
+        routed.get("question_type")
+        or routed.get("questionType")
+        or _classify_question_type(question)
+    ).strip().lower()
+    routed["question_type"] = question_type
+    if "enable_parent_child_context" not in routed and "enableParentChildContext" not in routed:
+        routed["enable_parent_child_context"] = question_type in {
+            "conceptual",
+            "implementation",
+            "troubleshooting",
+            "interview",
+            "summary",
+            "comparison",
+        }
+    elif "enable_parent_child_context" not in routed:
+        routed["enable_parent_child_context"] = _bool_option(
+            routed.get("enableParentChildContext"),
+            default=True,
+        )
+    else:
+        routed["enable_parent_child_context"] = _bool_option(
+            routed.get("enable_parent_child_context"),
+            default=True,
+        )
+    return routed
+
+
+def _classify_question_type(question: str) -> str:
+    lowered = question.lower()
+    if any(term in lowered for term in ("compare", "difference", "vs", "对比", "区别", "差异")):
+        return "comparison"
+    if any(term in lowered for term in ("summary", "overview", "summarize", "总结", "概括", "梳理")):
+        return "summary"
+    if any(term in lowered for term in ("bug", "error", "exception", "traceback", "报错", "异常", "失败", "排查")):
+        return "troubleshooting"
+    if any(term in lowered for term in ("implement", "code", "class", "function", "api", "实现", "代码", "接口")):
+        return "implementation"
+    if any(term in lowered for term in ("interview", "面试", "八股")):
+        return "interview"
+    if any(term in lowered for term in ("what", "why", "how", "原理", "什么", "为什么", "如何", "怎么")):
+        return "conceptual"
+    return "fact_lookup"
+
+
+def _bool_option(value: object, *, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "y", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "n", "off"}:
+            return False
+    return default

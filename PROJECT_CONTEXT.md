@@ -1,6 +1,6 @@
 ﻿# 本地知识库 Agent 项目上下文
 
-更新时间：2026-06-16
+更新时间：2026-06-17
 项目状态：Phase 0-9 已完成工程闭环，覆盖三服务架构、文档入库、基础 RAG、Advanced RAG、Agent 学习闭环、GraphRAG、RAG 实验评估、评测集管理工具、复习辅助与 Coze Studio 风格前端工作台重构；2026-06-16 已完成文档上传入口升级，支持单篇、多篇和文件夹上传，默认使用 Spring `@Async` 本地线程池异步解析，并可通过 RabbitMQ 队列模式提交文档入库任务；同日新增 `frontend-react/` React + TypeScript 并行迁移工作区，按 Stitch RAG Knowledge Studio 设计实现第一版工作台页面。前端浏览器请求继续只进入 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑。
 维护规则：每次开启新的开发对话时，优先提供本文件；每完成一个阶段目标或关键任务后，必须同步更新本文件。本文件只保留项目状态、关键架构决策、当前待办和阶段级变更摘要；接口级实现细节、验证命令和失败复盘放入 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 与 `docs/handoff/`。
 
@@ -1043,6 +1043,11 @@ README 更新规则：
 
 ### 2026-06-17
 
+- 完成 chunk 切分与检索三项优化并升级为动态策略：AI 服务入库不再使用全局唯一默认，而是按文档类型和文件类型路由，技术笔记/课程/开发经验/项目经验等长文档走 `parent-child`，代码片段、面试经验、招聘 JD 和表格文件走 `recursive-overlap`，显式 `chunk_strategy` 仍可覆盖；查询侧按问题类型决定 Advanced RAG 是否启用 Parent-Child 上下文，概念/实现/排障/面试/总结/对比类问题启用，事实查找默认保持 chunk 级精确召回；chunk metadata 新增 heading-aware `embedding_text`、`block_type`、`quality_score` 和 `low_quality_reasons`，Advanced RAG 在 parent-child 模式下按 `parent_chunk_id` 聚合 child 命中并扩展 parent 上下文，降低图片说明、目录、prompt 示例和弱 OCR 对召回排序的污染。
+- 补充 parent-child 入库自动降级：当文档总长度过短或章节长度整体低于 child 阈值时，AI 服务会把自动路由到的 `parent-child` 降级为 `recursive-overlap`，避免短文档生成内容重复的 parent/child 块；显式 `chunk_strategy=parent-child` 仍保持原行为。新增 `ingest_service` trace 字段记录 `requested_chunk_strategy`、`resolved_chunk_strategy` 和降级原因，并补充短文档降级测试。
+- 完成 chunk 优化优先级第 1 项：Excel / CSV 表格类文件自动路由到 `table-row-group`，新增 `TableRowGroupChunker` 按表头和行组生成 chunk，内容包含 sheet、columns 和逐行 `column=value`，metadata 保留 `sheet_name`、`row_range`、`row_start`、`row_end`、`column_names`、`row_group_index` 与 `block_type=table_rows`；默认 `table_row_group_size=25`，可由上传 metadata 覆盖。
+- 修复 React Chat 页面发送消息后引用侧栏崩溃：`ChatPage` 现在会将后端 `citations` 中的 `chunk_id` / `chunkId` / `document_id` / `documentId` 等原始来源对象归一化为前端 `CitationSource`，避免缺失 `id` 时触发 `Cannot read properties of undefined (reading 'slice')`；验证 React typecheck 与 build 通过。
+- 完成 `RAG相关` 文件夹测评集 schema 对齐：`datasets/processed/rag-folder-evaluation-cases-20260616.json` 的 18 条样例已补齐 `requiredChunkIds`、`supportingChunkIds`、`acceptableChunkIds`、`citationChunkIds`，并同步旧兼容字段 `relevantChunkIds` / `expectedCitationChunkIds`；通过 PostgreSQL 真实数据校验 65 个唯一 chunk ID 与 22 个文档 ID 均存在。
 - React 实验评估页面完成三类 Recall 展示适配：Leaderboard、Batch 结果、Recent Evaluations 和策略对比页统一展示 `evidenceRecallAtK`、`chunkRecallAtK`、`documentRecallAtK`，并保留 Precision、MRR、Citation 指标；评测样本详情新增 required / supporting / acceptable / citation / relevant document 分层标注展示。
 - 验证 `npm.cmd --prefix frontend-react run typecheck`、`npm.cmd --prefix frontend-react run build`、`mvn.cmd -f backend-java/pom.xml test`、`ai-service/.venv/bin/python.exe -m pytest tests/test_strategy_comparison_evaluator.py` 通过。
 
