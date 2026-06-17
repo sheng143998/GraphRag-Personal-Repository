@@ -64,6 +64,8 @@ mvn spring-boot:run
 - `DB_URL`：PostgreSQL JDBC 地址，例如 `jdbc:postgresql://localhost:5432/agent_knowledge`。
 - `DB_USERNAME`：数据库用户名。
 - `DB_PASSWORD`：数据库密码。
+- `DOCUMENT_UPLOAD_MAX_FILE_SIZE`：单文件上传大小上限，默认 `50MB`。
+- `DOCUMENT_UPLOAD_MAX_REQUEST_SIZE`：单次 multipart 请求大小上限，默认 `50MB`。
 - `AI_SERVICE_BASE_URL`：Python AI 服务地址，默认本地 FastAPI。
 - `AI_SERVICE_MOCK_ENABLED`：是否启用 AI mock。
 - `AI_SERVICE_READ_TIMEOUT`：调用 AI 服务读取超时。

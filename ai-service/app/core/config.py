@@ -78,6 +78,8 @@ class Settings:
     default_rerank_model: str = "stub-rerank"
     mineru_api_base_url: str = "https://mineru.net/api/v1/agent"
     mineru_api_token: str = ""
+    mineru_poll_timeout_seconds: int = 300
+    mineru_poll_interval_seconds: int = 5
     database_url: str = ""
     rag_use_database: bool = True
 
@@ -118,6 +120,8 @@ settings = Settings(
     rag_use_database=_env_bool("AI_RAG_USE_DATABASE", True),
     mineru_api_base_url=os.getenv("MINERU_API_BASE_URL", "https://mineru.net/api/v1/agent"),
     mineru_api_token=os.getenv("MINERU_API_TOKEN", ""),
+    mineru_poll_timeout_seconds=_env_int("MINERU_POLL_TIMEOUT_SECONDS", 300),
+    mineru_poll_interval_seconds=_env_int("MINERU_POLL_INTERVAL_SECONDS", 5),
     default_llm_model=_llm_model,
     default_embedding_model=_embedding_model,
     default_rerank_model=_rerank_model,

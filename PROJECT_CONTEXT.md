@@ -1,7 +1,7 @@
 ﻿# 本地知识库 Agent 项目上下文
 
 更新时间：2026-06-17
-项目状态：Phase 0-9 已完成工程闭环，覆盖三服务架构、文档入库、基础 RAG、Advanced RAG、Agent 学习闭环、GraphRAG、RAG 实验评估、评测集管理工具、复习辅助与 Coze Studio 风格前端工作台重构；2026-06-16 已完成文档上传入口升级，支持单篇、多篇和文件夹上传，默认使用 Spring `@Async` 本地线程池异步解析，并可通过 RabbitMQ 队列模式提交文档入库任务；同日新增 `frontend-react/` React + TypeScript 并行迁移工作区，按 Stitch RAG Knowledge Studio 设计实现第一版工作台页面。前端浏览器请求继续只进入 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑。
+项目状态：Phase 0-9 已完成工程闭环，覆盖三服务架构、文档入库、基础 RAG、Advanced RAG、Agent 学习闭环、GraphRAG、RAG 实验评估、评测集管理工具、复习辅助与 Coze Studio 风格前端工作台重构；2026-06-16 已完成文档上传入口升级，支持单篇、多篇和文件夹上传，默认使用 Spring `@Async` 本地线程池异步解析，并可通过 RabbitMQ 队列模式提交文档入库任务；同日新增 `frontend-react/` React + TypeScript 并行迁移工作区，按 Stitch RAG Knowledge Studio 设计实现第一版工作台页面；2026-06-17 AI 服务 chunk 切分继续增强，覆盖 Markdown block-aware、DOCX 标题/表格结构、MinerU PDF block metadata、Q&A chunker 与 code-aware chunker，并修复 MinerU 标准 batch 轮询端点导致的假超时。前端浏览器请求继续只进入 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑。
 维护规则：每次开启新的开发对话时，优先提供本文件；每完成一个阶段目标或关键任务后，必须同步更新本文件。本文件只保留项目状态、关键架构决策、当前待办和阶段级变更摘要；接口级实现细节、验证命令和失败复盘放入 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 与 `docs/handoff/`。
 
 ## 1. 项目目标
@@ -306,8 +306,8 @@ agent-knowledge-rag/
 | 技术笔记 | Hybrid Search + Rerank + Parent-Child Retrieval |
 | 开发经验 | Metadata Filter + Hybrid Search + Rerank |
 | 项目经验 | Query Rewrite + Multi-query + Parent-Child Retrieval |
-| 面试经验 | Query Expansion + Rerank + Answer Template |
-| 代码片段 | Keyword Search + Metadata Filter + 精确引用 |
+| 面试经验 | Q&A Pair Chunking + Query Expansion + Rerank + Answer Template |
+| 代码片段 | Code-aware Chunking + Keyword Search + Metadata Filter + 精确引用 |
 | 书籍 / 课程摘要 | Summary Index + Parent-Child Retrieval |
 | 招聘 JD | Keyword Extraction + Metadata Filter + Hybrid Search + 技能差距分析 |
 
@@ -1043,9 +1043,19 @@ README 更新规则：
 
 ### 2026-06-17
 
-- 完成 chunk 切分与检索三项优化并升级为动态策略：AI 服务入库不再使用全局唯一默认，而是按文档类型和文件类型路由，技术笔记/课程/开发经验/项目经验等长文档走 `parent-child`，代码片段、面试经验、招聘 JD 和表格文件走 `recursive-overlap`，显式 `chunk_strategy` 仍可覆盖；查询侧按问题类型决定 Advanced RAG 是否启用 Parent-Child 上下文，概念/实现/排障/面试/总结/对比类问题启用，事实查找默认保持 chunk 级精确召回；chunk metadata 新增 heading-aware `embedding_text`、`block_type`、`quality_score` 和 `low_quality_reasons`，Advanced RAG 在 parent-child 模式下按 `parent_chunk_id` 聚合 child 命中并扩展 parent 上下文，降低图片说明、目录、prompt 示例和弱 OCR 对召回排序的污染。
+- 完成 chunk 切分与检索三项优化并升级为动态策略：AI 服务入库不再使用全局唯一默认，而是按文档类型和文件类型路由，技术笔记/课程/开发经验/项目经验等长文档走 `parent-child`，表格文件走 `table-row-group`，招聘 JD 走 `recursive-overlap`，显式 `chunk_strategy` 仍可覆盖；查询侧按问题类型决定 Advanced RAG 是否启用 Parent-Child 上下文，概念/实现/排障/面试/总结/对比类问题启用，事实查找默认保持 chunk 级精确召回；chunk metadata 新增 heading-aware `embedding_text`、`block_type`、`quality_score` 和 `low_quality_reasons`，Advanced RAG 在 parent-child 模式下按 `parent_chunk_id` 聚合 child 命中并扩展 parent 上下文，降低图片说明、目录、prompt 示例和弱 OCR 对召回排序的污染。
 - 补充 parent-child 入库自动降级：当文档总长度过短或章节长度整体低于 child 阈值时，AI 服务会把自动路由到的 `parent-child` 降级为 `recursive-overlap`，避免短文档生成内容重复的 parent/child 块；显式 `chunk_strategy=parent-child` 仍保持原行为。新增 `ingest_service` trace 字段记录 `requested_chunk_strategy`、`resolved_chunk_strategy` 和降级原因，并补充短文档降级测试。
+- 修复 parent-child chunker 层的一父一子内容一致问题：即使显式 `chunk_strategy=parent-child`，当某个 parent 只能切出一个与 parent 内容完全相同的 child 时，也会降级为单条 `recursive-overlap` child chunk，metadata 记录 `parent_child_downgrade_reason=single-child-identical-parent`；同时对同章节重复 chunk 内容做去重，避免重复模板段落产生多条相同 chunk。
+- 修复 DOCX 表格上传失败时错误被吞的问题：`DocxParser` 不再静默吞掉 `python-docx` 缺失、base64 损坏或 DOCX zip 解析失败，而是抛出带 `python-docx-unavailable` / `docx-parse-failed` 的明确异常；本地项目虚拟环境可正常解析 `03_docx_tables.docx`，日志中的 `C:\Users\admin\PyCharmMiscProject\.venv` 缺少 `docx` 依赖是此次空内容报错的直接原因。
+- 增强 DOCX 表格解析输出：保留原 Markdown pipe table 的同时新增 `Table N Rows` 行坐标描述，按 `R行C列=值` 展开单元格；嵌套表格会递归写入所在单元格，横向合并单元格会标记 `continues into C...`，提升复杂表格 chunk 的检索可读性。
+- 调整 MinerU PDF 轮询默认参数：`MINERU_POLL_TIMEOUT_SECONDS` 默认从 120 秒提升到 300 秒，`MINERU_POLL_INTERVAL_SECONDS` 默认从 2 秒调整为 5 秒，减少日志刷屏并给标准 API 更充分的解析时间；两个参数均可通过环境变量覆盖。
+- 修复 MinerU 标准 batch 上传后的轮询端点错误：`/api/v4/file-urls/batch` 返回的是 `batch_id`，现在文件上传模式会轮询 `/api/v4/extract-results/batch/{batch_id}` 并读取 `extract_result[0]` 的 `state`、`full_zip_url` 和失败原因，避免把 `batch_id` 当单任务 id 查询 `/api/v4/extract/task/{batch_id}` 后一直吞掉错误并超时。
+- 增强 MinerU 完成态结果下载：当 batch 完成但 `full_zip_url` / `markdown_url` 不在 `extract_result[0]` 中时，会继续从 batch 顶层 `data` 和嵌套字段递归查找 zip / markdown 链接；zip 中没有 `.md` 时会尝试解析 MinerU 常见的 `content_list.json`，并在空内容错误中带上 `status` 与 `last_poll_error`。
+- 修复 MinerU 结果 zip 下载受系统代理影响的问题：保留提交、上传和轮询阶段继承环境代理，但下载 `full_zip_url` / `markdown_url` 时使用独立 `httpx.AsyncClient(trust_env=False)`，绕开本机代理变量导致的 `cdn-mineru.openxlab.org.cn` `ConnectError`；本地探针验证 API 通、轮询 done、关闭代理后 zip 下载 HTTP 200。
 - 完成 chunk 优化优先级第 1 项：Excel / CSV 表格类文件自动路由到 `table-row-group`，新增 `TableRowGroupChunker` 按表头和行组生成 chunk，内容包含 sheet、columns 和逐行 `column=value`，metadata 保留 `sheet_name`、`row_range`、`row_start`、`row_end`、`column_names`、`row_group_index` 与 `block_type=table_rows`；默认 `table_row_group_size=25`，可由上传 metadata 覆盖。
+- 修复 XLSX 入库后 RAG context 显示 ZIP/XML 乱码的问题：`SpreadsheetParser` 现在直接从 `.xlsx` 的 OpenXML 包读取 workbook、sharedStrings 和 worksheet XML，生成结构化 `spreadsheet_tables`，`TableRowGroupChunker` 优先使用该结构按 sheet 与真实行号生成 `Sheet / Columns / Row` context；文档级 metadata 仅保留表数量和 sheet 摘要，避免大表结构写入 documents metadata。
+- 统一文档上传 multipart 默认上限为 50MB：Spring Boot 新增 `DOCUMENT_UPLOAD_MAX_FILE_SIZE` / `DOCUMENT_UPLOAD_MAX_REQUEST_SIZE` 环境变量默认值，并同步 `.env.example` 与后端 README；React 上传入口已是 50MB，Vue 仅保留上一项 50MB 校验，不参与本次 XLSX 前端入口调整。
+- 完成后续 chunk 切分优化：Markdown recursive-overlap 支持 block-aware 原子块，fenced code block 不拆分且图片引用单独标记；DOCX 解析保留 Word 标题层级和表格结构；MinerU PDF 完成态 metadata 增加 heading、image、table、code、formula、page marker 统计；面试经验默认路由到 `qna-pair` 并按问答对切分；代码片段默认路由到 `code-aware` 并按 fenced code block 或顶层函数/类/方法符号切分。
 - 修复 React Chat 页面发送消息后引用侧栏崩溃：`ChatPage` 现在会将后端 `citations` 中的 `chunk_id` / `chunkId` / `document_id` / `documentId` 等原始来源对象归一化为前端 `CitationSource`，避免缺失 `id` 时触发 `Cannot read properties of undefined (reading 'slice')`；验证 React typecheck 与 build 通过。
 - 完成 `RAG相关` 文件夹测评集 schema 对齐：`datasets/processed/rag-folder-evaluation-cases-20260616.json` 的 18 条样例已补齐 `requiredChunkIds`、`supportingChunkIds`、`acceptableChunkIds`、`citationChunkIds`，并同步旧兼容字段 `relevantChunkIds` / `expectedCitationChunkIds`；通过 PostgreSQL 真实数据校验 65 个唯一 chunk ID 与 22 个文档 ID 均存在。
 - React 实验评估页面完成三类 Recall 展示适配：Leaderboard、Batch 结果、Recent Evaluations 和策略对比页统一展示 `evidenceRecallAtK`、`chunkRecallAtK`、`documentRecallAtK`，并保留 Precision、MRR、Citation 指标；评测样本详情新增 required / supporting / acceptable / citation / relevant document 分层标注展示。

@@ -1,6 +1,10 @@
 spring:
   application:
     name: agent-knowledge-backend
+  servlet:
+    multipart:
+      max-file-size: ${DOCUMENT_UPLOAD_MAX_FILE_SIZE:50MB}
+      max-request-size: ${DOCUMENT_UPLOAD_MAX_REQUEST_SIZE:50MB}
   rabbitmq:
     host: ${SPRING_RABBITMQ_HOST:localhost}
     port: ${SPRING_RABBITMQ_PORT:5672}

@@ -7,7 +7,9 @@ from app.core.constants import DocumentType, FileType
 from app.core.tracing import TraceBuilder
 from app.db.repositories import repository
 from app.rag.chunkers.base import (
+    CodeAwareChunker,
     ParentChildChunker,
+    QAPairChunker,
     SimpleChunker,
     SimpleWindowChunker,
     TableRowGroupChunker,
@@ -36,6 +38,8 @@ class IngestService:
         self.simple_window_chunker = SimpleWindowChunker()
         self.parent_child_chunker = ParentChildChunker()
         self.table_row_group_chunker = TableRowGroupChunker()
+        self.qa_pair_chunker = QAPairChunker()
+        self.code_aware_chunker = CodeAwareChunker()
         self.parser_registry = ParserRegistry()
         self.graph_extractor = RuleBasedGraphExtractor()
 
@@ -59,8 +63,15 @@ class IngestService:
         parsed_content = await parser.parse(raw_content=raw_content, request=payload)
         parsed_text = _sanitize_text_for_storage(parsed_content.text)
         if not parsed_text.strip():
+            parser_status = parsed_content.metadata.get("status")
+            parser_error = (
+                parsed_content.metadata.get("error")
+                or parsed_content.metadata.get("last_poll_error")
+                or parsed_content.metadata.get("reason")
+            )
             raise RuntimeError(
-                f"parser {parser.name} returned empty content for file_type={payload.file.file_type}"
+                f"parser {parser.name} returned empty content for file_type={payload.file.file_type}, "
+                f"status={parser_status}, error={parser_error}"
             )
         parsed_document = ParsedDocument(
             document_id=payload.document_id,
@@ -70,7 +81,11 @@ class IngestService:
             parser_version=parser.version,
             metadata=parsed_content.metadata,
         )
-        repository.save_document(parsed_document, request=payload, preserve_summary=True)
+        repository.save_document(
+            _parsed_document_for_storage(parsed_document),
+            request=payload,
+            preserve_summary=True,
+        )
         trace_builder.add_step(
             name="parse_document",
             status="completed",
@@ -90,6 +105,10 @@ class IngestService:
             chunker = self.table_row_group_chunker
         elif chunk_strategy == "simple-window":
             chunker = self.simple_window_chunker
+        elif chunk_strategy == "qna-pair":
+            chunker = self.qa_pair_chunker
+        elif chunk_strategy == "code-aware":
+            chunker = self.code_aware_chunker
         else:
             chunker = self.chunker
         chunks = await chunker.chunk(parsed_document=parsed_document, request=payload)
@@ -308,8 +327,6 @@ def _route_chunk_strategy(*, document_type: str, file_type: str) -> str:
         FileType.XLSX.value,
     }
     exact_or_short_document_types = {
-        DocumentType.CODE_SNIPPET.value,
-        DocumentType.INTERVIEW_EXPERIENCE.value,
         DocumentType.JOB_DESCRIPTION.value,
     }
     long_note_document_types = {
@@ -331,11 +348,24 @@ def _route_chunk_strategy(*, document_type: str, file_type: str) -> str:
 
     if normalized_file_type in table_like_file_types:
         return "table-row-group"
+    if normalized_document_type == DocumentType.INTERVIEW_EXPERIENCE.value:
+        return "qna-pair"
+    if normalized_document_type == DocumentType.CODE_SNIPPET.value:
+        return "code-aware"
     if normalized_document_type in exact_or_short_document_types:
         return "recursive-overlap"
     if normalized_document_type in long_note_document_types and normalized_file_type in parent_child_file_types:
         return "parent-child"
     return "recursive-overlap"
+
+
+def _parsed_document_for_storage(parsed_document: ParsedDocument) -> ParsedDocument:
+    metadata = {
+        key: value
+        for key, value in parsed_document.metadata.items()
+        if key not in {"spreadsheet_tables"}
+    }
+    return parsed_document.copy(update={"metadata": metadata})
 
 
 def _sanitize_text_for_storage(text: str) -> str:

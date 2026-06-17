@@ -1,5 +1,8 @@
+import base64
 import asyncio
+import io
 import os
+import zipfile
 
 os.environ["AI_RAG_USE_DATABASE"] = "false"
 os.environ["MODEL_PROVIDER"] = "stub"
@@ -9,7 +12,7 @@ os.environ["RERANK_PROVIDER"] = "stub"
 
 from app.core.constants import DocumentType, FileType
 from app.db.repositories import repository
-from app.rag.chunkers.base import ParentChildChunker, SimpleChunker, SimpleWindowChunker
+from app.rag.chunkers.base import CodeAwareChunker, ParentChildChunker, QAPairChunker, SimpleChunker, SimpleWindowChunker
 from app.schemas.ingest import DocumentIngestRequest, DocumentPayload, ParsedDocument
 from app.schemas.rag import RagQueryRequest, RagRequestContext
 from app.services.ingest_service import IngestService
@@ -70,16 +73,34 @@ def test_ingest_service_downgrades_short_auto_parent_child_document_to_recursive
     assert {chunk.metadata.get("chunk_strategy") for chunk in stored_chunks} == {"recursive-overlap"}
 
 
-def test_ingest_service_routes_code_snippet_to_recursive_overlap() -> None:
+def test_ingest_service_routes_interview_experience_to_qna_pair_chunks() -> None:
+    _clear_in_memory_repository()
+
+    response = asyncio.run(_ingest_interview_qa_document())
+    stored_chunks = repository.get_chunks("doc-interview-qa")
+
+    assert response.chunk_count == len(stored_chunks)
+    assert len(stored_chunks) == 2
+    assert all(chunk.parent_chunk_id is None for chunk in stored_chunks)
+    assert {chunk.metadata.get("chunk_strategy") for chunk in stored_chunks} == {"qna-pair"}
+    assert stored_chunks[0].metadata["block_type"] == "qa_pair"
+    assert stored_chunks[0].metadata["question_text"] == "How does RAG rerank improve retrieval?"
+    assert "It scores candidate chunks" in stored_chunks[0].metadata["answer_text"]
+
+
+def test_ingest_service_routes_code_snippet_to_code_aware_chunks() -> None:
     _clear_in_memory_repository()
 
     response = asyncio.run(_ingest_code_snippet_document())
-    stored_chunks = repository.get_chunks("doc-code-recursive")
+    stored_chunks = repository.get_chunks("doc-code-aware")
 
     assert response.chunk_count == len(stored_chunks)
     assert stored_chunks
     assert all(chunk.parent_chunk_id is None for chunk in stored_chunks)
-    assert {chunk.metadata.get("chunk_strategy") for chunk in stored_chunks} == {"recursive-overlap"}
+    assert {chunk.metadata.get("chunk_strategy") for chunk in stored_chunks} == {"code-aware"}
+    assert {chunk.metadata.get("block_type") for chunk in stored_chunks} == {"code"}
+    assert "build_query" in {chunk.metadata.get("symbol_name") for chunk in stored_chunks}
+    assert any("def build_query" in chunk.content for chunk in stored_chunks)
 
 
 def test_ingest_service_routes_table_files_to_row_group_chunks() -> None:
@@ -97,6 +118,27 @@ def test_ingest_service_routes_table_files_to_row_group_chunks() -> None:
     assert stored_chunks[0].metadata["sheet_name"] == "RAG Metrics"
     assert stored_chunks[0].metadata["row_range"] == "2-3"
     assert "Row 2: metric=recall" in stored_chunks[0].content
+
+
+def test_ingest_service_parses_xlsx_table_without_binary_garble() -> None:
+    _clear_in_memory_repository()
+
+    response = asyncio.run(_ingest_xlsx_document())
+    stored_chunks = repository.get_chunks("doc-xlsx-table")
+    combined_context = "\n".join(chunk.content for chunk in stored_chunks)
+
+    assert response.chunk_count == len(stored_chunks)
+    assert stored_chunks
+    assert {chunk.metadata.get("chunk_strategy") for chunk in stored_chunks} == {"table-row-group"}
+    assert stored_chunks[0].metadata["sheet_name"] == "指标表"
+    assert stored_chunks[0].metadata["column_names"] == ["指标", "含义"]
+    assert stored_chunks[0].metadata["row_range"] == "2-3"
+    assert "Sheet: 指标表" in combined_context
+    assert "Columns: 指标 | 含义" in combined_context
+    assert "Row 2: 指标=召回率 | 含义=命中预期证据" in combined_context
+    assert "\ufffd" not in combined_context
+    assert "xl/worksheets" not in combined_context
+    assert "PK" not in combined_context
 
 
 def test_ingest_service_allows_explicit_chunk_strategy_override() -> None:
@@ -138,6 +180,45 @@ def test_simple_chunker_defaults_to_recursive_overlap_with_section_metadata() ->
     assert "char_end" in chunks[0].metadata
 
 
+def test_qna_pair_chunker_emits_one_chunk_per_question_answer_pair() -> None:
+    chunks = asyncio.run(_qa_pair_chunks())
+
+    assert len(chunks) == 2
+    assert all(chunk.metadata["chunk_strategy"] == "qna-pair" for chunk in chunks)
+    assert chunks[0].metadata["split_level"] == "qa-pair"
+    assert chunks[0].metadata["question_text"] == "How does hybrid search help RAG?"
+    assert chunks[0].metadata["qa_question_type"] == "concept"
+    assert chunks[1].metadata["question_text"] == "Compare vector search and keyword search."
+    assert chunks[1].metadata["qa_question_type"] == "comparison"
+
+
+def test_code_aware_chunker_splits_raw_code_by_symbols() -> None:
+    chunks = asyncio.run(_code_aware_chunks())
+
+    assert len(chunks) == 2
+    assert all(chunk.metadata["chunk_strategy"] == "code-aware" for chunk in chunks)
+    assert [chunk.metadata["symbol_name"] for chunk in chunks] == ["build_query", "RagPipeline"]
+    assert chunks[0].metadata["symbol_type"] == "function"
+    assert chunks[1].metadata["symbol_type"] == "class"
+    assert chunks[0].metadata["start_line"] == 1
+
+
+def test_markdown_block_aware_chunking_keeps_code_and_image_blocks_atomic() -> None:
+    chunks = asyncio.run(_markdown_block_chunks())
+
+    code_chunks = [chunk for chunk in chunks if chunk.metadata["block_type"] == "code"]
+    image_chunks = [chunk for chunk in chunks if chunk.metadata["block_type"] == "image_caption"]
+
+    assert len(code_chunks) == 1
+    assert "def build_query" in code_chunks[0].content
+    assert "return query + ' graph rag expansion'" in code_chunks[0].content
+    assert code_chunks[0].metadata["split_level"] == "code-block"
+    assert len(image_chunks) == 1
+    assert image_chunks[0].content.strip() == "![RAG flow](./images/rag-flow.png)"
+    assert image_chunks[0].metadata["split_level"] == "image-reference"
+    assert image_chunks[0].metadata["quality_score"] < 0.5
+
+
 def test_chunker_marks_prompt_examples_and_image_captions_as_lower_quality() -> None:
     prompt_chunks = asyncio.run(_prompt_example_chunks())
     image_chunks = asyncio.run(_image_caption_chunks())
@@ -171,6 +252,17 @@ def test_parent_child_chunker_uses_heading_sections_as_parent_chunks() -> None:
     assert all("child_index_in_parent" in chunk.metadata for chunk in child_chunks)
 
 
+def test_parent_child_chunker_downgrades_single_identical_child_segment() -> None:
+    chunks = asyncio.run(_single_child_parent_child_chunks())
+
+    assert len(chunks) == 1
+    assert chunks[0].parent_chunk_id is None
+    assert chunks[0].metadata["chunk_strategy"] == "recursive-overlap"
+    assert chunks[0].metadata["chunk_algorithm"] == "parent-child-single-child-downgrade"
+    assert chunks[0].metadata["parent_child_downgrade_reason"] == "single-child-identical-parent"
+    assert not any(chunk.metadata.get("chunk_level") == "parent" for chunk in chunks)
+
+
 async def _parent_child_chunks():
     return await ParentChildChunker().chunk(
         parsed_document=ParsedDocument(
@@ -187,6 +279,32 @@ async def _parent_child_chunks():
                 "chunk_strategy": "parent-child",
                 "parent_chunk_size": 900,
                 "child_chunk_size": 300,
+            },
+        ),
+    )
+
+
+async def _single_child_parent_child_chunks():
+    return await ParentChildChunker().chunk(
+        parsed_document=ParsedDocument(
+            document_id="doc-single-child-parent",
+            title="Short Explicit Parent Child",
+            normalized_text=(
+                "# Short Chapter\n\n"
+                "This section is long enough to be a parent segment but too short to split into multiple child chunks. "
+                "It used to create one parent and one child with identical content."
+            ),
+            parser_name="test-parser",
+            parser_version="v1",
+            metadata={},
+        ),
+        request=_request(
+            document_id="doc-single-child-parent",
+            metadata={
+                "chunk_strategy": "parent-child",
+                "parent_chunk_size": 900,
+                "child_chunk_size": 500,
+                "child_chunk_overlap": 80,
             },
         ),
     )
@@ -215,6 +333,54 @@ async def _simple_chunks():
     )
 
 
+async def _qa_pair_chunks():
+    return await QAPairChunker().chunk(
+        parsed_document=ParsedDocument(
+            document_id="doc-qa",
+            title="Interview Notes",
+            normalized_text=(
+                "Q: How does hybrid search help RAG?\n"
+                "A: It combines semantic recall with keyword precision.\n\n"
+                "Question: Compare vector search and keyword search.\n"
+                "Answer: Vector search catches meaning, while keyword search catches exact terms."
+            ),
+            parser_name="test-parser",
+            parser_version="v1",
+            metadata={},
+        ),
+        request=_request(
+            document_id="doc-qa",
+            document_type=DocumentType.INTERVIEW_EXPERIENCE,
+            metadata={},
+        ),
+    )
+
+
+async def _code_aware_chunks():
+    return await CodeAwareChunker().chunk(
+        parsed_document=ParsedDocument(
+            document_id="doc-code",
+            title="Code Notes",
+            normalized_text=(
+                "def build_query(query: str) -> str:\n"
+                "    return query.strip().lower()\n\n"
+                "class RagPipeline:\n"
+                "    def run(self, question: str) -> str:\n"
+                "        return build_query(question)\n"
+            ),
+            parser_name="test-parser",
+            parser_version="v1",
+            metadata={"language": "python"},
+        ),
+        request=_request(
+            document_id="doc-code",
+            document_type=DocumentType.CODE_SNIPPET,
+            filename="pipeline.py",
+            metadata={},
+        ),
+    )
+
+
 async def _simple_window_chunks():
     return await SimpleWindowChunker().chunk(
         parsed_document=ParsedDocument(
@@ -235,6 +401,39 @@ async def _simple_window_chunks():
     )
 
 
+async def _markdown_block_chunks():
+    return await SimpleChunker().chunk(
+        parsed_document=ParsedDocument(
+            document_id="doc-markdown-blocks",
+            title="Markdown Block Notes",
+            normalized_text=(
+                "# Markdown Blocks\n\n"
+                "Intro text explains why code and images should be treated as separate blocks.\n\n"
+                "```python\n"
+                "def build_query(query: str) -> str:\n"
+                "    normalized = query.strip().lower()\n"
+                "    if not normalized:\n"
+                "        return 'empty query'\n"
+                "    return query + ' graph rag expansion'\n"
+                "```\n\n"
+                "![RAG flow](./images/rag-flow.png)\n\n"
+                "Closing text should remain a normal paragraph chunk."
+            ),
+            parser_name="test-parser",
+            parser_version="v1",
+            metadata={},
+        ),
+        request=_request(
+            document_id="doc-markdown-blocks",
+            metadata={
+                "chunk_size": 200,
+                "chunk_overlap": 40,
+                "min_chunk_size": 80,
+            },
+        ),
+    )
+
+
 async def _section_parent_child_chunks():
     return await ParentChildChunker().chunk(
         parsed_document=ParsedDocument(
@@ -243,10 +442,14 @@ async def _section_parent_child_chunks():
             normalized_text=(
                 "# RAG Chapter\n\n"
                 "RAG notes should keep a complete chapter as parent context. "
-                "Child chunks should remain small enough for precise embedding retrieval.\n\n"
+                "Child chunks should remain small enough for precise embedding retrieval. " * 5
+                + "\n\n"
                 "# Agent Chapter\n\n"
                 "Agent orchestration notes should keep node, state, and tool context together. "
-                "Parent chunks are answer context and child chunks are embedding units."
+                "The graph starts with classify_question, then selects retrieval tools, then records trace fields. "
+                "Reducers merge retrieved evidence, rerank scores, generated answer drafts, and citation metadata. "
+                "Tool nodes should keep retry state, timeout state, and fallback reason close to the execution step. "
+                "Parent chunks are answer context and child chunks are embedding units for precise retrieval."
             ),
             parser_name="test-parser",
             parser_version="v1",
@@ -309,12 +512,36 @@ async def _ingest_short_default_document():
 async def _ingest_code_snippet_document():
     return await IngestService().ingest_document(
         _request(
-            document_id="doc-code-recursive",
+            document_id="doc-code-aware",
             document_type=DocumentType.CODE_SNIPPET,
+            filename="query_builder.py",
+            content=(
+                "def build_query(query: str) -> str:\n"
+                "    normalized = query.strip().lower()\n"
+                "    return normalized\n\n"
+                "class QueryBuilder:\n"
+                "    def build(self, query: str) -> str:\n"
+                "        return build_query(query)\n"
+            ),
             metadata={
-                "chunk_size": 220,
-                "chunk_overlap": 60,
+                "language": "python",
             },
+        )
+    )
+
+
+async def _ingest_interview_qa_document():
+    return await IngestService().ingest_document(
+        _request(
+            document_id="doc-interview-qa",
+            document_type=DocumentType.INTERVIEW_EXPERIENCE,
+            content=(
+                "Q: How does RAG rerank improve retrieval?\n"
+                "A: It scores candidate chunks after initial recall and moves better evidence upward.\n\n"
+                "Question: Compare parent-child and recursive overlap chunking.\n"
+                "Answer: Parent-child retrieves smaller child chunks but answers with parent context."
+            ),
+            metadata={},
         )
     )
 
@@ -329,6 +556,21 @@ async def _ingest_csv_document():
             content="metric,meaning\nrecall,hit expected evidence\nprecision,avoid irrelevant chunks\n",
             metadata={
                 "sheet_name": "RAG Metrics",
+                "table_row_group_size": 2,
+            },
+        )
+    )
+
+
+async def _ingest_xlsx_document():
+    return await IngestService().ingest_document(
+        _request(
+            document_id="doc-xlsx-table",
+            document_type=DocumentType.TECH_NOTE,
+            file_type=FileType.XLSX,
+            filename="rag-metrics.xlsx",
+            content_base64=_xlsx_base64(),
+            metadata={
                 "table_row_group_size": 2,
             },
         )
@@ -369,7 +611,9 @@ def _request(
     file_type: FileType = FileType.MARKDOWN,
     filename: str = "parent-child.md",
     content: str | None = None,
+    content_base64: str | None = None,
 ) -> DocumentIngestRequest:
+    content_value = content if content is not None else None if content_base64 else ("Parent child retrieval improves Advanced RAG context. " * 40)
     return DocumentIngestRequest(
         knowledge_base_id="kb-parent-child",
         document_id=document_id,
@@ -379,9 +623,65 @@ def _request(
         file=DocumentPayload(
             filename=filename,
             file_type=file_type,
-            content=content or ("Parent child retrieval improves Advanced RAG context. " * 40),
+            content=content_value,
+            content_base64=content_base64,
         ),
     )
+
+
+def _xlsx_base64() -> str:
+    shared_strings = ["指标", "含义", "召回率", "命中预期证据", "精确率", "避免无关片段"]
+    rows = [
+        [0, 1],
+        [2, 3],
+        [4, 5],
+    ]
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        zf.writestr(
+            "xl/workbook.xml",
+            (
+                '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+                'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                '<sheets><sheet name="指标表" sheetId="1" r:id="rId1"/></sheets>'
+                "</workbook>"
+            ),
+        )
+        zf.writestr(
+            "xl/_rels/workbook.xml.rels",
+            (
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                '<Relationship Id="rId1" '
+                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
+                'Target="worksheets/sheet1.xml"/>'
+                "</Relationships>"
+            ),
+        )
+        zf.writestr(
+            "xl/sharedStrings.xml",
+            (
+                '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                + "".join(f"<si><t>{value}</t></si>" for value in shared_strings)
+                + "</sst>"
+            ),
+        )
+        zf.writestr(
+            "xl/worksheets/sheet1.xml",
+            (
+                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'
+                + "".join(
+                    f'<row r="{row_index}">'
+                    + "".join(
+                        f'<c r="{column}{row_index}" t="s"><v>{shared_string_index}</v></c>'
+                        for column, shared_string_index in zip(["A", "B"], row, strict=False)
+                    )
+                    + "</row>"
+                    for row_index, row in enumerate(rows, start=1)
+                )
+                + "</sheetData></worksheet>"
+            ),
+        )
+    return base64.b64encode(buffer.getvalue()).decode("ascii")
 
 
 async def _prompt_example_chunks():

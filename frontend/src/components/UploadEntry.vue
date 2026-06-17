@@ -135,7 +135,7 @@ interface SelectedFileItem {
 }
 
 const ALLOWED_FILE_TYPES = new Set(["md", "txt", "csv", "html", "json", "log", "docx", "pdf"]);
-const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 
 const store = useWorkbenchStore();
 const knowledgeBaseId = ref(store.settings.defaultKnowledgeBaseId);
@@ -255,7 +255,7 @@ function validateUpload(): string {
 
   const oversizedFile = selectedFiles.value.find((item) => item.file.size > MAX_FILE_SIZE_BYTES);
   if (oversizedFile) {
-    return `文件不能超过 10 MB：${oversizedFile.file.name}`;
+    return `文件不能超过 50 MB：${oversizedFile.file.name}`;
   }
 
   return "";
@@ -278,7 +278,7 @@ function validateSingleUpload(): string {
   }
 
   if (selectedFile.value && selectedFile.value.size > MAX_FILE_SIZE_BYTES) {
-    return "文件大小不能超过 10 MB。";
+    return "文件大小不能超过 50 MB。";
   }
 
   if (!selectedFile.value && !content.value.trim()) {

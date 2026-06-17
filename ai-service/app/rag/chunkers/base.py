@@ -41,9 +41,46 @@ class TableData:
     rows: list[list[str]]
     header_row_number: int
     data_start_row_number: int
+    sheet_name: str | None = None
+    row_numbers: list[int] | None = None
+
+
+@dataclass(slots=True)
+class QAPair:
+    question: str
+    answer: str
+    question_type: str
+
+
+@dataclass(slots=True)
+class CodeSegment:
+    content: str
+    char_start: int
+    char_end: int
+    language: str | None
+    symbol_name: str | None
+    symbol_type: str | None
+    start_line: int
+    end_line: int
+    split_level: str
 
 
 _HEADING_RE = re.compile(r"(?m)^(#{1,6})\s+(.+?)\s*$")
+_ATOMIC_MARKDOWN_SPLIT_LEVELS = {"code-block", "image-reference"}
+_FENCED_CODE_RE = re.compile(r"(?ms)^(```|~~~)[^\n]*\n.*?^\1\s*$")
+_FENCED_CODE_WITH_INFO_RE = re.compile(r"(?ms)^(```|~~~)([^\n]*)\n(.*?)^\1\s*$")
+_IMAGE_REFERENCE_LINE_RE = re.compile(
+    r"(?m)^\s*(?:!\[[^\]]*]\([^)]+\)|!\[\[[^\]]+]]|\[\[[^\]]+\.(?:png|jpg|jpeg|gif|webp|svg)]])\s*$",
+    re.I,
+)
+_CODE_SYMBOL_RE = re.compile(
+    r"(?m)^(?P<indent>[ \t]*)"
+    r"(?:(?P<pytype>def|class)\s+(?P<pyname>[A-Za-z_]\w*)\b"
+    r"|(?:(?:export\s+)?(?:async\s+)?)function\s+(?P<jsfunc>[A-Za-z_]\w*)\s*\("
+    r"|(?:export\s+)?class\s+(?P<jsclass>[A-Za-z_]\w*)\b"
+    r"|(?:(?:public|private|protected|static|final|abstract|synchronized)\s+)+"
+    r"[\w<>\[\], ?]+\s+(?P<javafunc>[A-Za-z_]\w*)\s*\([^;{}]*\)\s*\{)",
+)
 _BOUNDARY_PATTERNS: tuple[tuple[str, str], ...] = (
     ("paragraph", r"\n\s*\n+"),
     ("line", r"\n+"),
@@ -190,8 +227,14 @@ class TableRowGroupChunker(BaseChunker):
         if not text:
             return []
 
-        table = _parse_table_text(text)
-        if table is None or not table.rows:
+        tables = _spreadsheet_tables_from_metadata(parsed_document.metadata)
+        if not tables:
+            table = _parse_table_text(text)
+            if table is not None:
+                table.sheet_name = _table_sheet_name(parsed_document=parsed_document, request=request)
+            tables = [table] if table is not None else []
+        tables = [table for table in tables if table is not None and table.rows]
+        if not tables:
             return await SimpleChunker().chunk(parsed_document=parsed_document, request=request)
 
         row_group_size = _bounded_int(
@@ -200,47 +243,154 @@ class TableRowGroupChunker(BaseChunker):
             minimum=1,
             maximum=100,
         )
-        sheet_name = _table_sheet_name(parsed_document=parsed_document, request=request)
         chunks: list[ChunkRecord] = []
-        for group_index, offset in enumerate(range(0, len(table.rows), row_group_size)):
-            row_group = table.rows[offset : offset + row_group_size]
-            row_start = table.data_start_row_number + offset
-            row_end = row_start + len(row_group) - 1
-            content = _table_group_content(
-                sheet_name=sheet_name,
-                columns=table.header,
-                rows=row_group,
-                row_start=row_start,
-            )
+        for table_index, table in enumerate(tables):
+            sheet_name = table.sheet_name or _table_sheet_name(parsed_document=parsed_document, request=request)
+            for group_index, offset in enumerate(range(0, len(table.rows), row_group_size)):
+                row_group = table.rows[offset : offset + row_group_size]
+                row_numbers = table.row_numbers[offset : offset + len(row_group)] if table.row_numbers else None
+                row_start = row_numbers[0] if row_numbers else table.data_start_row_number + offset
+                row_end = row_numbers[-1] if row_numbers else row_start + len(row_group) - 1
+                content = _table_group_content(
+                    sheet_name=sheet_name,
+                    columns=table.header,
+                    rows=row_group,
+                    row_start=row_start,
+                    row_numbers=row_numbers,
+                )
+                chunks.append(
+                    ChunkRecord(
+                        chunk_id=str(uuid4()),
+                        document_id=request.document_id,
+                        knowledge_base_id=request.knowledge_base_id,
+                        title=f"{parsed_document.title} / {sheet_name} rows {row_start}-{row_end}",
+                        chunk_index=len(chunks),
+                        content=content,
+                        metadata=_chunk_metadata(
+                            parsed_document=parsed_document,
+                            request=request,
+                            content=content,
+                            chunk_strategy="table-row-group",
+                            chunk_level="child",
+                            extra={
+                                "chunk_algorithm": "table-row-group",
+                                "chunk_size": row_group_size,
+                                "chunk_overlap": 0,
+                                "split_level": "table-row-group",
+                                "block_type": "table_rows",
+                                "sheet_name": sheet_name,
+                                "row_range": f"{row_start}-{row_end}",
+                                "row_start": row_start,
+                                "row_end": row_end,
+                                "row_count": len(row_group),
+                                "row_group_index": group_index,
+                                "header_row": table.header_row_number,
+                                "column_names": table.header,
+                                "table_index": table_index,
+                            },
+                        ),
+                    )
+                )
+        return chunks
+
+
+class QAPairChunker(BaseChunker):
+    async def chunk(
+        self,
+        *,
+        parsed_document: ParsedDocument,
+        request: DocumentIngestRequest,
+    ) -> list[ChunkRecord]:
+        text = parsed_document.normalized_text
+        if not text:
+            return []
+
+        pairs = _parse_qa_pairs(text)
+        if not pairs:
+            return await SimpleChunker().chunk(parsed_document=parsed_document, request=request)
+
+        chunks: list[ChunkRecord] = []
+        for index, pair in enumerate(pairs):
+            content = _qa_pair_content(pair)
             chunks.append(
                 ChunkRecord(
                     chunk_id=str(uuid4()),
                     document_id=request.document_id,
                     knowledge_base_id=request.knowledge_base_id,
-                    title=f"{parsed_document.title} / {sheet_name} rows {row_start}-{row_end}",
+                    title=_qa_pair_title(parsed_document.title, pair, index),
                     chunk_index=len(chunks),
                     content=content,
                     metadata=_chunk_metadata(
                         parsed_document=parsed_document,
                         request=request,
                         content=content,
-                        chunk_strategy="table-row-group",
+                        chunk_strategy="qna-pair",
                         chunk_level="child",
                         extra={
-                            "chunk_algorithm": "table-row-group",
-                            "chunk_size": row_group_size,
+                            "chunk_algorithm": "qna-pair",
+                            "chunk_size": len(content),
                             "chunk_overlap": 0,
-                            "split_level": "table-row-group",
-                            "block_type": "table_rows",
-                            "sheet_name": sheet_name,
-                            "row_range": f"{row_start}-{row_end}",
-                            "row_start": row_start,
-                            "row_end": row_end,
-                            "row_count": len(row_group),
-                            "row_group_index": group_index,
-                            "header_row": table.header_row_number,
-                            "column_names": table.header,
-                            "table_index": 0,
+                            "split_level": "qa-pair",
+                            "block_type": "qa_pair",
+                            "question_text": pair.question,
+                            "answer_text": pair.answer,
+                            "qa_pair_index": index,
+                            "qa_question_type": pair.question_type,
+                        },
+                    ),
+                )
+            )
+        return chunks
+
+
+class CodeAwareChunker(BaseChunker):
+    async def chunk(
+        self,
+        *,
+        parsed_document: ParsedDocument,
+        request: DocumentIngestRequest,
+    ) -> list[ChunkRecord]:
+        text = parsed_document.normalized_text
+        if not text:
+            return []
+
+        segments = _code_segments(
+            text,
+            default_language=_code_language(parsed_document=parsed_document, request=request),
+        )
+        if not segments:
+            return await SimpleChunker().chunk(parsed_document=parsed_document, request=request)
+
+        chunks: list[ChunkRecord] = []
+        for index, segment in enumerate(segments):
+            chunks.append(
+                ChunkRecord(
+                    chunk_id=str(uuid4()),
+                    document_id=request.document_id,
+                    knowledge_base_id=request.knowledge_base_id,
+                    title=_code_chunk_title(parsed_document.title, segment, index),
+                    chunk_index=len(chunks),
+                    content=segment.content,
+                    metadata=_chunk_metadata(
+                        parsed_document=parsed_document,
+                        request=request,
+                        content=segment.content,
+                        chunk_strategy="code-aware",
+                        chunk_level="child",
+                        extra={
+                            "chunk_algorithm": "code-aware",
+                            "chunk_size": len(segment.content),
+                            "chunk_overlap": 0,
+                            "split_level": segment.split_level,
+                            "block_type": "code",
+                            "language": segment.language,
+                            "symbol_name": segment.symbol_name,
+                            "symbol_type": segment.symbol_type,
+                            "code_segment_index": index,
+                            "char_start": segment.char_start,
+                            "char_end": segment.char_end,
+                            "start_line": segment.start_line,
+                            "end_line": segment.end_line,
                         },
                     ),
                 )
@@ -295,6 +445,39 @@ class ParentChildChunker(BaseChunker):
                 section_index=parent_segment.section_index,
                 section_title=parent_segment.section_title,
             )
+            if _child_segments_duplicate_parent(parent_segment, child_segments):
+                chunks.append(
+                    ChunkRecord(
+                        chunk_id=str(uuid4()),
+                        document_id=request.document_id,
+                        knowledge_base_id=request.knowledge_base_id,
+                        title=_chunk_title(parsed_document.title, parent_segment.section_title),
+                        chunk_index=chunk_index,
+                        content=parent_segment.content,
+                        metadata=_chunk_metadata(
+                            parsed_document=parsed_document,
+                            request=request,
+                            content=parent_segment.content,
+                            chunk_strategy="recursive-overlap",
+                            chunk_level="child",
+                            extra={
+                                "chunk_algorithm": "parent-child-single-child-downgrade",
+                                "chunk_size": child_size,
+                                "chunk_overlap": child_overlap,
+                                "min_chunk_size": min_child_size,
+                                "char_start": parent_segment.char_start,
+                                "char_end": parent_segment.char_end,
+                                "split_level": parent_segment.split_level,
+                                "heading_path": parent_segment.heading_path,
+                                "section_index": parent_segment.section_index,
+                                "section_title": parent_segment.section_title,
+                                "parent_child_downgrade_reason": "single-child-identical-parent",
+                            },
+                        ),
+                    )
+                )
+                chunk_index += 1
+                continue
             child_records: list[ChunkRecord] = []
             for child_ordinal, child_segment in enumerate(child_segments):
                 child_records.append(
@@ -398,6 +581,12 @@ def _recursive_document_segments(
     return segments
 
 
+def _child_segments_duplicate_parent(parent_segment: TextSegment, child_segments: list[TextSegment]) -> bool:
+    if len(child_segments) != 1:
+        return False
+    return child_segments[0].content.strip() == parent_segment.content.strip()
+
+
 def _parent_segments(*, source_text: str, parent_size: int, parent_overlap: int) -> list[TextSegment]:
     parent_segments: list[TextSegment] = []
     for section in _document_sections(source_text):
@@ -428,7 +617,7 @@ def _parent_segments(*, source_text: str, parent_size: int, parent_overlap: int)
                 section_title=section.section_title,
             )
         )
-    return parent_segments
+    return _deduplicate_segments(parent_segments)
 
 
 def _recursive_segments_for_range(
@@ -456,12 +645,30 @@ def _recursive_segments_for_range(
         section_index=section_index,
         section_title=section_title,
     )
-    return _merge_short_segments(
-        source_text=source_text,
-        segments=segments,
-        min_chunk_size=min_chunk_size,
-        max_chunk_size=chunk_size,
+    return _deduplicate_segments(
+        _merge_short_segments(
+            source_text=source_text,
+            segments=segments,
+            min_chunk_size=min_chunk_size,
+            max_chunk_size=chunk_size,
+        )
     )
+
+
+def _deduplicate_segments(segments: list[TextSegment]) -> list[TextSegment]:
+    deduped: list[TextSegment] = []
+    seen: set[tuple[tuple[str, ...], str | None, str]] = set()
+    for segment in segments:
+        key = (tuple(segment.heading_path), segment.section_title, _normalize_duplicate_text(segment.content))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(segment)
+    return deduped
+
+
+def _normalize_duplicate_text(value: str) -> str:
+    return re.sub(r"\s+", " ", value).strip()
 
 
 def _document_sections(text: str) -> list[TextSection]:
@@ -517,6 +724,9 @@ def _split_units_recursive(
     if trimmed is None:
         return []
     char_start, char_end, content = trimmed
+    atomic_units = _markdown_atomic_units(content, char_start, max_size, boundary_index, split_level)
+    if atomic_units is not None:
+        return atomic_units
     if len(content) <= max_size:
         return [TextUnit(start=char_start, end=char_end, split_level=split_level)]
 
@@ -546,6 +756,65 @@ def _split_units_recursive(
             )
         )
     return units
+
+
+def _markdown_atomic_units(
+    text: str,
+    base_start: int,
+    max_size: int,
+    boundary_index: int,
+    split_level: str,
+) -> list[TextUnit] | None:
+    spans = _markdown_atomic_spans(text)
+    if not spans:
+        return None
+
+    units: list[TextUnit] = []
+    cursor = 0
+    for start, end, atomic_level in spans:
+        if start > cursor:
+            units.extend(
+                _split_units_recursive(
+                    text[cursor:start],
+                    base_start + cursor,
+                    max_size,
+                    boundary_index,
+                    split_level,
+                )
+            )
+        trimmed = _trim_text_range(text[start:end], base_start + start, base_start + end)
+        if trimmed is not None:
+            units.append(TextUnit(start=trimmed[0], end=trimmed[1], split_level=atomic_level))
+        cursor = end
+
+    if cursor < len(text):
+        units.extend(
+            _split_units_recursive(
+                text[cursor:],
+                base_start + cursor,
+                max_size,
+                boundary_index,
+                split_level,
+            )
+        )
+    return units
+
+
+def _markdown_atomic_spans(text: str) -> list[tuple[int, int, str]]:
+    spans: list[tuple[int, int, str]] = []
+    for match in _FENCED_CODE_RE.finditer(text):
+        spans.append((match.start(), match.end(), "code-block"))
+    for match in _IMAGE_REFERENCE_LINE_RE.finditer(text):
+        spans.append((match.start(), match.end(), "image-reference"))
+    if not spans:
+        return []
+
+    merged: list[tuple[int, int, str]] = []
+    for start, end, level in sorted(spans, key=lambda item: (item[0], item[1])):
+        if merged and start < merged[-1][1]:
+            continue
+        merged.append((start, end, level))
+    return merged
 
 
 def _split_by_boundary(text: str, base_start: int, pattern: str) -> list[tuple[int, int]]:
@@ -588,6 +857,16 @@ def _pack_units(
     segments: list[TextSegment] = []
     current: list[TextUnit] = []
     for unit in units:
+        if unit.split_level in _ATOMIC_MARKDOWN_SPLIT_LEVELS:
+            if current:
+                segment = _segment_from_units(source_text, current, heading_path, section_index, section_title)
+                if segment is not None:
+                    segments.append(segment)
+                current = []
+            segment = _segment_from_units(source_text, [unit], heading_path, section_index, section_title)
+            if segment is not None:
+                segments.append(segment)
+            continue
         if current and unit.end - current[0].start > chunk_size:
             segment = _segment_from_units(source_text, current, heading_path, section_index, section_title)
             if segment is not None:
@@ -673,6 +952,8 @@ def _merge_short_segments(
     for segment in segments:
         if (
             merged
+            and segment.split_level not in _ATOMIC_MARKDOWN_SPLIT_LEVELS
+            and merged[-1].split_level not in _ATOMIC_MARKDOWN_SPLIT_LEVELS
             and len(segment.content) < min_chunk_size
             and segment.section_index == merged[-1].section_index
             and segment.char_end - merged[-1].char_start <= max_chunk_size + min_chunk_size
@@ -772,13 +1053,66 @@ def _table_sheet_name(*, parsed_document: ParsedDocument, request: DocumentInges
     return "Sheet1"
 
 
-def _table_group_content(*, sheet_name: str, columns: list[str], rows: list[list[str]], row_start: int) -> str:
+def _spreadsheet_tables_from_metadata(metadata: dict[str, object]) -> list[TableData]:
+    raw_tables = metadata.get("spreadsheet_tables")
+    if not isinstance(raw_tables, list):
+        return []
+    tables: list[TableData] = []
+    for raw_table in raw_tables:
+        if not isinstance(raw_table, dict):
+            continue
+        header = [str(value).strip() for value in raw_table.get("header", []) if str(value).strip()]
+        raw_rows = raw_table.get("rows", [])
+        if not header or not isinstance(raw_rows, list):
+            continue
+        rows = [
+            [str(value).strip() for value in row]
+            for row in raw_rows
+            if isinstance(row, list) and any(str(value).strip() for value in row)
+        ]
+        if not rows:
+            continue
+        row_numbers = [
+            int(value)
+            for value in raw_table.get("row_numbers", [])
+            if isinstance(value, int) or (isinstance(value, str) and value.isdigit())
+        ]
+        if len(row_numbers) != len(rows):
+            row_numbers = []
+        tables.append(
+            TableData(
+                header=header,
+                rows=rows,
+                header_row_number=_metadata_int(raw_table.get("header_row_number"), 1),
+                data_start_row_number=_metadata_int(raw_table.get("data_start_row_number"), 2),
+                sheet_name=str(raw_table.get("sheet_name") or "Sheet1").strip() or "Sheet1",
+                row_numbers=row_numbers or None,
+            )
+        )
+    return tables
+
+
+def _metadata_int(value: object, default: int) -> int:
+    try:
+        return int(str(value))
+    except Exception:
+        return default
+
+
+def _table_group_content(
+    *,
+    sheet_name: str,
+    columns: list[str],
+    rows: list[list[str]],
+    row_start: int,
+    row_numbers: list[int] | None = None,
+) -> str:
     lines = [
         f"Sheet: {sheet_name}",
         "Columns: " + " | ".join(columns),
     ]
     for index, row in enumerate(rows):
-        row_number = row_start + index
+        row_number = row_numbers[index] if row_numbers and index < len(row_numbers) else row_start + index
         values = [
             f"{column}={value}"
             for column, value in zip(columns, row, strict=False)
@@ -786,6 +1120,260 @@ def _table_group_content(*, sheet_name: str, columns: list[str], rows: list[list
         ]
         lines.append(f"Row {row_number}: " + " | ".join(values))
     return "\n".join(lines)
+
+
+def _code_segments(text: str, default_language: str | None) -> list[CodeSegment]:
+    fenced_segments = _fenced_code_segments(text, default_language)
+    if fenced_segments:
+        return fenced_segments
+
+    symbol_segments = _symbol_code_segments(text, default_language)
+    if symbol_segments:
+        return symbol_segments
+
+    if _looks_like_code_text(text):
+        stripped = text.strip()
+        char_start = text.find(stripped)
+        char_end = char_start + len(stripped)
+        return [
+            CodeSegment(
+                content=stripped,
+                char_start=char_start,
+                char_end=char_end,
+                language=default_language,
+                symbol_name=None,
+                symbol_type=None,
+                start_line=_line_number_at(text, char_start),
+                end_line=_line_number_at(text, char_end),
+                split_level="code-document",
+            )
+        ]
+    return []
+
+
+def _fenced_code_segments(text: str, default_language: str | None) -> list[CodeSegment]:
+    segments: list[CodeSegment] = []
+    for match in _FENCED_CODE_WITH_INFO_RE.finditer(text):
+        content = match.group(0).strip()
+        info = match.group(2).strip()
+        language = info.split()[0].lower() if info else default_language
+        symbol_type, symbol_name = _first_code_symbol(match.group(3))
+        segments.append(
+            CodeSegment(
+                content=content,
+                char_start=match.start(),
+                char_end=match.end(),
+                language=language,
+                symbol_name=symbol_name,
+                symbol_type=symbol_type,
+                start_line=_line_number_at(text, match.start()),
+                end_line=_line_number_at(text, match.end()),
+                split_level="code-block",
+            )
+        )
+    return segments
+
+
+def _symbol_code_segments(text: str, default_language: str | None) -> list[CodeSegment]:
+    matches = list(_CODE_SYMBOL_RE.finditer(text))
+    if not matches:
+        return []
+    min_indent = min(len(match.group("indent") or "") for match in matches)
+    matches = [match for match in matches if len(match.group("indent") or "") == min_indent]
+
+    segments: list[CodeSegment] = []
+    for index, match in enumerate(matches):
+        start = match.start()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        trimmed = _trim_text_range(text[start:end], start, end)
+        if trimmed is None:
+            continue
+        char_start, char_end, content = trimmed
+        symbol_type, symbol_name = _code_symbol_from_match(match)
+        segments.append(
+            CodeSegment(
+                content=content,
+                char_start=char_start,
+                char_end=char_end,
+                language=default_language,
+                symbol_name=symbol_name,
+                symbol_type=symbol_type,
+                start_line=_line_number_at(text, char_start),
+                end_line=_line_number_at(text, char_end),
+                split_level="code-symbol",
+            )
+        )
+    return segments
+
+
+def _first_code_symbol(code: str) -> tuple[str | None, str | None]:
+    match = _CODE_SYMBOL_RE.search(code)
+    return _code_symbol_from_match(match) if match else (None, None)
+
+
+def _code_symbol_from_match(match: re.Match[str]) -> tuple[str | None, str | None]:
+    pytype = match.groupdict().get("pytype")
+    pyname = match.groupdict().get("pyname")
+    if pytype and pyname:
+        return ("class" if pytype == "class" else "function"), pyname
+    if match.groupdict().get("jsclass"):
+        return "class", match.group("jsclass")
+    if match.groupdict().get("jsfunc"):
+        return "function", match.group("jsfunc")
+    if match.groupdict().get("javafunc"):
+        return "method", match.group("javafunc")
+    return None, None
+
+
+def _code_language(*, parsed_document: ParsedDocument, request: DocumentIngestRequest) -> str | None:
+    explicit = request.metadata.get("language") or request.metadata.get("code_language")
+    if explicit:
+        return str(explicit).strip().lower() or None
+    parsed = parsed_document.metadata.get("language") or parsed_document.metadata.get("code_language")
+    if parsed:
+        return str(parsed).strip().lower() or None
+    filename = str(request.file.filename).lower()
+    extension = filename.rsplit(".", 1)[-1] if "." in filename else ""
+    return {
+        "py": "python",
+        "js": "javascript",
+        "ts": "typescript",
+        "java": "java",
+        "go": "go",
+        "sql": "sql",
+        "sh": "shell",
+        "ps1": "powershell",
+    }.get(extension)
+
+
+def _code_chunk_title(document_title: str, segment: CodeSegment, index: int) -> str:
+    if segment.symbol_name:
+        return f"{document_title} / {segment.symbol_name}"
+    if segment.language:
+        return f"{document_title} / {segment.language} code {index + 1}"
+    return f"{document_title} / code {index + 1}"
+
+
+def _line_number_at(text: str, offset: int) -> int:
+    return text.count("\n", 0, max(0, min(offset, len(text)))) + 1
+
+
+def _looks_like_code_text(text: str) -> bool:
+    stripped = text.strip()
+    if not stripped:
+        return False
+    code_markers = (
+        "import ",
+        "from ",
+        "package ",
+        "public ",
+        "private ",
+        "protected ",
+        "const ",
+        "let ",
+        "var ",
+        "SELECT ",
+        "CREATE ",
+        "#!/bin/",
+    )
+    upper = stripped.upper()
+    return (
+        any(stripped.startswith(marker) for marker in code_markers)
+        or any(upper.startswith(marker) for marker in ("SELECT ", "CREATE ", "WITH "))
+        or stripped.count("{") + stripped.count("}") >= 2
+        or stripped.count(";") >= 2
+    )
+
+
+def _parse_qa_pairs(text: str) -> list[QAPair]:
+    pairs: list[QAPair] = []
+    current_question: str | None = None
+    answer_lines: list[str] = []
+    in_answer = False
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            if in_answer and answer_lines:
+                answer_lines.append("")
+            continue
+
+        question = _extract_question_line(line)
+        if question is not None:
+            if current_question and answer_lines:
+                answer = "\n".join(answer_lines).strip()
+                if answer:
+                    pairs.append(
+                        QAPair(
+                            question=current_question,
+                            answer=answer,
+                            question_type=_qa_question_type(current_question),
+                        )
+                    )
+            current_question = question
+            answer_lines = []
+            in_answer = False
+            continue
+
+        answer = _extract_answer_line(line)
+        if answer is not None and current_question:
+            in_answer = True
+            answer_lines = [answer] if answer else []
+            continue
+
+        if current_question:
+            if in_answer:
+                answer_lines.append(line)
+            elif answer_lines:
+                answer_lines.append(line)
+
+    if current_question and answer_lines:
+        answer = "\n".join(answer_lines).strip()
+        if answer:
+            pairs.append(
+                QAPair(
+                    question=current_question,
+                    answer=answer,
+                    question_type=_qa_question_type(current_question),
+                )
+            )
+    return pairs
+
+
+def _extract_question_line(line: str) -> str | None:
+    match = re.match(r"^(?:#{1,6}\s*)?(?:Q|Question|问题|问)[:：]\s*(.+)$", line, re.I)
+    if match:
+        return match.group(1).strip()
+    return None
+
+
+def _extract_answer_line(line: str) -> str | None:
+    match = re.match(r"^(?:A|Answer|答案|答)[:：]\s*(.*)$", line, re.I)
+    if match:
+        return match.group(1).strip()
+    return None
+
+
+def _qa_pair_content(pair: QAPair) -> str:
+    return f"Question: {pair.question}\nAnswer:\n{pair.answer}"
+
+
+def _qa_pair_title(document_title: str, pair: QAPair, index: int) -> str:
+    question = pair.question[:80].strip()
+    return f"{document_title} / Q{index + 1}: {question}" if question else f"{document_title} / Q{index + 1}"
+
+
+def _qa_question_type(question: str) -> str:
+    lowered = question.lower()
+    if any(term in lowered for term in ("compare", "difference", "vs", "对比", "区别", "差异")):
+        return "comparison"
+    if any(term in lowered for term in ("code", "implement", "代码", "实现")):
+        return "code"
+    if any(term in lowered for term in ("scenario", "case", "场景", "项目")):
+        return "scenario"
+    if any(term in lowered for term in ("why", "how", "什么", "为什么", "如何", "怎么")):
+        return "concept"
+    return "fact"
 
 
 def _trim_text_range(text: str, absolute_start: int, absolute_end: int) -> tuple[int, int, str] | None:
