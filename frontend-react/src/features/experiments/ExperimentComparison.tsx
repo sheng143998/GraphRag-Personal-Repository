@@ -12,6 +12,9 @@ interface AggregateRow {
   averageGrounded?: number;
   averageRetrieval?: number;
   averageRecallAtK?: number;
+  averageChunkRecallAtK?: number;
+  averageDocumentRecallAtK?: number;
+  averageEvidenceRecallAtK?: number;
   averagePrecisionAtK?: number;
   averageMrr?: number;
   averageCitationHit?: number;
@@ -169,7 +172,9 @@ export function ExperimentComparison(): JSX.Element {
                   <ScoreBar label="Grounded" value={row.averageGrounded} />
                   <ScoreBar label="Retrieval" value={row.averageRetrieval} />
                   <div className="metric-chip-row">
-                    <span>Recall {formatScore(row.averageRecallAtK)}</span>
+                    <span>Evidence R {formatScore(row.averageEvidenceRecallAtK ?? row.averageRecallAtK)}</span>
+                    <span>Chunk R {formatScore(row.averageChunkRecallAtK)}</span>
+                    <span>Doc R {formatScore(row.averageDocumentRecallAtK)}</span>
                     <span>Precision {formatScore(row.averagePrecisionAtK)}</span>
                     <span>MRR {formatScore(row.averageMrr)}</span>
                     <span>Citation {formatScore(row.averageCitationHit)}</span>
@@ -212,9 +217,9 @@ export function ExperimentComparison(): JSX.Element {
                       <dd>{row.latestStrategy}</dd>
                     </div>
                     <div>
-                      <dt>Recall / MRR</dt>
+                      <dt>Evidence / MRR</dt>
                       <dd>
-                        {formatScore(row.averageRecallAtK)} / {formatScore(row.averageMrr)}
+                        {formatScore(row.averageEvidenceRecallAtK ?? row.averageRecallAtK)} / {formatScore(row.averageMrr)}
                       </dd>
                     </div>
                   </dl>
@@ -255,9 +260,11 @@ export function ExperimentComparison(): JSX.Element {
                 <small>{formatScore(evaluation.retrievalScore)}</small>
               </span>
               <span>
-                R {formatScore(evaluation.recallAtK)} / P {formatScore(evaluation.precisionAtK)}
+                E {formatScore(evidenceRecall(evaluation))} / C {formatScore(evaluation.chunkRecallAtK)} / D{" "}
+                {formatScore(evaluation.documentRecallAtK)}
                 <small>
-                  MRR {formatScore(evaluation.mrr)} / Citation {formatScore(evaluation.citationHit)}
+                  P {formatScore(evaluation.precisionAtK)} / MRR {formatScore(evaluation.mrr)} / Citation{" "}
+                  {formatScore(evaluation.citationHit)}
                 </small>
               </span>
               <span>
@@ -292,6 +299,9 @@ function aggregateRows(
     const averageGrounded = average(items.map((item) => item.groundedScore));
     const averageRetrieval = average(items.map((item) => item.retrievalScore));
     const averageRecallAtK = average(items.map((item) => item.recallAtK));
+    const averageChunkRecallAtK = average(items.map((item) => item.chunkRecallAtK));
+    const averageDocumentRecallAtK = average(items.map((item) => item.documentRecallAtK));
+    const averageEvidenceRecallAtK = average(items.map((item) => evidenceRecall(item)));
     const averagePrecisionAtK = average(items.map((item) => item.precisionAtK));
     const averageMrr = average(items.map((item) => item.mrr));
     const averageCitationHit = average(items.map((item) => item.citationHit));
@@ -305,6 +315,9 @@ function aggregateRows(
       averageGrounded,
       averageRetrieval,
       averageRecallAtK,
+      averageChunkRecallAtK,
+      averageDocumentRecallAtK,
+      averageEvidenceRecallAtK,
       averagePrecisionAtK,
       averageMrr,
       averageCitationHit,
@@ -314,7 +327,7 @@ function aggregateRows(
       quality: average([
         averageGrounded,
         averageRetrieval,
-        averageRecallAtK,
+        averageEvidenceRecallAtK ?? averageRecallAtK,
         averagePrecisionAtK,
         averageMrr,
         averageCitationHit
@@ -337,6 +350,10 @@ function sortByQuality(left: AggregateRow, right: AggregateRow): number {
 
 function experimentName(id: string, experiments: ExperimentRecord[]): string {
   return experiments.find((experiment) => experiment.id === id)?.name ?? shortId(id);
+}
+
+function evidenceRecall(evaluation: ExperimentEvaluationHistory): number | undefined {
+  return evaluation.evidenceRecallAtK ?? evaluation.recallAtK ?? undefined;
 }
 
 function stageLatencySummary(evaluation: ExperimentEvaluationHistory): string {

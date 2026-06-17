@@ -1041,6 +1041,11 @@ README 更新规则：
 
 ## 13. 变更记录
 
+### 2026-06-17
+
+- React 实验评估页面完成三类 Recall 展示适配：Leaderboard、Batch 结果、Recent Evaluations 和策略对比页统一展示 `evidenceRecallAtK`、`chunkRecallAtK`、`documentRecallAtK`，并保留 Precision、MRR、Citation 指标；评测样本详情新增 required / supporting / acceptable / citation / relevant document 分层标注展示。
+- 验证 `npm.cmd --prefix frontend-react run typecheck`、`npm.cmd --prefix frontend-react run build`、`mvn.cmd -f backend-java/pom.xml test`、`ai-service/.venv/bin/python.exe -m pytest tests/test_strategy_comparison_evaluator.py` 通过。
+
 ### 2026-06-16
 
 - 完成文档上传链路升级：前端上传入口支持单篇、多篇和文件夹上传，文件夹上传会把浏览器 `webkitRelativePath` 传给 Spring Boot 并保存为 `sourcePath`。

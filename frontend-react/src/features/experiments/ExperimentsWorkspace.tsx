@@ -78,12 +78,14 @@ export function ExperimentsWorkspace(): JSX.Element {
   const activeCaseIds = filteredCases.map((item) => item.id);
   const recentEvaluations = summary.recentEvaluations ?? [];
   const strategyRows = useMemo(() => {
-    const grouped = new Map<string, { count: number; recall: number; precision: number; mrr: number; citation: number; grounded: number }>();
+    const grouped = new Map<string, { count: number; evidence: number; chunk: number; document: number; precision: number; mrr: number; citation: number; grounded: number }>();
     recentEvaluations.forEach((item) => {
       const key = item.runStrategyName || "unknown";
-      const current = grouped.get(key) ?? { count: 0, recall: 0, precision: 0, mrr: 0, citation: 0, grounded: 0 };
+      const current = grouped.get(key) ?? { count: 0, evidence: 0, chunk: 0, document: 0, precision: 0, mrr: 0, citation: 0, grounded: 0 };
       current.count += 1;
-      current.recall += item.recallAtK ?? 0;
+      current.evidence += evidenceRecall(item) ?? 0;
+      current.chunk += item.chunkRecallAtK ?? 0;
+      current.document += item.documentRecallAtK ?? 0;
       current.precision += item.precisionAtK ?? 0;
       current.mrr += item.mrr ?? 0;
       current.citation += item.citationHit ?? 0;
@@ -93,7 +95,9 @@ export function ExperimentsWorkspace(): JSX.Element {
     const rows = Array.from(grouped.entries()).map(([name, value]) => ({
       name,
       count: value.count,
-      recall: value.count ? value.recall / value.count : 0,
+      recall: value.count ? value.evidence / value.count : 0,
+      chunkRecall: value.count ? value.chunk / value.count : 0,
+      documentRecall: value.count ? value.document / value.count : 0,
       precision: value.count ? value.precision / value.count : 0,
       mrr: value.count ? value.mrr / value.count : 0,
       citation: value.count ? value.citation / value.count : 0,
@@ -101,9 +105,9 @@ export function ExperimentsWorkspace(): JSX.Element {
     }));
     const sorted = rows.sort((left, right) => right.recall - left.recall).slice(0, 4);
     const fallbackRows = [
-      { name: "hybrid-rerank", count: 0, recall: 0.94, precision: 0.82, mrr: 0.88, citation: 0.92, grounded: 0.96 },
-      { name: "parent-child", count: 0, recall: 0.89, precision: 0.75, mrr: 0.81, citation: 0.88, grounded: 0.84 },
-      { name: "basic-rag", count: 0, recall: 0.72, precision: 0.51, mrr: 0.65, citation: 0.64, grounded: 0.62 }
+      { name: "hybrid-rerank", count: 0, recall: 0.94, chunkRecall: 0.91, documentRecall: 0.97, precision: 0.82, mrr: 0.88, citation: 0.92, grounded: 0.96 },
+      { name: "parent-child", count: 0, recall: 0.89, chunkRecall: 0.84, documentRecall: 0.93, precision: 0.75, mrr: 0.81, citation: 0.88, grounded: 0.84 },
+      { name: "basic-rag", count: 0, recall: 0.72, chunkRecall: 0.66, documentRecall: 0.8, precision: 0.51, mrr: 0.65, citation: 0.64, grounded: 0.62 }
     ];
     const seen = new Set(sorted.map((item) => item.name));
     return [...sorted, ...fallbackRows.filter((item) => !seen.has(item.name))].slice(0, 3);
@@ -240,6 +244,10 @@ export function ExperimentsWorkspace(): JSX.Element {
             caseId: "advanced-rag-demo-001",
             question: "Advanced RAG 如何提升召回质量？",
             expectedAnswer: "应说明 query rewrite、multi-query、hybrid retrieval、rerank 等机制。",
+            requiredChunkIds: [],
+            supportingChunkIds: [],
+            acceptableChunkIds: [],
+            citationChunkIds: [],
             relevantChunkIds: [],
             relevantDocumentIds: [],
             expectedCitationChunkIds: [],
@@ -303,15 +311,16 @@ export function ExperimentsWorkspace(): JSX.Element {
           </div>
           <div className="leaderboard-table">
             <div className="leaderboard-head">
-              <span>Strategy</span><span>Recall@K</span><span>Prec@K</span><span>MRR</span><span>Citation</span><span>Grounded</span>
+              <span>Strategy</span><span>Evidence R</span><span>Chunk R</span><span>Doc R</span><span>Prec@K</span><span>MRR</span><span>Grounded</span>
             </div>
             {strategyRows.map((row, index) => (
               <div className="leaderboard-row" key={row.name}>
                 <strong><i className={index === 0 ? "hot" : ""} />{row.name}</strong>
                 <span>{formatScore(row.recall)}</span>
+                <span>{formatScore(row.chunkRecall)}</span>
+                <span>{formatScore(row.documentRecall)}</span>
                 <span>{formatScore(row.precision)}</span>
                 <span>{formatScore(row.mrr)}</span>
-                <span>{formatScore(row.citation)}</span>
                 <span>{formatScore(row.grounded)}</span>
               </div>
             ))}
@@ -370,7 +379,7 @@ export function ExperimentsWorkspace(): JSX.Element {
             className="dataset-textarea"
             value={datasetText}
             onChange={(event) => setDatasetText(event.target.value)}
-            placeholder="粘贴 JSON 数组，字段：caseId、question、expectedAnswer、relevantChunkIds、expectedCitationChunkIds、evaluationTopK"
+            placeholder="Paste JSON array: caseId, question, expectedAnswer, requiredChunkIds, supportingChunkIds, acceptableChunkIds, citationChunkIds, evaluationTopK"
           />
           <div className="two-fields">
             <label className="field">
@@ -448,14 +457,16 @@ export function ExperimentsWorkspace(): JSX.Element {
               <dl>
                 <dt>标准答案</dt>
                 <dd>{selectedCase.expectedAnswer || "未填写"}</dd>
-                <dt>相关 Chunk</dt>
-                <dd>{selectedCase.relevantChunkIds.length ? selectedCase.relevantChunkIds.map(shortId).join(", ") : "未标注"}</dd>
-                <dt>期望引用</dt>
-                <dd>
-                  {selectedCase.expectedCitationChunkIds.length
-                    ? selectedCase.expectedCitationChunkIds.map(shortId).join(", ")
-                    : "未标注"}
-                </dd>
+                <dt>Required chunks</dt>
+                <dd>{formatIds(selectedCase.requiredChunkIds, selectedCase.relevantChunkIds)}</dd>
+                <dt>Supporting chunks</dt>
+                <dd>{formatIds(selectedCase.supportingChunkIds)}</dd>
+                <dt>Acceptable chunks</dt>
+                <dd>{formatIds(selectedCase.acceptableChunkIds)}</dd>
+                <dt>Citation chunks</dt>
+                <dd>{formatIds(selectedCase.citationChunkIds, selectedCase.expectedCitationChunkIds)}</dd>
+                <dt>Relevant documents</dt>
+                <dd>{formatIds(selectedCase.relevantDocumentIds)}</dd>
               </dl>
             </div>
           ) : (
@@ -480,8 +491,7 @@ export function ExperimentsWorkspace(): JSX.Element {
                     run {shortId(item.runId)} / eval {shortId(item.evaluationId)}
                   </p>
                   <small>
-                    R {formatDecimal(item.recallAtK)} / P {formatDecimal(item.precisionAtK)} / MRR{" "}
-                    {formatDecimal(item.mrr)} / Citation {formatDecimal(item.citationHit)}
+                    E {formatDecimal(evidenceRecall(item))} / C {formatDecimal(item.chunkRecallAtK)} / D {formatDecimal(item.documentRecallAtK)} / P {formatDecimal(item.precisionAtK)} / MRR {formatDecimal(item.mrr)}
                   </small>
                   {item.errorMessage && <em>{item.errorMessage}</em>}
                 </article>
@@ -522,8 +532,8 @@ export function ExperimentsWorkspace(): JSX.Element {
               <span>{summarize(item.runQuestion, 90)}</span>
               <span>{formatScore(item.groundedScore)}</span>
               <span>
-                R {formatScore(item.recallAtK)} / P {formatScore(item.precisionAtK)}
-                <small>MRR {formatScore(item.mrr)}</small>
+                E {formatScore(evidenceRecall(item))} / C {formatScore(item.chunkRecallAtK)} / D {formatScore(item.documentRecallAtK)}
+                <small>P {formatScore(item.precisionAtK)} / MRR {formatScore(item.mrr)}</small>
               </span>
               <span>
                 {shortId(item.runId)}
@@ -545,6 +555,15 @@ function Metric({ label, value }: { label: string; value: React.ReactNode }): JS
       <strong>{value}</strong>
     </article>
   );
+}
+
+function evidenceRecall(item: { recallAtK?: number | null; evidenceRecallAtK?: number | null }): number | undefined {
+  return item.evidenceRecallAtK ?? item.recallAtK ?? undefined;
+}
+
+function formatIds(values: string[] | undefined, fallback?: string[]): string {
+  const source = values && values.length ? values : fallback ?? [];
+  return source.length ? source.map(shortId).join(", ") : "unlabeled";
 }
 
 function HealthMetric({ label, value }: { label: string; value: number }): JSX.Element {
