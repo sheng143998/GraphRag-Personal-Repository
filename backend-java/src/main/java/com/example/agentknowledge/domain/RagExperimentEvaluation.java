@@ -8,7 +8,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.Getter;
@@ -119,6 +121,23 @@ public class RagExperimentEvaluation {
     @Column(name = "strategy_config", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, Object> strategyConfig = new HashMap<>();
+
+    @Column(name = "ragas_scores", nullable = false, columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Map<String, Object> ragasScores = new HashMap<>();
+
+    @Column(name = "ragas_metric_names", nullable = false, columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<String> ragasMetricNames = new ArrayList<>();
+
+    @Column(name = "ragas_version", length = 80)
+    private String ragasVersion;
+
+    @Column(name = "ragas_judge_model", length = 160)
+    private String ragasJudgeModel;
+
+    @Column(name = "ragas_report_uri", columnDefinition = "TEXT")
+    private String ragasReportUri;
 
     @Column(name = "expected_answer", columnDefinition = "TEXT")
     private String expectedAnswer;

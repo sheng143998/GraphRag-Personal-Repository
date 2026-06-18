@@ -1,20 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   createExperiment,
+  deleteEvaluationCase,
+  deleteExperiment,
   fetchEvaluationCases,
   fetchExperimentEvaluationSummary,
   fetchExperiments,
   importEvaluationCases,
-  runEvaluationCasesBatch
+  runEvaluationCasesBatch,
+  updateEvaluationCase
 } from "../../api/experiments";
 import { fetchKnowledgeBases } from "../../api/knowledgeBases";
 import type {
   EvaluationCaseRecord,
+  EvaluationCaseReviewStatus,
   ExperimentEvaluationSummary,
   ExperimentRecord,
   ImportEvaluationCasesResponse,
   KnowledgeBaseSummary,
-  RunEvaluationCasesBatchResponse
+  RunEvaluationCasesBatchResponse,
+  UpdateEvaluationCasePayload
 } from "../../types";
 import { formatDate, formatDecimal, formatScore, shortId, summarize } from "./formatters";
 import { parseImportItems } from "./importParser";
@@ -28,9 +33,51 @@ const STRATEGY_OPTIONS = [
   "graph-rag"
 ];
 
+type ReviewStatusFilter = "ALL" | EvaluationCaseReviewStatus;
+type NormalizedReviewStatus = EvaluationCaseReviewStatus | "ARCHIVED";
+
+interface ReviewDraft {
+  question: string;
+  expectedAnswer: string;
+  requiredChunkIds: string;
+  supportingChunkIds: string;
+  acceptableChunkIds: string;
+  citationChunkIds: string;
+  relevantChunkIds: string;
+  expectedCitationChunkIds: string;
+  notes: string;
+  evaluationTopK: number;
+}
+
+const REVIEW_STATUS_OPTIONS: Array<{ value: ReviewStatusFilter; label: string }> = [
+  { value: "ALL", label: "全部" },
+  { value: "DRAFT", label: "待审" },
+  { value: "ACTIVE", label: "已通过" },
+  { value: "REJECTED", label: "已拒绝" }
+];
+
+const REVIEW_ACTIONS: Array<{ status: EvaluationCaseReviewStatus; label: string; icon: string }> = [
+  { status: "ACTIVE", label: "通过", icon: "check_circle" },
+  { status: "REJECTED", label: "拒绝", icon: "block" },
+  { status: "DRAFT", label: "待审", icon: "pending_actions" }
+];
+
 const EMPTY_SUMMARY: ExperimentEvaluationSummary = {
   evaluationCount: 0,
   recentEvaluations: []
+};
+
+const EMPTY_REVIEW_DRAFT: ReviewDraft = {
+  question: "",
+  expectedAnswer: "",
+  requiredChunkIds: "",
+  supportingChunkIds: "",
+  acceptableChunkIds: "",
+  citationChunkIds: "",
+  relevantChunkIds: "",
+  expectedCitationChunkIds: "",
+  notes: "",
+  evaluationTopK: 5
 };
 
 export function ExperimentsWorkspace(): JSX.Element {
@@ -41,15 +88,20 @@ export function ExperimentsWorkspace(): JSX.Element {
   const [selectedExperimentId, setSelectedExperimentId] = useState("");
   const [selectedCaseId, setSelectedCaseId] = useState("");
   const [keyword, setKeyword] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ReviewStatusFilter>("ALL");
   const [datasetText, setDatasetText] = useState("");
   const [autoRun, setAutoRun] = useState(true);
   const [strategyName, setStrategyName] = useState("hybrid-rerank");
   const [topK, setTopK] = useState(5);
+  const [reviewDraft, setReviewDraft] = useState<ReviewDraft>(EMPTY_REVIEW_DRAFT);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [deletingAction, setDeletingAction] = useState("");
   const [statusText, setStatusText] = useState("");
   const [errorText, setErrorText] = useState("");
   const [lastImport, setLastImport] = useState<ImportEvaluationCasesResponse | null>(null);
+  const [lastImportedCaseIds, setLastImportedCaseIds] = useState<string[]>([]);
   const [lastBatch, setLastBatch] = useState<RunEvaluationCasesBatchResponse | null>(null);
 
   const selectedExperiment = experiments.find((item) => item.id === selectedExperimentId);
@@ -59,12 +111,28 @@ export function ExperimentsWorkspace(): JSX.Element {
     const lowerKeyword = keyword.trim().toLowerCase();
     return cases.filter((item) => {
       const matchExperiment = !selectedExperimentId || item.experimentId === selectedExperimentId;
+      const normalizedStatus = normalizeReviewStatus(item.status);
+      const matchStatus = statusFilter === "ALL" || normalizedStatus === statusFilter;
       const matchKeyword =
         !lowerKeyword ||
         [item.caseId, item.question, item.notes ?? ""].some((value) => value.toLowerCase().includes(lowerKeyword));
-      return matchExperiment && item.status !== "ARCHIVED" && matchKeyword;
+      return matchExperiment && normalizedStatus !== "ARCHIVED" && matchStatus && matchKeyword;
     });
-  }, [cases, keyword, selectedExperimentId]);
+  }, [cases, keyword, selectedExperimentId, statusFilter]);
+
+  const reviewCounts = useMemo(() => {
+    const counts: Record<ReviewStatusFilter, number> = { ALL: 0, DRAFT: 0, ACTIVE: 0, REJECTED: 0 };
+    cases.forEach((item) => {
+      if (selectedExperimentId && item.experimentId !== selectedExperimentId) return;
+      const status = normalizeReviewStatus(item.status);
+      if (status === "ARCHIVED") return;
+      counts.ALL += 1;
+      if (status === "DRAFT" || status === "ACTIVE" || status === "REJECTED") {
+        counts[status] += 1;
+      }
+    });
+    return counts;
+  }, [cases, selectedExperimentId]);
 
   const importPreviewCount = useMemo(() => {
     try {
@@ -75,7 +143,8 @@ export function ExperimentsWorkspace(): JSX.Element {
   }, [datasetText]);
 
   const canImport = datasetText.trim().length > 0 && !importing;
-  const activeCaseIds = filteredCases.map((item) => item.id);
+  const runnableCaseIds = filteredCases.filter((item) => normalizeReviewStatus(item.status) === "ACTIVE").map((item) => item.id);
+  const busyDeleting = deletingAction.length > 0;
   const recentEvaluations = summary.recentEvaluations ?? [];
   const strategyRows = useMemo(() => {
     const grouped = new Map<string, { count: number; evidence: number; chunk: number; document: number; precision: number; mrr: number; citation: number; grounded: number }>();
@@ -164,6 +233,7 @@ export function ExperimentsWorkspace(): JSX.Element {
     setImporting(true);
     setErrorText("");
     setLastImport(null);
+    setLastImportedCaseIds([]);
     setLastBatch(null);
     setStatusText("正在解析本地评测集...");
     try {
@@ -177,6 +247,7 @@ export function ExperimentsWorkspace(): JSX.Element {
       const latestCases = await fetchEvaluationCases(experimentId);
       setCases(latestCases);
       const successfulCaseIds = resolveImportedCaseIds(experimentId, imported, latestCases);
+      setLastImportedCaseIds(successfulCaseIds);
       setStatusText(
         `导入完成：新增 ${imported.createdCount}，更新 ${imported.updatedCount}，失败 ${imported.failedCount}。`
       );
@@ -205,14 +276,14 @@ export function ExperimentsWorkspace(): JSX.Element {
   }
 
   async function handleRunSelected(): Promise<void> {
-    if (!selectedExperimentId || activeCaseIds.length === 0) return;
+    if (!selectedExperimentId || runnableCaseIds.length === 0) return;
     setImporting(true);
     setErrorText("");
-    setStatusText(`正在对当前筛选的 ${activeCaseIds.length} 条样本执行批量评测...`);
+    setStatusText(`正在对当前筛选的 ${runnableCaseIds.length} 条已通过样本执行批量评测...`);
     try {
       const batch = await runEvaluationCasesBatch({
         experimentId: selectedExperimentId,
-        caseIds: activeCaseIds,
+        caseIds: runnableCaseIds,
         strategyName,
         retrieverType: "hybrid",
         topK
@@ -225,6 +296,107 @@ export function ExperimentsWorkspace(): JSX.Element {
       setStatusText("");
     } finally {
       setImporting(false);
+    }
+  }
+
+  async function handleSaveReview(nextStatus?: EvaluationCaseReviewStatus): Promise<void> {
+    if (!selectedCase) return;
+    const question = reviewDraft.question.trim();
+    if (!question) {
+      setErrorText("问题不能为空。");
+      return;
+    }
+
+    setReviewSaving(true);
+    setErrorText("");
+    try {
+      const payload = buildReviewPayload(selectedCase, reviewDraft, nextStatus);
+      const updated = await updateEvaluationCase(selectedCase.id, payload);
+      setCases((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setSelectedCaseId(updated.id);
+      setStatusText(nextStatus ? `${updated.caseId} 已标记为${reviewStatusMeta(updated.status).label}。` : `${updated.caseId} 已保存。`);
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : "保存审核结果失败。");
+      setStatusText("");
+    } finally {
+      setReviewSaving(false);
+    }
+  }
+
+  async function handleDeleteSelectedCase(): Promise<void> {
+    if (!selectedCase || busyDeleting) return;
+    const confirmed = window.confirm(`确认删除样本「${selectedCase.caseId}」吗？该操作不可撤销。`);
+    if (!confirmed) return;
+    await deleteCasesByIds([selectedCase.id], `样本 ${selectedCase.caseId} 已删除。`, "case");
+  }
+
+  async function handleDeleteFilteredCases(): Promise<void> {
+    if (filteredCases.length === 0 || busyDeleting) return;
+    const confirmed = window.confirm(
+      `确认删除当前筛选出的 ${filteredCases.length} 条样本吗？该操作不可撤销。`
+    );
+    if (!confirmed) return;
+    await deleteCasesByIds(
+      filteredCases.map((item) => item.id),
+      `已删除当前筛选的 ${filteredCases.length} 条样本。`,
+      "filtered"
+    );
+  }
+
+  async function handleDeleteLastImportedCases(): Promise<void> {
+    const existingIds = lastImportedCaseIds.filter((id) => cases.some((item) => item.id === id));
+    if (existingIds.length === 0 || busyDeleting) return;
+    const confirmed = window.confirm(`确认删除最近导入的 ${existingIds.length} 条样本吗？该操作不可撤销。`);
+    if (!confirmed) return;
+    await deleteCasesByIds(existingIds, `已删除最近导入的 ${existingIds.length} 条样本。`, "last-import");
+    setLastImportedCaseIds([]);
+  }
+
+  async function handleDeleteSelectedExperiment(): Promise<void> {
+    if (!selectedExperiment || busyDeleting) return;
+    const selectedExperimentCases = cases.filter((item) => item.experimentId === selectedExperiment.id).length;
+    const confirmed = window.confirm(
+      `确认删除实验「${selectedExperiment.name}」吗？将同时移除该实验下的 ${selectedExperimentCases} 条样本和关联记录。`
+    );
+    if (!confirmed) return;
+
+    setDeletingAction("experiment");
+    setErrorText("");
+    try {
+      await deleteExperiment(selectedExperiment.id);
+      setStatusText(`实验「${selectedExperiment.name}」已删除。`);
+      setSelectedExperimentId("");
+      setSelectedCaseId("");
+      setLastImportedCaseIds([]);
+      await loadAll("");
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : "删除实验失败。");
+      setStatusText("");
+    } finally {
+      setDeletingAction("");
+    }
+  }
+
+  async function deleteCasesByIds(ids: string[], successMessage: string, actionName: string): Promise<void> {
+    const uniqueIds = Array.from(new Set(ids));
+    if (uniqueIds.length === 0) return;
+
+    setDeletingAction(actionName);
+    setErrorText("");
+    try {
+      for (const id of uniqueIds) {
+        await deleteEvaluationCase(id);
+      }
+      setCases((current) => current.filter((item) => !uniqueIds.includes(item.id)));
+      setSelectedCaseId((current) => (current && uniqueIds.includes(current) ? "" : current));
+      setLastImportedCaseIds((current) => current.filter((id) => !uniqueIds.includes(id)));
+      setLastBatch(null);
+      setStatusText(successMessage);
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : "删除样本失败。");
+      setStatusText("");
+    } finally {
+      setDeletingAction("");
     }
   }
 
@@ -281,8 +453,13 @@ export function ExperimentsWorkspace(): JSX.Element {
   }, []);
 
   useEffect(() => {
+    if (filteredCases.some((item) => item.id === selectedCaseId)) return;
     setSelectedCaseId(filteredCases[0]?.id ?? "");
-  }, [selectedExperimentId]);
+  }, [filteredCases, selectedCaseId]);
+
+  useEffect(() => {
+    setReviewDraft(selectedCase ? reviewDraftFromCase(selectedCase) : EMPTY_REVIEW_DRAFT);
+  }, [selectedCase]);
 
   return (
     <div className="experiments-page">
@@ -296,9 +473,18 @@ export function ExperimentsWorkspace(): JSX.Element {
             <span className="material-symbols-outlined">refresh</span>
             刷新数据
           </button>
-          <button className="button primary" type="button" onClick={() => void handleRunSelected()} disabled={!selectedExperimentId || importing || activeCaseIds.length === 0}>
+          <button className="button primary" type="button" onClick={() => void handleRunSelected()} disabled={!selectedExperimentId || importing || runnableCaseIds.length === 0}>
             <span className="material-symbols-outlined">batch_prediction</span>
-            批量评测
+            运行已通过样本
+          </button>
+          <button
+            className="button danger"
+            type="button"
+            onClick={() => void handleDeleteSelectedExperiment()}
+            disabled={!selectedExperimentId || busyDeleting}
+          >
+            <span className="material-symbols-outlined">delete_forever</span>
+            删除当前实验
           </button>
         </div>
       </section>
@@ -383,7 +569,7 @@ export function ExperimentsWorkspace(): JSX.Element {
           />
           <div className="two-fields">
             <label className="field">
-              <span>策略 preset</span>
+              <span>策略预设</span>
               <select value={strategyName} onChange={(event) => setStrategyName(event.target.value)}>
                 {STRATEGY_OPTIONS.map((strategy) => (
                   <option key={strategy} value={strategy}>
@@ -408,6 +594,14 @@ export function ExperimentsWorkspace(): JSX.Element {
             <button className="button secondary" type="button" onClick={fillExample}>
               填入示例
             </button>
+            <button
+              className="button danger ghost"
+              type="button"
+              onClick={() => void handleDeleteLastImportedCases()}
+              disabled={busyDeleting || lastImportedCaseIds.length === 0}
+            >
+              删除最近导入
+            </button>
           </div>
         </aside>
 
@@ -415,14 +609,38 @@ export function ExperimentsWorkspace(): JSX.Element {
           <div className="panel-header">
             <div>
               <h2>{selectedExperiment?.name ?? "全部实验样本"}</h2>
-              <p>{selectedExperiment?.description ?? "选择实验后查看样本、运行结果和人工标注。"}</p>
+              <p>{selectedExperiment?.description ?? "选择实验后查看样本、运行结果和人工审核。"}</p>
             </div>
-            <input
-              className="search-input"
-              value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
-              placeholder="搜索样本编号 / 问题 / 备注"
-            />
+            <div className="sample-tools">
+              <div className="review-filter-tabs" aria-label="审核状态筛选">
+                {REVIEW_STATUS_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    className={statusFilter === option.value ? "is-active" : ""}
+                    type="button"
+                    onClick={() => setStatusFilter(option.value)}
+                  >
+                    {option.label}
+                    <span>{reviewCounts[option.value]}</span>
+                  </button>
+                ))}
+              </div>
+              <input
+                className="search-input"
+                value={keyword}
+                onChange={(event) => setKeyword(event.target.value)}
+                placeholder="搜索样本编号 / 问题 / 备注"
+              />
+              <button
+                className="button danger ghost"
+                type="button"
+                onClick={() => void handleDeleteFilteredCases()}
+                disabled={busyDeleting || filteredCases.length === 0}
+              >
+                <span className="material-symbols-outlined">playlist_remove</span>
+                删除当前筛选样本
+              </button>
+            </div>
           </div>
           <div className="sample-list">
             {filteredCases.map((item) => (
@@ -436,7 +654,12 @@ export function ExperimentsWorkspace(): JSX.Element {
                   <strong>{item.caseId}</strong>
                   <p>{summarize(item.question, 116)}</p>
                 </div>
-                <span>topK {item.evaluationTopK}</span>
+                <div className="sample-row-meta">
+                  <span className={`review-status ${reviewStatusMeta(item.status).className}`}>
+                    {reviewStatusMeta(item.status).label}
+                  </span>
+                  <span>召回 {item.evaluationTopK}</span>
+                </div>
               </button>
             ))}
             {filteredCases.length === 0 && <div className="empty-state">当前筛选下没有可用评测样本。</div>}
@@ -445,29 +668,128 @@ export function ExperimentsWorkspace(): JSX.Element {
       </div>
 
       <div className="detail-grid">
-        <section className="panel">
+        <section className="panel review-panel">
           <div className="panel-header">
-            <h2>样本详情</h2>
-            <span>{selectedCase ? formatDate(selectedCase.updatedAt) : "-"}</span>
+            <div>
+              <h2>人工审核</h2>
+              <p>逐条校准问题、标准答案、证据片段和备注，再标记审核结论。</p>
+            </div>
+            {selectedCase && (
+              <span className={`review-status ${reviewStatusMeta(selectedCase.status).className}`}>
+                {reviewStatusMeta(selectedCase.status).label}
+              </span>
+            )}
           </div>
           {selectedCase ? (
-            <div className="case-detail">
-              <h3>{selectedCase.caseId}</h3>
-              <p>{selectedCase.question}</p>
-              <dl>
-                <dt>标准答案</dt>
-                <dd>{selectedCase.expectedAnswer || "未填写"}</dd>
-                <dt>必需片段</dt>
-                <dd>{formatIds(selectedCase.requiredChunkIds, selectedCase.relevantChunkIds)}</dd>
-                <dt>支撑片段</dt>
-                <dd>{formatIds(selectedCase.supportingChunkIds)}</dd>
-                <dt>可接受片段</dt>
-                <dd>{formatIds(selectedCase.acceptableChunkIds)}</dd>
-                <dt>引用片段</dt>
-                <dd>{formatIds(selectedCase.citationChunkIds, selectedCase.expectedCitationChunkIds)}</dd>
-                <dt>相关文档</dt>
-                <dd>{formatIds(selectedCase.relevantDocumentIds)}</dd>
-              </dl>
+            <div className="review-editor">
+              <div className="review-meta-row">
+                <span>样本 {selectedCase.caseId}</span>
+                <span>更新 {formatDate(selectedCase.updatedAt)}</span>
+              </div>
+              <label className="field review-field">
+                <span>问题</span>
+                <textarea
+                  className="review-textarea"
+                  value={reviewDraft.question}
+                  onChange={(event) => setReviewDraft((current) => ({ ...current, question: event.target.value }))}
+                />
+              </label>
+              <label className="field review-field">
+                <span>标准答案</span>
+                <textarea
+                  className="review-textarea answer"
+                  value={reviewDraft.expectedAnswer}
+                  onChange={(event) => setReviewDraft((current) => ({ ...current, expectedAnswer: event.target.value }))}
+                  placeholder="填写可用于评估的参考答案"
+                />
+              </label>
+              <div className="chunk-field-grid">
+                <label className="field review-field">
+                  <span>必需片段 ID</span>
+                  <textarea
+                    className="review-textarea ids"
+                    value={reviewDraft.requiredChunkIds}
+                    onChange={(event) => setReviewDraft((current) => ({ ...current, requiredChunkIds: event.target.value }))}
+                    placeholder="每行一个，或用逗号分隔"
+                  />
+                </label>
+                <label className="field review-field">
+                  <span>支撑片段 ID</span>
+                  <textarea
+                    className="review-textarea ids"
+                    value={reviewDraft.supportingChunkIds}
+                    onChange={(event) => setReviewDraft((current) => ({ ...current, supportingChunkIds: event.target.value }))}
+                    placeholder="每行一个，或用逗号分隔"
+                  />
+                </label>
+                <label className="field review-field">
+                  <span>可接受片段 ID</span>
+                  <textarea
+                    className="review-textarea ids"
+                    value={reviewDraft.acceptableChunkIds}
+                    onChange={(event) => setReviewDraft((current) => ({ ...current, acceptableChunkIds: event.target.value }))}
+                    placeholder="每行一个，或用逗号分隔"
+                  />
+                </label>
+                <label className="field review-field">
+                  <span>引用片段 ID</span>
+                  <textarea
+                    className="review-textarea ids"
+                    value={reviewDraft.citationChunkIds}
+                    onChange={(event) => setReviewDraft((current) => ({ ...current, citationChunkIds: event.target.value }))}
+                    placeholder="每行一个，或用逗号分隔"
+                  />
+                </label>
+              </div>
+              <div className="two-fields review-topk-row">
+                <label className="field review-field">
+                  <span>备注</span>
+                  <textarea
+                    className="review-textarea notes"
+                    value={reviewDraft.notes}
+                    onChange={(event) => setReviewDraft((current) => ({ ...current, notes: event.target.value }))}
+                    placeholder="记录调整原因、证据边界或待补充事项"
+                  />
+                </label>
+                <label className="field review-field">
+                  <span>召回数量</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={reviewDraft.evaluationTopK}
+                    onChange={(event) =>
+                      setReviewDraft((current) => ({ ...current, evaluationTopK: Number(event.target.value) || 1 }))
+                    }
+                  />
+                </label>
+              </div>
+              <div className="review-actions">
+                <button className="button secondary" type="button" onClick={() => void handleSaveReview()} disabled={reviewSaving}>
+                  <span className="material-symbols-outlined">save</span>
+                  保存修改
+                </button>
+                {REVIEW_ACTIONS.map((action) => (
+                  <button
+                    key={action.status}
+                    className={`button ${action.status === "ACTIVE" ? "primary" : "secondary"}`}
+                    type="button"
+                    onClick={() => void handleSaveReview(action.status)}
+                    disabled={reviewSaving}
+                  >
+                    <span className="material-symbols-outlined">{action.icon}</span>
+                    {action.label}
+                  </button>
+                ))}
+                <button
+                  className="button danger ghost"
+                  type="button"
+                  onClick={() => void handleDeleteSelectedCase()}
+                  disabled={busyDeleting || reviewSaving}
+                >
+                  <span className="material-symbols-outlined">delete</span>
+                  删除样本
+                </button>
+              </div>
             </div>
           ) : (
             <div className="empty-state">请选择一个评测样本。</div>
@@ -485,7 +807,7 @@ export function ExperimentsWorkspace(): JSX.Element {
                 <article key={`${item.caseId}-${item.caseKey}`} className={`batch-item ${item.status.toLowerCase()}`}>
                   <div>
                     <strong>{item.caseKey || shortId(item.caseId)}</strong>
-                    <span>{item.status}</span>
+                    <span>{formatRunStatus(item.status)}</span>
                   </div>
                   <p>
                     运行 {shortId(item.runId)} / 评估 {shortId(item.evaluationId)}
@@ -561,9 +883,115 @@ function evidenceRecall(item: { recallAtK?: number | null; evidenceRecallAtK?: n
   return item.evidenceRecallAtK ?? item.recallAtK ?? undefined;
 }
 
-function formatIds(values: string[] | undefined, fallback?: string[]): string {
-  const source = values && values.length ? values : fallback ?? [];
-  return source.length ? source.map(shortId).join(", ") : "未标注";
+function formatRunStatus(status?: string | null): string {
+  const normalized = (status ?? "").trim().toUpperCase();
+  if (normalized === "COMPLETED" || normalized === "SUCCESS") return "成功";
+  if (normalized === "FAILED" || normalized === "ERROR") return "失败";
+  if (normalized === "RUNNING" || normalized === "PROCESSING") return "运行中";
+  return "未知";
+}
+
+function normalizeReviewStatus(status?: string | null): NormalizedReviewStatus {
+  const normalized = (status ?? "DRAFT").trim().toUpperCase();
+  if (normalized === "ACTIVE" || normalized === "REJECTED" || normalized === "ARCHIVED") {
+    return normalized;
+  }
+  return "DRAFT";
+}
+
+function reviewStatusMeta(status?: string | null): { label: string; className: string } {
+  const normalized = normalizeReviewStatus(status);
+  if (normalized === "ACTIVE") return { label: "已通过", className: "active" };
+  if (normalized === "REJECTED") return { label: "已拒绝", className: "rejected" };
+  if (normalized === "ARCHIVED") return { label: "已归档", className: "archived" };
+  return { label: "待审", className: "draft" };
+}
+
+function reviewDraftFromCase(item: EvaluationCaseRecord): ReviewDraft {
+  return {
+    question: item.question ?? "",
+    expectedAnswer: item.expectedAnswer ?? "",
+    requiredChunkIds: joinReviewIds(item.requiredChunkIds.length ? item.requiredChunkIds : item.relevantChunkIds),
+    supportingChunkIds: joinReviewIds(item.supportingChunkIds),
+    acceptableChunkIds: joinReviewIds(item.acceptableChunkIds),
+    citationChunkIds: joinReviewIds(
+      item.citationChunkIds.length ? item.citationChunkIds : item.expectedCitationChunkIds
+    ),
+    relevantChunkIds: joinReviewIds(item.relevantChunkIds),
+    expectedCitationChunkIds: joinReviewIds(item.expectedCitationChunkIds),
+    notes: item.notes ?? "",
+    evaluationTopK: item.evaluationTopK || 5
+  };
+}
+
+function buildReviewPayload(
+  source: EvaluationCaseRecord,
+  draft: ReviewDraft,
+  nextStatus?: EvaluationCaseReviewStatus
+): UpdateEvaluationCasePayload {
+  const requiredChunkIds = splitReviewIds(draft.requiredChunkIds);
+  const supportingChunkIds = splitReviewIds(draft.supportingChunkIds);
+  const acceptableChunkIds = splitReviewIds(draft.acceptableChunkIds);
+  const citationChunkIds = splitReviewIds(draft.citationChunkIds);
+  const preservedRelevantChunkIds = splitReviewIds(draft.relevantChunkIds);
+  const preservedExpectedCitationChunkIds = splitReviewIds(draft.expectedCitationChunkIds);
+  const relevantChunkIds = dedupeReviewIds([
+    ...preservedRelevantChunkIds,
+    ...requiredChunkIds,
+    ...supportingChunkIds,
+    ...acceptableChunkIds
+  ]);
+  const expectedCitationChunkIds = dedupeReviewIds([
+    ...preservedExpectedCitationChunkIds,
+    ...citationChunkIds
+  ]);
+
+  return {
+    experimentId: source.experimentId,
+    caseId: source.caseId,
+    question: draft.question.trim(),
+    expectedAnswer: draft.expectedAnswer.trim(),
+    requiredChunkIds,
+    supportingChunkIds,
+    acceptableChunkIds,
+    citationChunkIds,
+    relevantChunkIds,
+    relevantDocumentIds: source.relevantDocumentIds,
+    expectedCitationChunkIds,
+    evaluationTopK: Math.max(1, Math.round(draft.evaluationTopK || source.evaluationTopK || 5)),
+    notes: draft.notes.trim(),
+    status: nextStatus ?? normalizeReviewStatus(source.status)
+  };
+}
+
+function splitReviewIds(value: string): string[] {
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (Array.isArray(parsed)) return dedupeReviewIds(parsed.map((item) => String(item)));
+    } catch {
+      // 审核输入允许粘贴非严格 JSON，下面继续按分隔符解析。
+    }
+  }
+  return dedupeReviewIds(trimmed.split(/[\s,;；，、]+/u));
+}
+
+function joinReviewIds(values: string[] | undefined): string {
+  return (values ?? []).join("\n");
+}
+
+function dedupeReviewIds(values: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  values.forEach((value) => {
+    const normalized = value.trim();
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    result.push(normalized);
+  });
+  return result;
 }
 
 function HealthMetric({ label, value }: { label: string; value: number }): JSX.Element {

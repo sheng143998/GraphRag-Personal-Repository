@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from app.core.tracing import TraceBuilder
+from app.agents.graphs.support_supervisor import is_support_request
 from app.schemas.agent import (
     AgentInvokeRequest,
     AgentWorkflowStep,
@@ -66,27 +67,7 @@ class StudyAgentWorkflow:
             str(variables.get("scenario", "")).lower(),
             str(variables.get("agent_profile", "")).lower(),
         }
-        text = request.user_input.lower()
-        support_mode = (
-            any(
-                term in request.agent_name.lower()
-                for term in ("support", "after-sales", "aftersales", "customer-success")
-            )
-            or bool(mode_values & {"support", "after-sales", "aftersales", "technical-support", "customer-support"})
-            or _contains_any(
-                text,
-                (
-                    "support ticket",
-                    "customer issue",
-                    "customer escalation",
-                    "sla",
-                    "\u5de5\u5355",
-                    "\u552e\u540e",
-                    "\u5ba2\u6237",
-                    "\u62a5\u4fee",
-                ),
-            )
-        )
+        support_mode = is_support_request(request)
         state.support_mode = support_mode
         trace_builder.set_attribute("support_mode", support_mode)
         if not support_mode:

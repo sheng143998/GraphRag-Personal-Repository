@@ -1,7 +1,7 @@
 ﻿# 本地知识库 Agent 项目上下文
 
-更新时间：2026-06-17
-项目状态：Phase 0-9 已完成工程闭环，覆盖三服务架构、文档入库、基础 RAG、Advanced RAG、Agent 学习闭环、GraphRAG、RAG 实验评估、评测集管理工具、复习辅助与 Coze Studio 风格前端工作台重构；2026-06-16 已完成文档上传入口升级，支持单篇、多篇和文件夹上传，默认使用 Spring `@Async` 本地线程池异步解析，并可通过 RabbitMQ 队列模式提交文档入库任务；同日新增 `frontend-react/` React + TypeScript 并行迁移工作区，按 Stitch RAG Knowledge Studio 设计实现第一版工作台页面；2026-06-17 AI 服务 chunk 切分继续增强，覆盖 Markdown block-aware、DOCX 标题/表格结构、MinerU PDF block metadata、Q&A chunker 与 code-aware chunker，并修复 MinerU 标准 batch 轮询端点导致的假超时；同日新增 RAGAS 兼容评估侧路，支持从已上传文档 chunk 自动生成 DRAFT 测评集草稿、人工审核 CSV、RAGAS JSONL 导出与独立环境离线评分；同日新增企业售后技术支持 Agent 编排，返回结构化 `supportPlan`，覆盖澄清问题、证据引用、诊断步骤、升级建议、风险提示和下一步动作；同日 `frontend-react/` 完成售后支持工作台中文化与美学优化，支持结构化展示 `supportPlan` 并通过 Playwright 渲染验证。前端浏览器请求继续只进入 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑。
+更新时间：2026-06-18
+项目状态：Phase 0-9 已完成工程闭环，覆盖三服务架构、文档入库、基础 RAG、Advanced RAG、Agent 学习闭环、GraphRAG、RAG 实验评估、评测集管理工具、复习辅助与 Coze Studio 风格前端工作台重构；2026-06-16 已完成文档上传入口升级，支持单篇、多篇和文件夹上传，默认使用 Spring `@Async` 本地线程池异步解析，并可通过 RabbitMQ 队列模式提交文档入库任务；同日新增 `frontend-react/` React + TypeScript 并行迁移工作区，按 Stitch RAG Knowledge Studio 设计实现第一版工作台页面；2026-06-17 AI 服务 chunk 切分继续增强，覆盖 Markdown block-aware、DOCX 标题/表格结构、MinerU PDF block metadata、Q&A chunker 与 code-aware chunker，并修复 MinerU 标准 batch 轮询端点导致的假超时；同日新增 RAGAS 兼容评估侧路，支持从已上传文档 chunk 自动生成 DRAFT 测评集草稿、人工审核 CSV、RAGAS JSONL 导出与独立环境离线评分；同日新增企业售后技术支持 Agent 编排，返回结构化 `supportPlan`，覆盖澄清问题、证据引用、诊断步骤、升级建议、风险提示和下一步动作；同日 `frontend-react/` 完成售后支持工作台中文化与美学优化，支持结构化展示 `supportPlan` 并通过 Playwright 渲染验证。2026-06-18 RAGAS 测评闭环继续完善：自动测评集生成支持 `rule / llm / ragas / auto`，离线 RAGAS 报告可回填 Spring Boot 数据库，React 实验页支持页面内人工审核、筛选、编辑、状态流转、样本删除、批量删除最近导入或当前筛选样本，以及删除当前实验；同日售后 Agent 从单体 workflow 升级为受控 Support Supervisor 本地状态图，拆分澄清、检索、代码/日志分析、诊断、风险审查、工单升级和评估审查节点，保持 `supportPlan` 兼容并强化 `workflowSteps` 可观测性。前端浏览器请求继续只进入 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑。
 维护规则：每次开启新的开发对话时，优先提供本文件；每完成一个阶段目标或关键任务后，必须同步更新本文件。本文件只保留项目状态、关键架构决策、当前待办和阶段级变更摘要；接口级实现细节、验证命令和失败复盘放入 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 与 `docs/handoff/`。
 
 ## 1. 项目目标
@@ -1040,6 +1040,19 @@ README 更新规则：
 - 必要时更新目录结构、接口规划、数据库规划、迁移规范、测试策略、可观测性规范、RAG 策略规划和模块 README
 
 ## 13. 变更记录
+
+### 2026-06-18
+
+- 完成 RAGAS 测评集生成增强：`generate_ragas_testset_draft.py` 和 PowerShell 包装脚本支持 `rule / llm / ragas / auto` 四种模式；LLM 模式复用现有 adapter 生成复杂题型，RAGAS 模式懒加载 `TestsetGenerator` 和 LangChain 模型，保持主 FastAPI 服务热路径不引入 RAGAS / Pydantic v2 依赖。
+- 完成 RAGAS 离线评估结果回填：`export_ragas_dataset.py` 保留 evaluation / run / experiment 定位元数据，`run_ragas_evaluation.py` 可选调用 Spring Boot `PUT /api/rag/experiment-evaluations/ragas-report` 回填 `ragasScores`、指标名、RAGAS 版本、裁判模型和报告 URI；Spring Boot 追加 Flyway 迁移、Entity / DTO / Repository / Service / Controller 支持，并收紧非 `evaluationId` 回填必须提供 `runId + experimentId`。
+- 完成 React 实验页页面内人工审核流：支持按待审、已通过、已拒绝筛选，逐条编辑问题、标准答案、证据 chunk ID、备注和召回数量，并通过 Spring Boot `/api/rag/evaluation-cases/{id}` 保存通过 / 拒绝 / 待审状态；React 导入解析兼容 `{ experimentId, items }` 包装层，并与 Python finalize 的审核决策优先级保持一致。
+- 补齐 React 实验页删除能力：页面内支持删除单条样本、删除最近导入样本、删除当前筛选样本和删除当前实验，所有危险操作均有确认提示，并复用 Spring Boot `/api/rag/evaluation-cases/{id}` 与 `/api/rag/experiments/{id}` 删除接口。
+- 新增售后多 Agent supervisor 架构计划：建议采用受控 Supervisor + 显式状态图 + 强制安全闸门，拆分澄清、检索、代码/日志分析、诊断、风险审查、工单升级和评估审查 7 个节点；先保持 Pydantic v1 兼容和本地状态图实现，后续再按依赖条件迁移 LangGraph runtime。
+- 完成售后 Support Supervisor 多 Agent 第一版开发：AI 服务新增本地状态图和 7 个专业节点，售后请求自动走 `SupportSupervisorWorkflow`，信息不足时提前澄清，含日志/错误码/trace id 时触发代码/日志分析，高风险或证据不足时生成工单升级草稿，最终强制经过风险审查和评估审查；普通 `study-agent` 继续走旧 workflow。
+- 继续加固售后 Agent：补真实 UTF-8 中文售后/故障/风险关键词识别，风险审查会扫描用户输入、RAG 原始回答、诊断步骤和最终草稿，评估审查改为审查已生成的草稿回答；无 citation 即使已升级也会标记为待人工复核，并为通过/失败场景生成可导入人工审核流的 `candidate_eval_case` 草稿。
+- 修复代码审查发现的关键风险：RAGAS 生成结果缺少项目 chunk ID 时不再按行号伪造 gold evidence，而是标记 `evidence_needs_review` 并要求人工补证据；前端审核保存会保留原有 `relevantChunkIds` / `expectedCitationChunkIds`，避免只点保存就丢失 gold label。
+- 关键文档：`docs/plans/2026-06-18-ragas-testset-generation-report-review-flow.md`、`docs/plans/2026-06-18-support-supervisor-multi-agent-workflow.md`、`docs/reviews/2026-06-18-ragas-testset-generation-report-review-flow-review-prompt.md`、`docs/reviews/2026-06-18-react-evaluation-delete-actions-review-prompt.md`、`docs/reviews/2026-06-18-support-supervisor-multi-agent-workflow-review-prompt.md`、`scripts/README.md`。
+- 验证通过：`ai-service\.venv\bin\python.exe -m pytest ai-service\tests\test_ragas_bridge.py ai-service\tests\test_ragas_testset_generation.py -q`、`mvn.cmd -f backend-java/pom.xml test`、`npm.cmd --prefix frontend-react run typecheck`、`npm.cmd --prefix frontend-react run build`。
 
 ### 2026-06-17
 

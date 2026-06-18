@@ -16,6 +16,7 @@ import com.example.agentknowledge.domain.RagExperiment;
 import com.example.agentknowledge.domain.RagExperimentEvaluation;
 import com.example.agentknowledge.domain.RagRetrievalResult;
 import com.example.agentknowledge.domain.RagRun;
+import com.example.agentknowledge.dto.rag.BackfillRagasReportRequest;
 import com.example.agentknowledge.dto.rag.EvaluateRagEvaluationCaseRequest;
 import com.example.agentknowledge.dto.rag.EvaluateRagExperimentRequest;
 import com.example.agentknowledge.dto.rag.RagExperimentEvaluationResponse;
@@ -313,6 +314,80 @@ class RagExperimentServiceTest {
     }
 
     @Test
+    void backfillRagasReportByEvaluationIdStoresReportAndReturnsFields() {
+        UUID evaluationId = UUID.randomUUID();
+        RagExperiment experiment = experiment("Offline RAGAS eval");
+        RagRun run = run("How did RAGAS score this answer?", "advanced-rag", 55L);
+        RagExperimentEvaluation evaluation = evaluation(experiment, run, 0.8, 0.7);
+        evaluation.setId(evaluationId);
+
+        when(evaluationRepository.findById(evaluationId)).thenReturn(Optional.of(evaluation));
+        when(evaluationRepository.save(any(RagExperimentEvaluation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = service.backfillRagasReport(new BackfillRagasReportRequest(
+                evaluationId,
+                null,
+                null,
+                null,
+                Map.of("faithfulness", 0.88, "answer_relevancy", 0.77),
+                List.of("faithfulness", "answer_relevancy"),
+                "0.2.15",
+                "gpt-4o-mini",
+                "file:///reports/ragas-evaluation.json"
+        ));
+
+        assertThat(response.id()).isEqualTo(evaluationId);
+        assertThat(response.ragasScores()).containsEntry("faithfulness", 0.88);
+        assertThat(response.ragasScores()).containsEntry("answer_relevancy", 0.77);
+        assertThat(response.ragasMetricNames()).containsExactly("faithfulness", "answer_relevancy");
+        assertThat(response.ragasVersion()).isEqualTo("0.2.15");
+        assertThat(response.ragasJudgeModel()).isEqualTo("gpt-4o-mini");
+        assertThat(response.ragasReportUri()).isEqualTo("file:///reports/ragas-evaluation.json");
+
+        ArgumentCaptor<RagExperimentEvaluation> savedEvaluation = ArgumentCaptor.forClass(RagExperimentEvaluation.class);
+        verify(evaluationRepository).save(savedEvaluation.capture());
+        assertThat(savedEvaluation.getValue().getRagasScores()).containsEntry("faithfulness", 0.88);
+        assertThat(savedEvaluation.getValue().getRagasMetricNames()).containsExactly("faithfulness", "answer_relevancy");
+        assertThat(savedEvaluation.getValue().getRagasVersion()).isEqualTo("0.2.15");
+        assertThat(savedEvaluation.getValue().getRagasJudgeModel()).isEqualTo("gpt-4o-mini");
+        assertThat(savedEvaluation.getValue().getRagasReportUri()).isEqualTo("file:///reports/ragas-evaluation.json");
+    }
+
+    @Test
+    void backfillRagasReportCanLocateEvaluationByExperimentAndRun() {
+        UUID caseId = UUID.randomUUID();
+        RagExperiment experiment = experiment("Case-linked RAGAS eval");
+        RagRun run = run("How does a persisted case map to a run?", "advanced-rag", 61L);
+        RagEvaluationCase evaluationCase = new RagEvaluationCase();
+        evaluationCase.setId(caseId);
+        evaluationCase.setExperiment(experiment);
+        evaluationCase.setCaseId("case-ragas-001");
+        RagExperimentEvaluation evaluation = evaluation(experiment, run, 0.81, 0.71);
+
+        when(evaluationCaseRepository.findById(caseId)).thenReturn(Optional.of(evaluationCase));
+        when(evaluationRepository.findFirstByExperiment_IdAndRun_IdOrderByCreatedAtDesc(experiment.getId(), run.getId()))
+                .thenReturn(Optional.of(evaluation));
+        when(evaluationRepository.save(any(RagExperimentEvaluation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = service.backfillRagasReport(new BackfillRagasReportRequest(
+                null,
+                experiment.getId(),
+                run.getId(),
+                caseId,
+                Map.of("context_precision", 0.92),
+                List.of("context_precision"),
+                "0.2.15",
+                "gpt-4.1-mini",
+                "s3://ragas/reports/case-ragas-001.json"
+        ));
+
+        assertThat(response.id()).isEqualTo(evaluation.getId());
+        assertThat(response.ragasScores()).containsEntry("context_precision", 0.92);
+        assertThat(response.ragasMetricNames()).containsExactly("context_precision");
+        assertThat(response.ragasJudgeModel()).isEqualTo("gpt-4.1-mini");
+    }
+
+    @Test
     void summarizeEvaluationsReturnsRecentAggregateAndBestExperiment() {
         RagExperiment advancedExperiment = experiment("Advanced RAG eval");
         RagExperiment basicExperiment = experiment("Basic RAG eval");
@@ -322,6 +397,11 @@ class RagExperimentServiceTest {
                 0.92,
                 0.82
         );
+        advancedEvaluation.setRagasScores(Map.of("faithfulness", 0.96));
+        advancedEvaluation.setRagasMetricNames(List.of("faithfulness"));
+        advancedEvaluation.setRagasVersion("0.2.15");
+        advancedEvaluation.setRagasJudgeModel("gpt-4o-mini");
+        advancedEvaluation.setRagasReportUri("file:///reports/advanced.json");
         RagExperimentEvaluation basicEvaluation = evaluation(
                 basicExperiment,
                 run("What is machine learning?", "basic-rag", 40L),
@@ -341,6 +421,11 @@ class RagExperimentServiceTest {
         assertThat(summary.recentEvaluations()).hasSize(2);
         assertThat(summary.recentEvaluations().get(0).runQuestion()).isEqualTo("How does advanced RAG rerank?");
         assertThat(summary.recentEvaluations().get(0).runStrategyName()).isEqualTo("advanced-rag");
+        assertThat(summary.recentEvaluations().get(0).ragasScores()).containsEntry("faithfulness", 0.96);
+        assertThat(summary.recentEvaluations().get(0).ragasMetricNames()).containsExactly("faithfulness");
+        assertThat(summary.recentEvaluations().get(0).ragasVersion()).isEqualTo("0.2.15");
+        assertThat(summary.recentEvaluations().get(0).ragasJudgeModel()).isEqualTo("gpt-4o-mini");
+        assertThat(summary.recentEvaluations().get(0).ragasReportUri()).isEqualTo("file:///reports/advanced.json");
     }
 
     private RagExperiment experiment(String name) {

@@ -2,6 +2,7 @@ package com.example.agentknowledge.controller;
 
 import com.example.agentknowledge.common.api.ApiResponse;
 import com.example.agentknowledge.common.api.TraceContext;
+import com.example.agentknowledge.dto.rag.BackfillRagasReportRequest;
 import com.example.agentknowledge.dto.rag.CreateRagExperimentRequest;
 import com.example.agentknowledge.dto.rag.CreateRagEvaluationCaseRequest;
 import com.example.agentknowledge.dto.rag.EvaluateRagEvaluationCaseRequest;
@@ -9,6 +10,7 @@ import com.example.agentknowledge.dto.rag.EvaluateRagExperimentRequest;
 import com.example.agentknowledge.dto.rag.ImportRagEvaluationCasesRequest;
 import com.example.agentknowledge.dto.rag.ImportRagEvaluationCasesResponse;
 import com.example.agentknowledge.dto.rag.RagEvaluationCaseResponse;
+import com.example.agentknowledge.dto.rag.RagExperimentEvaluationHistoryResponse;
 import com.example.agentknowledge.dto.rag.RagExperimentEvaluationResponse;
 import com.example.agentknowledge.dto.rag.RagExperimentEvaluationSummaryResponse;
 import com.example.agentknowledge.dto.rag.RagExperimentResponse;
@@ -74,6 +76,13 @@ public class RagController {
             @RequestParam(name = "limit", required = false) Integer limit
     ) {
         return ApiResponse.success(ragExperimentService.summarizeEvaluations(limit), TraceContext.getTraceId());
+    }
+
+    @PutMapping("/experiment-evaluations/ragas-report")
+    public ApiResponse<RagExperimentEvaluationHistoryResponse> backfillRagasReport(
+            @Valid @RequestBody BackfillRagasReportRequest request
+    ) {
+        return ApiResponse.success(ragExperimentService.backfillRagasReport(request), TraceContext.getTraceId());
     }
 
     @GetMapping("/evaluation-cases")

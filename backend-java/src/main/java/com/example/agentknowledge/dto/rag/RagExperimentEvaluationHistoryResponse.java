@@ -1,6 +1,7 @@
 package com.example.agentknowledge.dto.rag;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -41,6 +42,11 @@ public record RagExperimentEvaluationHistoryResponse(
         Map<String, Object> tokenUsage,
         Map<String, Object> latencyBreakdown,
         Map<String, Object> strategyConfig,
+        Map<String, Object> ragasScores,
+        List<String> ragasMetricNames,
+        String ragasVersion,
+        String ragasJudgeModel,
+        String ragasReportUri,
         String expectedAnswer,
         String generatedAnswer,
         String notes,

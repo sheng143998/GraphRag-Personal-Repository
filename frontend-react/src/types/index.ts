@@ -488,6 +488,8 @@ export interface ExperimentEvaluationSummary {
   recentEvaluations: ExperimentEvaluationHistory[];
 }
 
+export type EvaluationCaseReviewStatus = "DRAFT" | "ACTIVE" | "REJECTED";
+
 export interface EvaluationCaseRecord {
   id: string;
   experimentId: string;
@@ -507,6 +509,23 @@ export interface EvaluationCaseRecord {
   status: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UpdateEvaluationCasePayload {
+  experimentId?: string;
+  caseId?: string;
+  question?: string;
+  expectedAnswer?: string;
+  requiredChunkIds?: string[];
+  supportingChunkIds?: string[];
+  acceptableChunkIds?: string[];
+  citationChunkIds?: string[];
+  relevantChunkIds?: string[];
+  relevantDocumentIds?: string[];
+  expectedCitationChunkIds?: string[];
+  evaluationTopK?: number;
+  notes?: string;
+  status?: EvaluationCaseReviewStatus | string;
 }
 
 export interface ImportEvaluationCaseItem {

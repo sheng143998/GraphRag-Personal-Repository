@@ -6,7 +6,8 @@ import type {
   ImportEvaluationCasesPayload,
   ImportEvaluationCasesResponse,
   RunEvaluationCasesBatchRequest,
-  RunEvaluationCasesBatchResponse
+  RunEvaluationCasesBatchResponse,
+  UpdateEvaluationCasePayload
 } from "../types";
 import { apiRequest } from "./client";
 
@@ -18,6 +19,12 @@ export function createExperiment(payload: ExperimentRequest): Promise<Experiment
   return apiRequest<ExperimentRecord>("/rag/experiments", {
     method: "POST",
     body: JSON.stringify(payload)
+  });
+}
+
+export function deleteExperiment(id: string): Promise<void> {
+  return apiRequest<void>(`/rag/experiments/${encodeURIComponent(id)}`, {
+    method: "DELETE"
   });
 }
 
@@ -36,6 +43,22 @@ export function importEvaluationCases(
   return apiRequest<ImportEvaluationCasesResponse>("/rag/evaluation-cases/import", {
     method: "POST",
     body: JSON.stringify(payload)
+  });
+}
+
+export function updateEvaluationCase(
+  id: string,
+  payload: UpdateEvaluationCasePayload
+): Promise<EvaluationCaseRecord> {
+  return apiRequest<EvaluationCaseRecord>(`/rag/evaluation-cases/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function deleteEvaluationCase(id: string): Promise<void> {
+  return apiRequest<void>(`/rag/evaluation-cases/${encodeURIComponent(id)}`, {
+    method: "DELETE"
   });
 }
 

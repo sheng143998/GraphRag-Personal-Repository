@@ -2,6 +2,7 @@ import logging
 import time
 
 from app.core.tracing import TraceBuilder
+from app.agents.graphs.support_supervisor import SupportSupervisorWorkflow, is_support_request
 from app.agents.workflow import StudyAgentWorkflow
 from app.schemas.agent import AgentInvokeRequest, AgentInvokeResponse
 from app.services.adapters.registry import get_llm_model_name
@@ -14,6 +15,7 @@ class AgentService:
     def __init__(self) -> None:
         self.rag_service = RagService()
         self.workflow = StudyAgentWorkflow(rag_service=self.rag_service)
+        self.support_workflow = SupportSupervisorWorkflow(rag_service=self.rag_service)
 
     async def invoke(self, payload: AgentInvokeRequest) -> AgentInvokeResponse:
         started = time.perf_counter()
@@ -32,7 +34,10 @@ class AgentService:
             trace_builder.trace.trace_id,
         )
         try:
-            state = await self.workflow.run(payload=payload, trace_builder=trace_builder)
+            if is_support_request(payload):
+                state = await self.support_workflow.run(payload=payload, trace_builder=trace_builder)
+            else:
+                state = await self.workflow.run(payload=payload, trace_builder=trace_builder)
         except Exception:
             duration_ms = int((time.perf_counter() - started) * 1000)
             log.exception(
@@ -42,9 +47,15 @@ class AgentService:
                 trace_builder.trace.trace_id,
             )
             raise
-        trace_builder.set_attribute("question_type", state.question_type)
-        trace_builder.set_attribute("selected_strategy_name", state.selected_strategy_name)
-        if state.support_mode:
+        route = getattr(state, "route", None)
+        question_type = getattr(state, "question_type", None) or getattr(route, "question_type", "general")
+        selected_strategy_name = getattr(state, "selected_strategy_name", None) or getattr(
+            route, "selected_strategy_name", payload.strategy_name
+        )
+        steps = getattr(state, "steps", None) or getattr(state, "workflow_steps", [])
+        trace_builder.set_attribute("question_type", question_type)
+        trace_builder.set_attribute("selected_strategy_name", selected_strategy_name)
+        if getattr(state, "support_mode", False):
             trace_builder.set_attribute("support_mode", True)
         if state.support_plan is not None:
             trace_builder.set_attribute("support_plan", state.support_plan.dict())
@@ -56,7 +67,7 @@ class AgentService:
         duration_ms = int((time.perf_counter() - started) * 1000)
         log.info(
             "Agent workflow completed: selectedStrategyName=%s, citationCount=%s, durationMs=%s, traceId=%s",
-            state.selected_strategy_name,
+            selected_strategy_name,
             len(state.citations),
             duration_ms,
             trace.trace_id,
@@ -65,13 +76,13 @@ class AgentService:
             agent_name=payload.agent_name,
             output=state.answer,
             citations=state.citations,
-            question_type=state.question_type,
-            selected_strategy_name=state.selected_strategy_name,
+            question_type=question_type,
+            selected_strategy_name=selected_strategy_name,
             follow_up_questions=state.follow_up_questions,
             study_plan=state.study_plan,
             review_cards=state.review_cards,
             support_plan=state.support_plan,
-            workflow_steps=state.steps,
+            workflow_steps=steps,
             trace=trace,
             rag_trace=state.rag_trace,
         )

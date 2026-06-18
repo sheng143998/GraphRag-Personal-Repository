@@ -11,6 +11,7 @@ import com.example.agentknowledge.domain.RagExperiment;
 import com.example.agentknowledge.domain.RagExperimentEvaluation;
 import com.example.agentknowledge.domain.RagRetrievalResult;
 import com.example.agentknowledge.domain.RagRun;
+import com.example.agentknowledge.dto.rag.BackfillRagasReportRequest;
 import com.example.agentknowledge.dto.rag.CreateRagEvaluationCaseRequest;
 import com.example.agentknowledge.dto.rag.CreateRagExperimentRequest;
 import com.example.agentknowledge.dto.rag.EvaluateRagEvaluationCaseRequest;
@@ -269,6 +270,17 @@ public class RagExperimentService {
         );
     }
 
+    @Transactional
+    public RagExperimentEvaluationHistoryResponse backfillRagasReport(BackfillRagasReportRequest request) {
+        RagExperimentEvaluation evaluation = findEvaluationForRagasBackfill(request);
+        evaluation.setRagasScores(request.ragasScores() == null ? Map.of() : new LinkedHashMap<>(request.ragasScores()));
+        evaluation.setRagasMetricNames(request.ragasMetricNames() == null ? List.of() : List.copyOf(request.ragasMetricNames()));
+        evaluation.setRagasVersion(request.ragasVersion());
+        evaluation.setRagasJudgeModel(request.ragasJudgeModel());
+        evaluation.setRagasReportUri(request.ragasReportUri());
+        return toEvaluationHistoryResponse(ragExperimentEvaluationRepository.save(evaluation));
+    }
+
     public RagExperimentResponse update(UUID id, UpdateRagExperimentRequest request) {
         RagExperiment experiment = getEntity(id);
         if (request.knowledgeBaseId() != null) {
@@ -408,6 +420,36 @@ public class RagExperimentService {
     private RagEvaluationCase getEvaluationCaseEntity(UUID id) {
         return ragEvaluationCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("RAG evaluation case not found: " + id));
+    }
+
+    private RagExperimentEvaluation findEvaluationForRagasBackfill(BackfillRagasReportRequest request) {
+        if (request.evaluationId() != null) {
+            return ragExperimentEvaluationRepository.findById(request.evaluationId())
+                    .orElseThrow(() -> new ResourceNotFoundException("RAG experiment evaluation not found: " + request.evaluationId()));
+        }
+
+        if (request.evaluationCaseId() != null) {
+            RagEvaluationCase evaluationCase = getEvaluationCaseEntity(request.evaluationCaseId());
+            UUID caseExperimentId = evaluationCase.getExperiment() == null ? null : evaluationCase.getExperiment().getId();
+            if (caseExperimentId == null) {
+                throw new ResourceNotFoundException("RAG evaluation case has no experiment: " + request.evaluationCaseId());
+            }
+            if (request.experimentId() != null && !request.experimentId().equals(caseExperimentId)) {
+                throw new ResourceNotFoundException("RAG evaluation case " + request.evaluationCaseId()
+                        + " is not linked to experiment: " + request.experimentId());
+            }
+        }
+
+        if (request.experimentId() == null || request.runId() == null) {
+            throw new ResourceNotFoundException("RAG experiment evaluation not found: provide evaluationId, "
+                    + "or runId with experimentId");
+        }
+        UUID resolvedExperimentId = request.experimentId();
+        UUID runId = request.runId();
+        return ragExperimentEvaluationRepository
+                .findFirstByExperiment_IdAndRun_IdOrderByCreatedAtDesc(resolvedExperimentId, runId)
+                .orElseThrow(() -> new ResourceNotFoundException("RAG experiment evaluation not found for experiment "
+                        + resolvedExperimentId + " and run " + runId));
     }
 
     private boolean hasText(String value) {
@@ -734,6 +776,11 @@ public class RagExperimentService {
                 evaluation.getTokenUsage(),
                 evaluation.getLatencyBreakdown(),
                 evaluation.getStrategyConfig(),
+                evaluation.getRagasScores(),
+                evaluation.getRagasMetricNames(),
+                evaluation.getRagasVersion(),
+                evaluation.getRagasJudgeModel(),
+                evaluation.getRagasReportUri(),
                 evaluation.getExpectedAnswer(),
                 evaluation.getGeneratedAnswer(),
                 evaluation.getNotes(),
