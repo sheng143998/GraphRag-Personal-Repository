@@ -3,6 +3,7 @@ from __future__ import annotations
 from time import perf_counter
 
 from app.core.config import settings
+from app.core.pydantic_compat import model_to_dict
 from app.core.tracing import TraceBuilder
 from app.prompts.registry import prompt_registry
 from app.rag.evaluators.base import SimpleRagEvaluator
@@ -203,7 +204,7 @@ class RagService:
             name="evaluate",
             status="completed",
             detail="Evaluated groundedness and retrieval quality.",
-            payload=result.dict(),
+            payload=model_to_dict(result),
         )
         trace = trace_builder.finalize(status="completed")
         return RagEvaluateResponse(result=result, trace=trace)

@@ -63,9 +63,8 @@ def _candidate_eval_case(
         "escalation_agent",
         "evaluation_review_agent",
     ]
-    if not state.route.has_log_or_code_signal:
-        expected_nodes.remove("retrieval_agent")
-        expected_nodes.insert(1, "retrieval_agent")
+    if state.route.has_log_or_code_signal:
+        expected_nodes.insert(2, "code_log_tool_agent")
     scenario_tags = _scenario_tags(state, passed=passed, flags=flags, missing_sections=missing_sections)
     return {
         "caseId": _case_id(state, passed=passed),
@@ -109,11 +108,11 @@ def _missing_answer_sections(answer: str) -> list[str]:
         return ["final_answer"]
     lowered = answer.lower()
     sections = []
-    if "support triage" not in lowered and "售后" not in answer and "鍞悗" not in answer:
+    if "support triage" not in lowered and "售后" not in answer:
         sections.append("support_summary")
-    if "risk" not in lowered and "风险" not in answer and "椋庨櫓" not in answer:
+    if "risk" not in lowered and "风险" not in answer:
         sections.append("risk_review")
-    if "diagnostic" not in lowered and "诊断" not in answer and "璇婃柇" not in answer:
+    if "diagnostic" not in lowered and "诊断" not in answer:
         sections.append("diagnostic_steps")
     return sections
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from time import perf_counter
 
+from app.core.pydantic_compat import model_copy_update
 from app.core.tracing import TraceBuilder
 from app.db.repositories import repository
 from app.rag.graph import RuleBasedGraphExtractor
@@ -306,7 +307,7 @@ def _with_matched_query(sources: list[SourceMetadata], query: str) -> list[Sourc
         if query not in matched_queries:
             matched_queries.append(query)
         metadata["matched_queries"] = matched_queries
-        updated.append(source.copy(update={"metadata": metadata}))
+        updated.append(model_copy_update(source, {"metadata": metadata}))
     return updated
 
 
@@ -337,7 +338,7 @@ def _with_graph_metadata(
             "graph_expansion_terms": persisted_graph_facts.get("expansion_terms", []),
             "graph_traversal_relationships": persisted_graph_facts.get("relationships", []),
         }
-        updated.append(source.copy(update={"metadata": metadata}))
+        updated.append(model_copy_update(source, {"metadata": metadata}))
     return updated
 
 
@@ -412,7 +413,7 @@ def _fuse_by_chunk_id(sources: list[SourceMetadata]) -> list[SourceMetadata]:
         metadata = {**existing.metadata}
         metadata["matched_queries"] = matched_queries
         metadata["fusion_method"] = "chunk_id_max_score"
-        fused[source.chunk_id] = existing.copy(update={"metadata": metadata})
+        fused[source.chunk_id] = model_copy_update(existing, {"metadata": metadata})
     return sorted(fused.values(), key=lambda item: item.score or 0.0, reverse=True)
 
 
@@ -446,6 +447,6 @@ def _fuse_by_parent_group(sources: list[SourceMetadata]) -> list[SourceMetadata]
             "parent_child_matched_child_chunk_ids": child_ids,
             "parent_child_aggregate_bonus": round(aggregate_bonus, 6),
         }
-        fused.append(best.copy(update={"score": round(max_score + aggregate_bonus, 6), "metadata": metadata}))
+        fused.append(model_copy_update(best, {"score": round(max_score + aggregate_bonus, 6), "metadata": metadata}))
 
     return sorted(fused, key=lambda item: item.score or 0.0, reverse=True)

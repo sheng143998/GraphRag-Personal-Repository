@@ -6,6 +6,17 @@ from app.schemas.agent import AgentInvokeRequest, AgentWorkflowStep, ReviewCard,
 from app.schemas.common import SourceMetadata, TraceMetadata
 
 
+def _default_required_gates() -> list[str]:
+    return [
+        "clarification_agent",
+        "retrieval_agent",
+        "diagnosis_agent",
+        "risk_review_agent",
+        "escalation_agent",
+        "evaluation_review_agent",
+    ]
+
+
 class SupportRouteState(BaseModel):
     question_type: str = "general"
     selected_strategy_name: str = "basic-rag"
@@ -113,7 +124,12 @@ class EvaluationReviewResult(BaseModel):
 class SupportAgentState(BaseModel):
     request: AgentInvokeRequest
     workflow_version: str = "support-supervisor-v1"
+    workflow_runtime: str = "local"
+    workflow_status: str = "running"
     support_mode: bool = True
+    required_gates: list[str] = Field(default_factory=_default_required_gates)
+    completed_gates: list[str] = Field(default_factory=list)
+    skipped_gates: list[str] = Field(default_factory=list)
     route: SupportRouteState = Field(default_factory=SupportRouteState)
     incident: IncidentContext = Field(default_factory=IncidentContext)
     clarification: ClarificationResult | None = None

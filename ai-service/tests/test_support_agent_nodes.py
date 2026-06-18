@@ -1,5 +1,7 @@
 import os
 
+import pytest
+
 os.environ["AI_RAG_USE_DATABASE"] = "false"
 os.environ["MODEL_PROVIDER"] = "stub"
 os.environ["LLM_PROVIDER"] = "stub"
@@ -8,9 +10,11 @@ os.environ["RERANK_PROVIDER"] = "stub"
 
 from app.agents.graphs.support_supervisor import is_support_request
 from app.agents.nodes.clarification_agent import ClarificationAgent
+from app.agents.nodes.code_log_tool_agent import CodeLogToolAgent
 from app.agents.nodes.evaluation_review_agent import EvaluationReviewAgent
 from app.agents.nodes.risk_review_agent import RiskReviewAgent
 from app.agents.states.support_state import DiagnosisResult, EscalationResult, SupportAgentState
+from app.agents.tools.support_langchain_tools import build_support_log_pattern_tool
 from app.schemas.agent import AgentInvokeRequest
 from app.schemas.common import SourceMetadata
 from app.schemas.rag import RagRequestContext
@@ -41,6 +45,30 @@ def test_real_chinese_support_request_and_incident_fields_are_detected() -> None
     assert state.incident.impact_scope == "major"
     assert state.incident.severity_hint == "critical"
     assert state.route.has_log_or_code_signal is True
+
+
+def test_code_log_tool_agent_uses_shared_langchain_tool_analysis() -> None:
+    state = _support_state("客户登录超时，日志显示 HTTP 504 gateway timeout，trace_id=abc-123456。")
+    state.route.has_log_or_code_signal = True
+
+    result = CodeLogToolAgent().run(state)
+
+    assert result.detected_error_type == "timeout"
+    assert result.suspected_component == "gateway-or-upstream-service"
+    assert result.confidence == 0.75
+    assert state.log_analysis == result
+
+
+def test_support_log_pattern_structured_tool_is_available_when_langchain_core_is_installed() -> None:
+    __import__("langchain_core.tools")
+
+    tool = build_support_log_pattern_tool()
+    result = tool.invoke({"text": "HTTP 504 gateway timeout, trace_id=abc-123456, please restart production."})
+
+    assert tool.name == "analyze_support_log_patterns"
+    assert result["detected_error_type"] == "timeout"
+    assert result["trace_ids"] == ["abc-123456"]
+    assert result["unsafe_actions"]
 
 
 def test_risk_review_scans_raw_rag_answer_for_unsafe_actions() -> None:

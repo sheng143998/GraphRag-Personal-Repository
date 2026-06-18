@@ -1,3 +1,4 @@
+from app.core.pydantic_compat import model_copy_update
 from app.schemas.common import SourceMetadata
 from app.services.adapters.base import AdapterCallContext, RerankAdapter
 
@@ -33,6 +34,6 @@ class AdapterReranker(BaseReranker):
         )
         updated: list[SourceMetadata] = []
         for source, score in zip(sources, scores, strict=False):
-            updated.append(source.copy(update={"rerank_score": score}))
+            updated.append(model_copy_update(source, {"rerank_score": score}))
         updated.sort(key=lambda item: item.rerank_score or 0.0, reverse=True)
         return updated

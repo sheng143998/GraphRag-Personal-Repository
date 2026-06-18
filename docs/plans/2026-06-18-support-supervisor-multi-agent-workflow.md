@@ -63,7 +63,6 @@ detect_support_mode
 ## 非目标
 
 - 本阶段不接入真实外部工单系统。`工单升级 Agent` 先生成 `ticketDraft` / `ticketFields`，不调用 Jira、飞书、企业微信等外部 API。
-- 本阶段不强制引入 LangGraph 依赖。先完成本地状态图抽象，后续再做可替换 runtime。
 - 本阶段不改变 Spring Boot 的职责边界，不在 Java 层实现任何售后诊断算法。
 - 本阶段不把日志分析做成真实生产日志查询。先支持用户输入中的日志片段、报错栈、错误码和可选 mock 工具接口。
 
@@ -685,12 +684,71 @@ Phase 1 到 Phase 3 不需要新表。
 - `workflowSteps` 可清楚还原每个子 Agent 的执行路径。
 - AI 服务、Java 桥接、React 构建测试通过。
 
-## 建议下一步
+## 2026-06-18 实施更新
 
-下一轮实现建议从 Phase 1 + Phase 2 开始：
+本轮已继续推进 Agent 部分开发，并在多 agent 协作中完成一次架构勘察和一次代码审查。实际落地结果：
 
-1. 新增 `support_state.py`。
-2. 新增 7 个 node 文件，先实现规则版。
-3. 新增 `support_supervisor.py`。
-4. 在 `AgentService.invoke` 中按 support mode 切换 workflow。
-5. 补 AI 服务单测，确认兼容现有 Spring Boot 响应。
+1. 上一轮先把 `SupportSupervisorWorkflow` 做成可选 LangGraph runtime 预留点；本轮已升级为默认 `auto` 的真实 LangGraph / local 双 runtime。
+2. 上一轮暂未把 LangGraph 写入主依赖；本轮已在隔离 managed Python 环境验证兼容性并将 `langgraph==0.1.5` / `langchain-core==0.2.8` 写入 `pyproject.toml` 和 `uv.lock`。
+3. `SupportAgentState` 固化 `workflow_runtime`、`workflow_status`、`required_gates`、`completed_gates`、`skipped_gates`，并同步到 trace 顶层属性。
+4. 澄清早退路径明确为 `needs_clarification`，并记录 skipped gates；非澄清终态必须完成检索、诊断、风险审查、工单升级和评估审查。
+5. 评估失败路径明确为 `needs_review`，最终回答追加“人工复核要求”，`supportPlan.riskNotes` 追加人工复核风险提示，Agent trace status 不再一律写 `completed`。
+6. 旧 `StudyAgentWorkflow` 直接收到 support 请求时会拒绝执行，并移除不可达的旧售后分诊生成逻辑，避免绕过售后 supervisor 的澄清、风险和评估 gate。
+7. `EvaluationReviewAgent` 移除 mojibake 中文兜底，只有真实 UTF-8 中文或英文关键词能满足章节检查。
+
+新增/更新测试：
+
+- `ai-service/tests/test_agent_workflow.py`：覆盖 support gate trace、澄清早退、评估失败 `needs_review`、旧 workflow support 绕行拒绝。
+- `ai-service/tests/test_support_supervisor_graph.py`：覆盖 runtime 选择、required/completed/skipped gates 契约，以及 LangGraph optional lazy-load。
+- `ai-service/tests/test_support_agent_nodes.py`：继续覆盖风险审查、真实中文识别、评估样本草稿生成。
+
+已执行验证：
+
+```powershell
+ai-service\.venv\bin\python.exe -m compileall -q ai-service\app\agents ai-service\app\services\agent_service.py
+ai-service\.venv\bin\python.exe -m pytest ai-service\tests\test_agent_workflow.py ai-service\tests\test_support_agent_nodes.py ai-service\tests\test_support_supervisor_graph.py ai-service\tests\test_strategy_comparison_evaluator.py -q --basetemp .tmp\pytest-support-agent-full -o cache_dir=.tmp\pytest-cache-support-agent-full
+mvn.cmd -f backend-java\pom.xml test "-Dtest=AgentServiceTest,AssistantTurnServiceTest"
+```
+
+后续建议：
+
+1. 在独立分支评估 FastAPI / Pydantic v2 升级，再迁移到当前 LangGraph / LangChain 版本线。
+2. 将 `workflowSteps` 的 gate 状态映射到 React 售后工作台流程条。
+3. 把 `EvaluationReviewResult.candidate_eval_case` 自动进入售后专项评测集草稿池，形成 Agent 工作流评测闭环。
+
+## 2026-06-18 LangGraph / LangChain Core 接入更新
+
+本轮在保持 `FastAPI 0.95.2 + Pydantic 1.10.26` 主服务基座不升级的前提下，正式引入兼容版本：
+
+```text
+langgraph==0.1.5
+langchain-core==0.2.8
+```
+
+运行时策略：
+
+- `AI_AGENT_SUPPORT_WORKFLOW_RUNTIME=auto`：默认模式。依赖可用时走 LangGraph `StateGraph.compile().ainvoke(...)`，依赖不可用时可观测回落到本地 runtime。
+- `AI_AGENT_SUPPORT_WORKFLOW_RUNTIME=langgraph`：强制 LangGraph。依赖缺失、图构建失败或执行失败会直接抛错，不伪装为成功。
+- `AI_AGENT_SUPPORT_WORKFLOW_RUNTIME=local`：强制本地 runtime，用于排障和对照测试。
+- 旧 `AI_AGENT_ENABLE_LANGGRAPH_RUNTIME=true/false` 仍兼容，其中 `true` 映射为强制 `langgraph`，`false` 映射为 `local`；建议新配置使用 `AI_AGENT_SUPPORT_WORKFLOW_RUNTIME`。
+- `auto` 仅在依赖缺失或图构建前失败时回落；一旦 LangGraph 图开始执行，执行期异常会直接抛出并写入 `support_workflow_runtime_error`，避免复用已被部分节点修改的 state 重跑 local runtime。
+
+实现结果：
+
+- `SupportSupervisorWorkflow` 的正常图路径由真实 LangGraph `StateGraph` 驱动，节点包括澄清、检索、代码/日志分析、诊断、风险审查、工单升级、最终草稿准备、评估审查和 finish。
+- LangGraph 节点通过 LangChain Core `RunnableLambda` 包装，并保留 `run_name` / `tags`，后续可接 LangSmith 或自定义可观测系统。
+- 代码/日志分析能力抽成 `analyze_support_log_patterns`，并提供 LangChain `StructuredTool` 构造函数 `build_support_log_pattern_tool()`；当前 workflow 仍保持确定性调用，不让 LLM 自由跳过风险闸门。
+- 本地 runtime 与 LangGraph runtime 共享同一批 `_node_*` 方法，避免两套逻辑漂移。
+- `uv.lock` 已通过 `UV_PROJECT_ENVIRONMENT=..\.tmp\uv-test-ai-service-langgraph` 和 managed Python 3.12 刷新，绕开当前项目 `.venv` 的 Mingw 平台识别问题。
+
+验证通过：
+
+```powershell
+$env:UV_PROJECT_ENVIRONMENT='..\.tmp\uv-test-ai-service-langgraph'; uv run --python 3.12 --managed-python --extra dev python -m pytest tests\test_agent_workflow.py tests\test_support_agent_nodes.py tests\test_support_supervisor_graph.py tests\test_strategy_comparison_evaluator.py -q --basetemp ..\.tmp\pytest-support-agent-langgraph -o cache_dir=..\.tmp\pytest-cache-support-agent-langgraph
+mvn.cmd -f backend-java\pom.xml test "-Dtest=AgentServiceTest,AssistantTurnServiceTest"
+```
+
+本地注意事项：
+
+- 当前 `ai-service\.venv\bin\python.exe` 是 Mingw/MSYS 风格 Python，直接 `uv lock` 会报 `Unknown operating system: mingw_x86_64_msvcrt_gnu`；使用临时 `UV_PROJECT_ENVIRONMENT` 可规避。
+- 该 `.venv` 用 pip 安装 `langchain-core` 依赖链时会在 `orjson` 构建处失败；标准 Windows CPython / uv managed Python 3.12 环境可正常解析并测试通过。

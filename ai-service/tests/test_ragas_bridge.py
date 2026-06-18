@@ -107,7 +107,7 @@ def test_load_ragas_metrics_reports_optional_dependency_when_missing(monkeypatch
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
 
-    with pytest.raises(RagasUnavailableError, match="pydantic>=2"):
+    with pytest.raises(RagasUnavailableError, match="optional RAGAS runtime"):
         load_ragas_metrics(["IDBasedContextRecall"])
 
 

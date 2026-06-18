@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+from typing import Any, TypedDict
+
 from app.agents.nodes.clarification_agent import ClarificationAgent
 from app.agents.nodes.code_log_tool_agent import CodeLogToolAgent
 from app.agents.nodes.diagnosis_agent import DiagnosisAgent
@@ -7,7 +10,9 @@ from app.agents.nodes.escalation_agent import EscalationAgent
 from app.agents.nodes.evaluation_review_agent import EvaluationReviewAgent
 from app.agents.nodes.retrieval_agent import RetrievalAgent
 from app.agents.nodes.risk_review_agent import RiskReviewAgent
+from app.agents.runnables.support_nodes import support_node_runnable
 from app.agents.states.support_state import SupportAgentState
+from app.core.pydantic_compat import model_to_dict
 from app.core.tracing import TraceBuilder
 from app.schemas.agent import (
     AgentInvokeRequest,
@@ -21,12 +26,27 @@ from app.schemas.agent import (
 from app.services.rag_service import RagService
 
 
+class _SupportGraphState(TypedDict):
+    state: SupportAgentState
+
+
 class SupportSupervisorWorkflow:
     """Controlled supervisor for after-sales technical support.
 
-    The supervisor uses explicit code gates instead of free-form LLM routing so
-    risk review and evaluation review cannot be skipped.
+    The supervisor uses explicit code gates instead of free-form LLM routing.
+    `needs_clarification` is the only terminal state that may skip later gates;
+    every diagnostic terminal state must pass risk review and evaluation review.
     """
+
+    BASE_REQUIRED_GATES = [
+        "clarification_agent",
+        "retrieval_agent",
+        "diagnosis_agent",
+        "risk_review_agent",
+        "escalation_agent",
+        "evaluation_review_agent",
+    ]
+    CONDITIONAL_GATES = ["code_log_tool_agent"]
 
     def __init__(self, *, rag_service: RagService) -> None:
         self.clarification_agent = ClarificationAgent()
@@ -38,14 +58,253 @@ class SupportSupervisorWorkflow:
         self.evaluation_review_agent = EvaluationReviewAgent()
 
     async def run(self, *, payload: AgentInvokeRequest, trace_builder: TraceBuilder) -> SupportAgentState:
+        state = self._initialize_state(payload=payload, trace_builder=trace_builder)
+        requested_runtime = _support_workflow_runtime_mode()
+        trace_builder.set_attribute("workflow_requested_runtime", requested_runtime)
+        if requested_runtime == "local":
+            trace_builder.set_attribute("support_workflow_runtime_fallback_reason", "explicit_local_runtime")
+            return await self._run_local(state=state, trace_builder=trace_builder)
+
+        langgraph_runtime = _load_langgraph_runtime()
+        if langgraph_runtime is None:
+            fallback_reason = "langgraph_dependency_unavailable"
+            trace_builder.set_attribute("support_workflow_runtime_fallback_reason", fallback_reason)
+            if requested_runtime == "langgraph":
+                raise RuntimeError(
+                    "LangGraph runtime was requested but langgraph is not installed. "
+                    "Install ai-service dependencies or set AI_AGENT_SUPPORT_WORKFLOW_RUNTIME=auto/local."
+                )
+            return await self._run_local(state=state, trace_builder=trace_builder)
+        try:
+            graph = self._build_langgraph(runtime=langgraph_runtime, trace_builder=trace_builder)
+        except Exception as exc:  # pragma: no cover - only exercised when optional dependency is installed.
+            trace_builder.set_attribute(
+                "support_workflow_runtime_error",
+                f"{type(exc).__name__}: {exc}",
+            )
+            raise
+
+        state.workflow_runtime = "langgraph"
+        trace_builder.set_attribute("workflow_runtime", state.workflow_runtime)
+        try:
+            result = await graph.ainvoke({"state": state})
+        except Exception as exc:  # pragma: no cover - depends on optional runtime internals.
+            trace_builder.set_attribute(
+                "support_workflow_runtime_error",
+                f"{type(exc).__name__}: {exc}",
+            )
+            raise
+        return result["state"]
+
+    def _initialize_state(self, *, payload: AgentInvokeRequest, trace_builder: TraceBuilder) -> SupportAgentState:
         state = SupportAgentState(request=payload)
         state.route.question_type = _classify_question(payload.user_input)
         state.route.selected_strategy_name = _select_strategy(payload, state.route.question_type)
+        state.required_gates = list(self.BASE_REQUIRED_GATES)
         trace_builder.trace.strategy_name = state.route.selected_strategy_name
         trace_builder.set_attribute("support_mode", True)
         trace_builder.set_attribute("workflow_version", state.workflow_version)
+        trace_builder.set_attribute("workflow_runtime", state.workflow_runtime)
+        trace_builder.set_attribute("workflow_status", state.workflow_status)
         trace_builder.set_attribute("question_type", state.route.question_type)
         trace_builder.set_attribute("selected_strategy_name", state.route.selected_strategy_name)
+        trace_builder.set_attribute("required_gates", state.required_gates)
+        return state
+
+    async def _run_local(self, *, state: SupportAgentState, trace_builder: TraceBuilder) -> SupportAgentState:
+        state.workflow_runtime = "local"
+        trace_builder.set_attribute("workflow_runtime", state.workflow_runtime)
+        self._node_start(state, trace_builder)
+
+        clarification = self._node_clarification(state, trace_builder)
+        if not clarification.can_continue:
+            self._mark_skipped_remaining_gates(state)
+            self._node_finish(state, trace_builder)
+            return state
+
+        await self._node_retrieval(state, trace_builder)
+        if state.route.has_log_or_code_signal:
+            self._node_code_log(state, trace_builder)
+        else:
+            self._mark_skipped_gate(state, self.code_log_tool_agent.name)
+        self._node_diagnosis(state, trace_builder)
+        self._node_risk_review(state, trace_builder)
+        self._node_escalation(state, trace_builder)
+        self._node_prepare_final_draft(state)
+        self._node_evaluation_review(state, trace_builder)
+        self._node_finish(state, trace_builder)
+        return state
+
+    def _build_langgraph(self, *, runtime: tuple[Any, Any, Any], trace_builder: TraceBuilder) -> Any:
+        StateGraph, START, END = runtime
+        graph = StateGraph(_SupportGraphState)
+
+        async def retrieval_node(graph_state: _SupportGraphState) -> _SupportGraphState:
+            return await self._graph_retrieval(graph_state, trace_builder)
+
+        graph.add_node(
+            "support_supervisor_start",
+            support_node_runnable(
+                "support_supervisor_start",
+                lambda graph_state: self._graph_start(graph_state, trace_builder),
+            ),
+        )
+        graph.add_node(
+            self.clarification_agent.name,
+            support_node_runnable(
+                self.clarification_agent.name,
+                lambda graph_state: self._graph_clarification(graph_state, trace_builder),
+            ),
+        )
+        graph.add_node(self.retrieval_agent.name, support_node_runnable(self.retrieval_agent.name, retrieval_node))
+        graph.add_node(
+            self.code_log_tool_agent.name,
+            support_node_runnable(
+                self.code_log_tool_agent.name,
+                lambda graph_state: self._graph_code_log(graph_state, trace_builder),
+            ),
+        )
+        graph.add_node(
+            self.diagnosis_agent.name,
+            support_node_runnable(
+                self.diagnosis_agent.name,
+                lambda graph_state: self._graph_diagnosis(graph_state, trace_builder),
+            ),
+        )
+        graph.add_node(
+            self.risk_review_agent.name,
+            support_node_runnable(
+                self.risk_review_agent.name,
+                lambda graph_state: self._graph_risk_review(graph_state, trace_builder),
+            ),
+        )
+        graph.add_node(
+            self.escalation_agent.name,
+            support_node_runnable(
+                self.escalation_agent.name,
+                lambda graph_state: self._graph_escalation(graph_state, trace_builder),
+            ),
+        )
+        graph.add_node(
+            "prepare_final_draft",
+            support_node_runnable("prepare_final_draft", self._graph_prepare_final_draft),
+        )
+        graph.add_node(
+            self.evaluation_review_agent.name,
+            support_node_runnable(
+                self.evaluation_review_agent.name,
+                lambda graph_state: self._graph_evaluation_review(graph_state, trace_builder),
+            ),
+        )
+        graph.add_node(
+            "support_supervisor_finish",
+            support_node_runnable(
+                "support_supervisor_finish",
+                lambda graph_state: self._graph_finish(graph_state, trace_builder),
+            ),
+        )
+
+        graph.add_edge(START, "support_supervisor_start")
+        graph.add_edge("support_supervisor_start", self.clarification_agent.name)
+        graph.add_conditional_edges(
+            self.clarification_agent.name,
+            self._route_after_clarification,
+            {
+                "finish": "support_supervisor_finish",
+                "retrieval": self.retrieval_agent.name,
+            },
+        )
+        graph.add_conditional_edges(
+            self.retrieval_agent.name,
+            self._route_after_retrieval,
+            {
+                "code_log": self.code_log_tool_agent.name,
+                "diagnosis": self.diagnosis_agent.name,
+            },
+        )
+        graph.add_edge(self.code_log_tool_agent.name, self.diagnosis_agent.name)
+        graph.add_edge(self.diagnosis_agent.name, self.risk_review_agent.name)
+        graph.add_edge(self.risk_review_agent.name, self.escalation_agent.name)
+        graph.add_edge(self.escalation_agent.name, "prepare_final_draft")
+        graph.add_edge("prepare_final_draft", self.evaluation_review_agent.name)
+        graph.add_edge(self.evaluation_review_agent.name, "support_supervisor_finish")
+        graph.add_edge("support_supervisor_finish", END)
+        return graph.compile()
+
+    def _graph_start(self, graph_state: _SupportGraphState, trace_builder: TraceBuilder) -> _SupportGraphState:
+        self._node_start(graph_state["state"], trace_builder)
+        return graph_state
+
+    def _graph_clarification(
+        self,
+        graph_state: _SupportGraphState,
+        trace_builder: TraceBuilder,
+    ) -> _SupportGraphState:
+        clarification = self._node_clarification(graph_state["state"], trace_builder)
+        if not clarification.can_continue:
+            self._mark_skipped_remaining_gates(graph_state["state"])
+        return graph_state
+
+    async def _graph_retrieval(
+        self,
+        graph_state: _SupportGraphState,
+        trace_builder: TraceBuilder,
+    ) -> _SupportGraphState:
+        await self._node_retrieval(graph_state["state"], trace_builder)
+        return graph_state
+
+    def _graph_code_log(self, graph_state: _SupportGraphState, trace_builder: TraceBuilder) -> _SupportGraphState:
+        self._node_code_log(graph_state["state"], trace_builder)
+        return graph_state
+
+    def _graph_diagnosis(self, graph_state: _SupportGraphState, trace_builder: TraceBuilder) -> _SupportGraphState:
+        self._node_diagnosis(graph_state["state"], trace_builder)
+        return graph_state
+
+    def _graph_risk_review(
+        self,
+        graph_state: _SupportGraphState,
+        trace_builder: TraceBuilder,
+    ) -> _SupportGraphState:
+        self._node_risk_review(graph_state["state"], trace_builder)
+        return graph_state
+
+    def _graph_escalation(self, graph_state: _SupportGraphState, trace_builder: TraceBuilder) -> _SupportGraphState:
+        self._node_escalation(graph_state["state"], trace_builder)
+        return graph_state
+
+    def _graph_prepare_final_draft(self, graph_state: _SupportGraphState) -> _SupportGraphState:
+        self._node_prepare_final_draft(graph_state["state"])
+        return graph_state
+
+    def _graph_evaluation_review(
+        self,
+        graph_state: _SupportGraphState,
+        trace_builder: TraceBuilder,
+    ) -> _SupportGraphState:
+        self._node_evaluation_review(graph_state["state"], trace_builder)
+        return graph_state
+
+    def _graph_finish(self, graph_state: _SupportGraphState, trace_builder: TraceBuilder) -> _SupportGraphState:
+        self._node_finish(graph_state["state"], trace_builder)
+        return graph_state
+
+    def _route_after_clarification(self, graph_state: _SupportGraphState) -> str:
+        state = graph_state["state"]
+        if state.clarification and not state.clarification.can_continue:
+            return "finish"
+        return "retrieval"
+
+    def _route_after_retrieval(self, graph_state: _SupportGraphState) -> str:
+        state = graph_state["state"]
+        if state.route.has_log_or_code_signal:
+            return "code_log"
+        self._mark_skipped_gate(state, self.code_log_tool_agent.name)
+        return "diagnosis"
+
+    def _node_start(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
+        self._sync_gate_contract(state)
+        self._set_workflow_attributes(state, trace_builder)
         self._record_step(
             state,
             trace_builder,
@@ -55,10 +314,18 @@ class SupportSupervisorWorkflow:
                 "workflow_version": state.workflow_version,
                 "question_type": state.route.question_type,
                 "selected_strategy_name": state.route.selected_strategy_name,
+                "workflow_runtime": state.workflow_runtime,
+                "required_gates": state.required_gates,
             },
         )
 
+    def _node_clarification(
+        self,
+        state: SupportAgentState,
+        trace_builder: TraceBuilder,
+    ):
         clarification = self.clarification_agent.run(state)
+        self._sync_gate_contract(state)
         self._record_step(
             state,
             trace_builder,
@@ -72,22 +339,18 @@ class SupportSupervisorWorkflow:
                 "has_log_or_code_signal": state.route.has_log_or_code_signal,
             },
         )
+        self._mark_completed_gate(state, self.clarification_agent.name)
         if not clarification.can_continue:
             state.answer = _compose_clarification_response(clarification.clarification_questions)
             state.support_plan = _support_plan_from_state(state)
             state.follow_up_questions = clarification.clarification_questions
             state.study_plan = _study_plan_from_state(state)
             state.review_cards = _review_cards_from_state(state)
-            _finalize_support_trace(state, trace_builder, evaluation_skipped_reason="needs_clarification")
-            self._record_step(
-                state,
-                trace_builder,
-                name="support_supervisor_finish",
-                detail="Stopped before diagnosis because required support information is missing.",
-                payload={"final_status": state.route.final_status},
-            )
-            return state
+            state.workflow_status = "needs_clarification"
+            state.route.final_status = "needs_clarification"
+        return clarification
 
+    async def _node_retrieval(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
         retrieval = await self.retrieval_agent.run(state)
         self._record_step(
             state,
@@ -106,7 +369,9 @@ class SupportSupervisorWorkflow:
         )
         if retrieval.rewritten_query:
             trace_builder.set_attribute("rag_rewritten_query", retrieval.rewritten_query)
+        self._mark_completed_gate(state, self.retrieval_agent.name)
 
+    def _node_code_log(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
         if state.route.has_log_or_code_signal:
             log_analysis = self.code_log_tool_agent.run(state)
             self._record_step(
@@ -114,9 +379,11 @@ class SupportSupervisorWorkflow:
                 trace_builder,
                 name=self.code_log_tool_agent.name,
                 detail="Analyzed user-provided code, error code, trace id, or log signal.",
-                payload=log_analysis.dict(),
+                payload=model_to_dict(log_analysis),
             )
+            self._mark_completed_gate(state, self.code_log_tool_agent.name)
 
+    def _node_diagnosis(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
         diagnosis = self.diagnosis_agent.run(state)
         self._record_step(
             state,
@@ -130,24 +397,29 @@ class SupportSupervisorWorkflow:
                 "summary": diagnosis.summary,
             },
         )
+        self._mark_completed_gate(state, self.diagnosis_agent.name)
 
+    def _node_risk_review(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
         risk_review = self.risk_review_agent.run(state)
         self._record_step(
             state,
             trace_builder,
             name=self.risk_review_agent.name,
             detail="Reviewed production, data, and evidence risks before final response.",
-            payload=risk_review.dict(),
+            payload=model_to_dict(risk_review),
         )
+        self._mark_completed_gate(state, self.risk_review_agent.name)
 
-        if risk_review.requires_escalation:
+    def _node_escalation(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
+        risk_review = state.risk_review
+        if risk_review and risk_review.requires_escalation:
             escalation = self.escalation_agent.run(state)
             self._record_step(
                 state,
                 trace_builder,
                 name=self.escalation_agent.name,
                 detail="Prepared support ticket escalation draft.",
-                payload=escalation.dict(),
+                payload=model_to_dict(escalation),
             )
         else:
             state.escalation = self.escalation_agent.run(state)
@@ -156,35 +428,128 @@ class SupportSupervisorWorkflow:
                 trace_builder,
                 name=self.escalation_agent.name,
                 detail="Prepared frontline ticket context without escalation.",
-                payload=state.escalation.dict(),
+                payload=model_to_dict(state.escalation),
             )
+        self._mark_completed_gate(state, self.escalation_agent.name)
 
+    def _node_prepare_final_draft(self, state: SupportAgentState) -> None:
         state.support_plan = _support_plan_from_state(state)
         state.answer = _compose_final_response(state)
+
+    def _node_evaluation_review(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
         evaluation = self.evaluation_review_agent.run(state)
         self._record_step(
             state,
             trace_builder,
             name=self.evaluation_review_agent.name,
             detail="Evaluated evidence grounding, risk compliance, and answer completeness.",
-            payload=evaluation.dict(),
+            payload=model_to_dict(evaluation),
         )
+        self._mark_completed_gate(state, self.evaluation_review_agent.name)
 
         state.support_plan = _support_plan_from_state(state)
         state.answer = _compose_final_response(state)
+        self._apply_evaluation_outcome(state)
         state.follow_up_questions = _follow_up_questions_from_state(state)
         state.study_plan = _study_plan_from_state(state)
         state.review_cards = _review_cards_from_state(state)
-        state.route.final_status = "completed" if evaluation.passed else "needs_review"
-        _finalize_support_trace(state, trace_builder)
+
+    def _node_finish(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
+        evaluation_skipped_reason = None
+        if state.route.final_status == "needs_clarification":
+            evaluation_skipped_reason = "needs_clarification"
+        self._sync_gate_contract(state)
+        _finalize_support_trace(state, trace_builder, evaluation_skipped_reason=evaluation_skipped_reason)
+        self._set_workflow_attributes(state, trace_builder)
+        detail = (
+            "Stopped before diagnosis because required support information is missing."
+            if state.route.final_status == "needs_clarification"
+            else "Finished controlled support supervisor workflow."
+        )
         self._record_step(
             state,
             trace_builder,
             name="support_supervisor_finish",
-            detail="Finished controlled support supervisor workflow.",
-            payload={"final_status": state.route.final_status, "evaluation_passed": evaluation.passed},
+            detail=detail,
+            payload={
+                "final_status": state.route.final_status,
+                "workflow_status": state.workflow_status,
+                "workflow_runtime": state.workflow_runtime,
+                "evaluation_passed": state.evaluation_review.passed if state.evaluation_review else None,
+                "required_gates": state.required_gates,
+                "completed_gates": state.completed_gates,
+                "skipped_gates": state.skipped_gates,
+            },
         )
-        return state
+
+    def _apply_evaluation_outcome(self, state: SupportAgentState) -> None:
+        evaluation = state.evaluation_review
+        if evaluation is None or evaluation.passed:
+            state.workflow_status = "completed"
+            state.route.final_status = "completed"
+            return
+        state.workflow_status = "needs_review"
+        state.route.final_status = "needs_review"
+        missing = "、".join(evaluation.missing_required_sections) or "无"
+        flags = "、".join(evaluation.hallucination_flags) or "无"
+        fixes = evaluation.suggested_fixes or ["请由人工复核证据、风险和最终答复后再执行。"]
+        notice_lines = [
+            "",
+            "人工复核要求",
+            f"- 评估审查未通过，当前状态：{state.route.final_status}。",
+            f"- 缺失项：{missing}。",
+            f"- 风险标记：{flags}。",
+            *[f"- 修复建议：{fix}" for fix in fixes],
+        ]
+        notice = "\n".join(notice_lines)
+        if "人工复核要求" not in state.answer:
+            state.answer = f"{state.answer}\n{notice}"
+        if state.support_plan:
+            risk_note = "评估审查未通过，必须人工复核证据、风险和最终答复后再继续。"
+            next_action = "先修复评估审查缺失项，再由负责人确认是否执行或升级。"
+            if risk_note not in state.support_plan.risk_notes:
+                state.support_plan.risk_notes.append(risk_note)
+            if next_action not in state.support_plan.next_actions:
+                state.support_plan.next_actions.insert(0, next_action)
+
+    def _mark_completed_gate(self, state: SupportAgentState, gate: str) -> None:
+        _append_unique(state.completed_gates, gate)
+        state.skipped_gates = [item for item in state.skipped_gates if item != gate]
+        self._sync_gate_contract(state)
+
+    def _mark_skipped_gate(self, state: SupportAgentState, gate: str) -> None:
+        if gate in state.completed_gates:
+            return
+        _append_unique(state.skipped_gates, gate)
+        self._sync_gate_contract(state)
+
+    def _mark_skipped_remaining_gates(self, state: SupportAgentState) -> None:
+        self._sync_gate_contract(state)
+        for gate in state.required_gates:
+            if gate not in state.completed_gates:
+                self._mark_skipped_gate(state, gate)
+        for gate in self.CONDITIONAL_GATES:
+            if gate not in state.completed_gates:
+                self._mark_skipped_gate(state, gate)
+
+    def _sync_gate_contract(self, state: SupportAgentState) -> None:
+        required = list(self.BASE_REQUIRED_GATES)
+        if state.route.has_log_or_code_signal and self.code_log_tool_agent.name not in required:
+            required.insert(required.index(self.diagnosis_agent.name), self.code_log_tool_agent.name)
+        state.required_gates = required
+        state.completed_gates = _dedupe(state.completed_gates)
+        state.skipped_gates = _dedupe(
+            gate for gate in state.skipped_gates if gate not in state.completed_gates
+        )
+
+    def _set_workflow_attributes(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
+        trace_builder.set_attribute("workflow_version", state.workflow_version)
+        trace_builder.set_attribute("workflow_runtime", state.workflow_runtime)
+        trace_builder.set_attribute("workflow_status", state.workflow_status)
+        trace_builder.set_attribute("final_status", state.route.final_status)
+        trace_builder.set_attribute("required_gates", state.required_gates)
+        trace_builder.set_attribute("completed_gates", state.completed_gates)
+        trace_builder.set_attribute("skipped_gates", state.skipped_gates)
 
     def _record_step(
         self,
@@ -321,8 +686,8 @@ def _support_plan_from_state(state: SupportAgentState) -> SupportPlan:
         risk_notes.extend(risk_review.data_safety_notes)
         risk_notes.extend(risk_review.production_change_notes)
         risk_notes.extend(risk_review.required_human_confirmations)
-    if state.evaluation_review and state.evaluation_review.hallucination_flags:
-        risk_notes.append("Evaluation review flagged grounding or completeness risks; keep human review before action.")
+    if state.evaluation_review and not state.evaluation_review.passed:
+        risk_notes.append("评估审查未通过，需人工复核证据、风险和最终答复后再继续。")
     return SupportPlan(
         issue_summary=f"售后支持案例：{state.incident.symptom or state.request.user_input[:80]}",
         clarification_questions=clarification_questions,
@@ -336,7 +701,7 @@ def _support_plan_from_state(state: SupportAgentState) -> SupportPlan:
             ticket_summary=escalation.ticket_summary if escalation else "",
             ticket_fields=escalation.ticket_fields if escalation else {},
         ),
-        risk_notes=risk_notes or ["Keep diagnosis grounded in cited evidence and confirm risky actions manually."],
+        risk_notes=risk_notes or ["所有诊断结论必须基于引用证据；涉及生产风险时需人工确认。"],
         next_actions=_next_actions(state),
     )
 
@@ -354,8 +719,7 @@ def _compose_final_response(state: SupportAgentState) -> str:
         summary = state.diagnosis.summary
     if not state.citations and state.escalation and state.escalation.required:
         summary = (
-            f"{summary} Evidence is insufficient; keep this as a validation hypothesis "
-            "and escalate for human review."
+            f"{summary} 当前证据不足，只能作为待验证假设；请升级并由人工复核。"
         ).strip()
     if not summary:
         summary = "当前没有可用的 RAG 回答。"
@@ -379,6 +743,9 @@ def _compose_final_response(state: SupportAgentState) -> str:
         f"- 是否升级：{'是' if plan.escalation.required else '否'}",
         f"- 严重度：{plan.escalation.severity}",
         f"- 原因：{plan.escalation.reason or '当前可按一线流程继续，但需保留证据。'}",
+        "",
+        "风险提示",
+        *[f"- {note}" for note in plan.risk_notes],
         "",
         "下一步动作",
         *[f"- {action}" for action in plan.next_actions],
@@ -460,14 +827,58 @@ def _contains_any(text: str, keywords: tuple[str, ...]) -> bool:
     return any(keyword and keyword in text for keyword in keywords)
 
 
+def _load_langgraph_runtime() -> tuple[Any, Any, Any] | None:
+    try:
+        from langgraph.graph import END, START, StateGraph
+    except ImportError:
+        return None
+    return StateGraph, START, END
+
+
+def _support_workflow_runtime_mode() -> str:
+    mode = os.getenv("AI_AGENT_SUPPORT_WORKFLOW_RUNTIME", "").strip().lower()
+    if mode in {"local", "auto", "langgraph"}:
+        return mode
+    legacy_flag = os.getenv("AI_AGENT_ENABLE_LANGGRAPH_RUNTIME", "").strip().lower()
+    if legacy_flag in {"1", "true", "yes", "on"}:
+        return "langgraph"
+    if legacy_flag in {"0", "false", "no", "off"}:
+        return "local"
+    return "auto"
+
+
+def _append_unique(values: list[str], value: str) -> None:
+    if value not in values:
+        values.append(value)
+
+
+def _dedupe(values) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        normalized = str(value).strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(normalized)
+    return result
+
+
 def _finalize_support_trace(
     state: SupportAgentState,
     trace_builder: TraceBuilder,
     *,
     evaluation_skipped_reason: str | None = None,
 ) -> None:
+    trace_builder.set_attribute("workflow_version", state.workflow_version)
+    trace_builder.set_attribute("workflow_runtime", state.workflow_runtime)
+    trace_builder.set_attribute("workflow_status", state.workflow_status)
+    trace_builder.set_attribute("final_status", state.route.final_status)
+    trace_builder.set_attribute("required_gates", state.required_gates)
+    trace_builder.set_attribute("completed_gates", state.completed_gates)
+    trace_builder.set_attribute("skipped_gates", state.skipped_gates)
     if state.support_plan is not None:
-        trace_builder.set_attribute("support_plan", state.support_plan.dict())
+        trace_builder.set_attribute("support_plan", model_to_dict(state.support_plan))
         trace_builder.set_attribute("support_escalation_required", state.support_plan.escalation.required)
         trace_builder.set_attribute("support_severity", state.support_plan.escalation.severity)
     trace_builder.set_attribute(

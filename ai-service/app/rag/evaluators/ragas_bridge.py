@@ -20,7 +20,7 @@ def build_ragas_sample(payload: RagEvaluateRequest) -> dict[str, object]:
     """Map the project evaluator payload to a RAGAS SingleTurnSample-like row.
 
     The returned value intentionally stays as a plain dict so the main FastAPI
-    service does not import RAGAS or Pydantic v2 at runtime.
+    service does not import RAGAS on the hot path.
     """
 
     sample: dict[str, object] = {
@@ -114,8 +114,7 @@ def load_ragas_metrics(metric_names: Sequence[str]) -> list[object]:
     except Exception as exc:  # pragma: no cover - depends on optional runtime
         raise RagasUnavailableError(
             "RAGAS is not installed in this Python environment. "
-            "Use a separate RAGAS venv because ragas 0.4.x requires pydantic>=2 "
-            "while ai-service currently pins pydantic 1.10.x."
+            "Install the optional RAGAS runtime before running RAGAS scoring."
         ) from exc
 
     loaded: list[object] = []

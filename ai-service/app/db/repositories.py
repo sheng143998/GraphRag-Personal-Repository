@@ -8,6 +8,7 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 
 from app.core.config import settings
+from app.core.pydantic_compat import model_copy_update
 from app.schemas.common import SourceMetadata
 from app.schemas.ingest import ChunkRecord, ParsedDocument
 from app.rag.graph import GraphEntity, GraphRelationship
@@ -504,7 +505,7 @@ class PostgresDocumentRepository(BaseDocumentRepository):
                 metadata["parent_chunk_id"] = str(hit["parent_chunk_id"])
                 metadata["context_source_chunk_ids"] = [str(row["id"]) for row in parent_children]
                 metadata.update(_compressed_context_metadata(source, parent_children))
-                return source.copy(update={"metadata": metadata})
+                return model_copy_update(source, {"metadata": metadata})
 
         cursor.execute(
             """
@@ -524,7 +525,7 @@ class PostgresDocumentRepository(BaseDocumentRepository):
         metadata["parent_child_mode"] = "neighbor-window"
         metadata["context_source_chunk_ids"] = [str(row["id"]) for row in neighbors]
         metadata.update(_compressed_context_metadata(source, neighbors))
-        return source.copy(update={"metadata": metadata})
+        return model_copy_update(source, {"metadata": metadata})
 
     def save_graph_facts(
         self,
@@ -785,14 +786,14 @@ def _float_option(options: dict[str, object], snake_key: str, camel_key: str, *,
 def _mark_parent_child_unsupported(source: SourceMetadata) -> SourceMetadata:
     metadata = {**source.metadata}
     metadata.setdefault("parent_child_mode", "unsupported")
-    return source.copy(update={"metadata": metadata})
+    return model_copy_update(source, {"metadata": metadata})
 
 
 def _mark_parent_child_error(source: SourceMetadata, exc: Exception) -> SourceMetadata:
     metadata = {**source.metadata}
     metadata["parent_child_mode"] = metadata.get("parent_child_mode") or "fallback-error"
     metadata["fallback_error"] = str(exc)
-    return source.copy(update={"metadata": metadata})
+    return model_copy_update(source, {"metadata": metadata})
 
 
 def _hydrate_in_memory_parent_context(
@@ -814,7 +815,7 @@ def _hydrate_in_memory_parent_context(
             metadata["parent_chunk_id"] = matched_chunk.parent_chunk_id
             metadata["context_source_chunk_ids"] = [chunk.chunk_id for chunk in parent_children]
             metadata.update(_compressed_context_metadata(source, _chunks_to_context_rows(parent_children)))
-            return source.copy(update={"metadata": metadata})
+            return model_copy_update(source, {"metadata": metadata})
 
     neighbors = [
         chunk
@@ -826,7 +827,7 @@ def _hydrate_in_memory_parent_context(
     metadata["parent_child_mode"] = "neighbor-window"
     metadata["context_source_chunk_ids"] = [chunk.chunk_id for chunk in neighbors]
     metadata.update(_compressed_context_metadata(source, _chunks_to_context_rows(neighbors)))
-    return source.copy(update={"metadata": metadata})
+    return model_copy_update(source, {"metadata": metadata})
 
 
 def _chunks_to_context_rows(chunks: list[ChunkRecord]) -> list[dict[str, object]]:

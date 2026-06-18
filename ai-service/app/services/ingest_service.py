@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from app.core.config import settings
 from app.core.constants import DocumentType, FileType
+from app.core.pydantic_compat import model_copy_update
 from app.core.tracing import TraceBuilder
 from app.db.repositories import repository
 from app.rag.chunkers.base import (
@@ -365,7 +366,7 @@ def _parsed_document_for_storage(parsed_document: ParsedDocument) -> ParsedDocum
         for key, value in parsed_document.metadata.items()
         if key not in {"spreadsheet_tables"}
     }
-    return parsed_document.copy(update={"metadata": metadata})
+    return model_copy_update(parsed_document, {"metadata": metadata})
 
 
 def _sanitize_text_for_storage(text: str) -> str:

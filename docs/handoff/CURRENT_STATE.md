@@ -1,9 +1,14 @@
 ﻿# 当前状态
 
-更新时间：2026-06-17
+更新时间：2026-06-18
 
 ## 已完成
-- RAGAS 评估体系第一阶段已接入：新增 RAGAS bridge，可把现有 `RagEvaluateRequest` 导出为 RAGAS `SingleTurnSample` 兼容 JSONL，并保持 RAGAS 依赖懒加载，避免影响 FastAPI/Pydantic v1 主服务。
+- AI 服务版本升级已完成：主依赖升级到 `FastAPI 0.137.2`、`Pydantic 2.13.4`、`LangChain 1.3.9`、`LangChain Core 1.4.7`、`LangGraph 1.2.5`、`Uvicorn 0.49.0`，并用 uv managed Python 3.12 刷新 `uv.lock`。
+- 新增 `app/core/pydantic_compat.py`，统一 Pydantic v1/v2 `model_dump` / `model_copy` 兼容输出；当前热路径 `.dict()` 和 `.copy(update=...)` 已收敛。
+- 新增 FastAPI + Pydantic v2 HTTP 序列化测试，覆盖 `/ai/health` 和 `/ai/rag/evaluate` 的 trace datetime、嵌套 payload 和响应 header。
+- Support Supervisor 在新版 LangGraph 下保持真实 `StateGraph.compile().ainvoke(...)` 运行；`auto` 模式只在依赖不可用时回落本地 runtime，图构建/执行失败会直接抛错并记录 `support_workflow_runtime_error`。
+- `langgraph.graph` 与 `langchain_core.tools` 作为必需依赖已改为硬导入测试，不再用 `importorskip` 掩盖缺依赖。
+- RAGAS 评估体系第一阶段已接入：新增 RAGAS bridge，可把现有 `RagEvaluateRequest` 导出为 RAGAS `SingleTurnSample` 兼容 JSONL，并保持 RAGAS 依赖懒加载，避免普通 FastAPI 服务热路径强制 import RAGAS。
 - 新增自动测评集草稿生成：可从已上传文档入库后的 `document_chunks` 或离线 chunk JSON 生成 `DRAFT` 评测样本 JSON，字段对齐现有 Spring Boot `rag_evaluation_cases` 导入 schema。
 - 新增人工半自动审核产物：生成脚本会同步输出 UTF-8 BOM CSV，包含 `humanDecision` / `humanNotes`，便于人工审核问题、标准答案和 required/supporting/citation chunk ids。
 - 新增离线 RAGAS 执行入口：`export_ragas_dataset.py`、`run_ragas_evaluation.py` 和根目录 PowerShell 包装脚本支持独立 RAGAS venv 运行 ID-based / LLM-as-judge 指标。
@@ -40,6 +45,8 @@
 - 新增 `docs/experiments/2026-06-16-rag-evaluation-chunk-lookup.sql`，用于按 `relevant_chunk_ids` 和 `expected_citation_chunk_ids` 展开查询真实 chunk 内容。
 
 ## 已验证
+- `cd ai-service; $env:UV_PROJECT_ENVIRONMENT='..\.tmp\uv-test-ai-service-pydantic-v2-langgraph-latest'; uv run --python 3.12 --managed-python --extra dev python -m pytest tests\test_api_pydantic_v2_serialization.py tests\test_agent_workflow.py tests\test_support_agent_nodes.py tests\test_support_supervisor_graph.py tests\test_strategy_comparison_evaluator.py tests\test_ragas_bridge.py tests\test_ragas_testset_generation.py -q --basetemp ..\.tmp\pytest-pydantic-v2-langgraph-latest`（50 passed；pytest cache 权限 warning 不影响结果）
+- `mvn.cmd -f backend-java\pom.xml test "-Dtest=AgentServiceTest,AssistantTurnServiceTest"`（2 tests，BUILD SUCCESS）
 - `cd ai-service; .\.venv\bin\python.exe -m pytest tests\test_ragas_bridge.py tests\test_ragas_testset_generation.py tests\test_strategy_comparison_evaluator.py -q --basetemp ..\.tmp\pytest-ragas`（13 passed；pytest cache 权限 warning 不影响结果）
 - `cd ai-service; .\.venv\bin\python.exe -m pytest tests\test_agent_workflow.py -q --basetemp ..\.tmp\pytest-agent`（5 passed；pytest cache 权限 warning 不影响结果）
 - `mvn.cmd -f backend-java\pom.xml test "-Dtest=AgentServiceTest,AssistantTurnServiceTest,WeakPointPracticeServiceTest"`（3 tests，BUILD SUCCESS）
@@ -69,6 +76,12 @@
 - `mvn.cmd -f backend-java\pom.xml test -Dtest=RagExperimentServiceTest`
 
 ## 重点文件
+- `ai-service/pyproject.toml`
+- `ai-service/uv.lock`
+- `ai-service/app/core/pydantic_compat.py`
+- `ai-service/tests/test_api_pydantic_v2_serialization.py`
+- `docs/plans/2026-06-18-fastapi-pydantic-v2-langgraph-upgrade.md`
+- `docs/reviews/2026-06-18-fastapi-pydantic-v2-langgraph-upgrade-review-prompt.md`
 - `ai-service/app/rag/evaluators/ragas_bridge.py`
 - `ai-service/app/rag/evaluators/testset_generation.py`
 - `ai-service/scripts/generate_ragas_testset_draft.py`

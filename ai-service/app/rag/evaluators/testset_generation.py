@@ -390,7 +390,7 @@ def generate_case_drafts_with_ragas(
     """Generate drafts through RAGAS TestsetGenerator when optional deps exist.
 
     This function intentionally imports RAGAS/LangChain lazily so the main
-    ai-service runtime can stay on Pydantic v1.
+    ai-service runtime does not import optional RAGAS dependencies on the hot path.
     """
 
     usable_chunks = _usable_chunks(chunks)

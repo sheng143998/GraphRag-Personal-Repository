@@ -1,9 +1,10 @@
 import logging
 import time
 
-from app.core.tracing import TraceBuilder
 from app.agents.graphs.support_supervisor import SupportSupervisorWorkflow, is_support_request
 from app.agents.workflow import StudyAgentWorkflow
+from app.core.pydantic_compat import model_to_dict
+from app.core.tracing import TraceBuilder
 from app.schemas.agent import AgentInvokeRequest, AgentInvokeResponse
 from app.services.adapters.registry import get_llm_model_name
 from app.services.rag_service import RagService
@@ -57,13 +58,16 @@ class AgentService:
         trace_builder.set_attribute("selected_strategy_name", selected_strategy_name)
         if getattr(state, "support_mode", False):
             trace_builder.set_attribute("support_mode", True)
-        if state.support_plan is not None:
-            trace_builder.set_attribute("support_plan", state.support_plan.dict())
+        support_plan = getattr(state, "support_plan", None)
+        if support_plan is not None:
+            trace_builder.set_attribute("support_plan", model_to_dict(support_plan))
         if state.rag_trace_id:
             trace_builder.set_attribute("rag_trace_id", state.rag_trace_id)
         if state.rag_trace:
             trace_builder.set_attribute("rag_run_id", state.rag_trace.run_id)
-        trace = trace_builder.finalize(status="completed")
+        workflow_status = getattr(state, "workflow_status", "completed") or "completed"
+        trace_builder.set_attribute("workflow_status", workflow_status)
+        trace = trace_builder.finalize(status=str(workflow_status))
         duration_ms = int((time.perf_counter() - started) * 1000)
         log.info(
             "Agent workflow completed: selectedStrategyName=%s, citationCount=%s, durationMs=%s, traceId=%s",
@@ -81,7 +85,7 @@ class AgentService:
             follow_up_questions=state.follow_up_questions,
             study_plan=state.study_plan,
             review_cards=state.review_cards,
-            support_plan=state.support_plan,
+            support_plan=support_plan,
             workflow_steps=steps,
             trace=trace,
             rag_trace=state.rag_trace,

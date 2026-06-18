@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass
 from uuid import uuid4
 
+from app.core.pydantic_compat import model_copy_update
 from app.schemas.ingest import ChunkRecord, DocumentIngestRequest, ParsedDocument
 
 
@@ -551,7 +552,7 @@ class ParentChildChunker(BaseChunker):
             chunk_index += 1
 
             for child in child_records:
-                chunks.append(child.copy(update={"chunk_index": chunk_index}))
+                chunks.append(model_copy_update(child, {"chunk_index": chunk_index}))
                 chunk_index += 1
         return chunks
 

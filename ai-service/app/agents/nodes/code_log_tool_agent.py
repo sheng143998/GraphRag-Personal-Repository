@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.agents.states.support_state import CodeLogAnalysisResult, SupportAgentState
-from app.agents.tools.log_pattern_tools import classify_log_error
+from app.agents.tools.support_langchain_tools import analyze_support_log_patterns
 
 
 class CodeLogToolAgent:
@@ -9,20 +9,19 @@ class CodeLogToolAgent:
 
     def run(self, state: SupportAgentState) -> CodeLogAnalysisResult:
         text = "\n".join(state.incident.log_snippets) or state.request.user_input
-        error_type, component, key_signals, unsafe_actions = classify_log_error(text)
+        analysis = analyze_support_log_patterns(text)
         result = CodeLogAnalysisResult(
             triggered=True,
-            detected_error_type=error_type,
-            suspected_component=component,
-            key_signals=key_signals,
+            detected_error_type=str(analysis["detected_error_type"]),
+            suspected_component=str(analysis["suspected_component"]),
+            key_signals=list(analysis["key_signals"]),
             timeline_hints=["Align log timestamp with customer report time and recent change window."],
             safe_checks=[
                 "Collect gateway, application, and dependency logs for the same trace id.",
                 "Check health, saturation, error rate, and recent deployment/configuration changes.",
             ],
-            unsafe_actions=unsafe_actions,
-            confidence=0.75 if error_type != "unknown" else 0.45,
+            unsafe_actions=list(analysis["unsafe_actions"]),
+            confidence=float(analysis["confidence"]),
         )
         state.log_analysis = result
         return result
-
