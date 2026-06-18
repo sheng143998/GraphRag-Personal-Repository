@@ -54,7 +54,7 @@
 - `npm.cmd --prefix frontend-react run build`
 - Playwright + system Edge stub 后端验证：`/chat` 桌面对话首屏、发送示例问题后的 `supportPlan` 诊断卡片、`/documents` 桌面文档表、`/chat` 移动端首屏均通过；控制台仅有 React Router v7 future flag warning。
 - `mvn.cmd -f backend-java/pom.xml test`
-- `npm.cmd --prefix frontend run typecheck`
+- `npm.cmd --prefix frontend-react run typecheck`
 - `mvn.cmd -f backend-java/pom.xml -q -DskipTests compile`
 - `C:\Users\admin\Desktop\agent-vue-java-springboot-fastapi-ai\ai-service\.venv\bin\python.exe -m pytest C:\Users\admin\Desktop\agent-vue-java-springboot-fastapi-ai\ai-service\tests\test_parent_child_chunker.py -q`
 - `C:\Users\admin\Desktop\agent-vue-java-springboot-fastapi-ai\ai-service\.venv\bin\python.exe -m pytest C:\Users\admin\Desktop\agent-vue-java-springboot-fastapi-ai\ai-service\tests\test_basic_rag_pipeline.py C:\Users\admin\Desktop\agent-vue-java-springboot-fastapi-ai\ai-service\tests\test_advanced_rag_strategy.py -q`
@@ -68,11 +68,11 @@
 - `C:\Users\admin\Desktop\agent-vue-java-springboot-fastapi-ai\ai-service\.venv\bin\python.exe -m pytest -q`（57 passed，pytest cache 权限 warning 不影响结果）
 - `ai-service/.venv/bin/python.exe -m pytest ai-service/tests/test_parent_child_chunker.py -k "xlsx or table_files or parent_child_ingest_query"`（3 passed，pytest cache 权限 warning 不影响结果）
 - `.venv/bin/python.exe -m pytest -q`（ai-service 目录，58 passed，pytest cache 权限 warning 不影响结果）
-- `npm.cmd --prefix frontend run typecheck`
+- `npm.cmd --prefix frontend-react run typecheck`
 - `mvn.cmd -f backend-java/pom.xml test`
 - MinerU 真实连通性探针：`PyCharmMiscProject\.venv` 中 API 提交 `code=0`、上传 200、轮询 `done`，使用 `trust_env=False` 下载结果 zip 返回 HTTP 200 / `application/zip`。
 - `datasets/processed/rag-folder-evaluation-cases-20260616.json` JSON 解析通过；96 个 chunk 引用均在 `document_chunks` 中存在，且均属于对应样例的 `relevantDocumentIds`；未发现 `GraphRAG关系`、图片说明或 prompt 示例类弱证据 chunk 残留。
-- `npm.cmd --prefix frontend run build`
+- `npm.cmd --prefix frontend-react run build`
 - `mvn.cmd -f backend-java\pom.xml test -Dtest=RagExperimentServiceTest`
 
 ## 重点文件
@@ -113,10 +113,9 @@
 - `frontend-react/scripts/build.mjs`
 - `docs/plans/2026-06-17-frontend-support-workbench-aesthetic-optimization.md`
 - `docs/reviews/2026-06-17-frontend-support-workbench-aesthetic-optimization-review-prompt.md`
-- `frontend/src/components/UploadEntry.vue`
-- `frontend/src/api/documents.ts`
-- `frontend/src/stores/workbench.ts`
-- `frontend/src/types/index.ts`
+- `frontend-react/src/features/documents/DocumentCenter.tsx`
+- `frontend-react/src/api/documents.ts`
+- `frontend-react/src/types/index.ts`
 - `backend-java/src/main/java/com/example/agentknowledge/controller/DocumentController.java`
 - `backend-java/src/main/java/com/example/agentknowledge/service/DocumentService.java`
 - `backend-java/src/main/java/com/example/agentknowledge/service/DocumentIngestDispatcher.java`
@@ -124,10 +123,10 @@
 - `backend-java/src/main/java/com/example/agentknowledge/service/DocumentIngestRabbitListener.java`
 - `backend-java/src/main/java/com/example/agentknowledge/config/RabbitMqConfig.java`
 - `docs/plans/2026-06-16-multi-document-folder-upload-async-queue.md`
-- `frontend/src/pages/experiments/ExperimentsPage.vue`
-- `frontend/src/api/experiments.ts`
-- `frontend/src/api/rag.ts`
-- `frontend/src/types/index.ts`
+- `frontend-react/src/features/experiments/ExperimentsWorkspace.tsx`
+- `frontend-react/src/api/experiments.ts`
+- `frontend-react/src/api/rag.ts`
+- `frontend-react/src/types/index.ts`
 - `backend-java/src/main/java/com/example/agentknowledge/controller/RagController.java`
 - `backend-java/src/main/java/com/example/agentknowledge/service/RagExperimentService.java`
 - `ai-service/app/rag/chunkers/base.py`
@@ -137,8 +136,8 @@
 - `ai-service/tests/test_docx_parser.py`
 - `ai-service/tests/test_mineru_pdf_parser.py`
 - `datasets/processed/rag-folder-evaluation-cases-20260616.json`
-- `frontend/src/pages/experiments/ExperimentsPage.vue`
-- `frontend/src/styles.css`
+- `frontend-react/src/features/experiments/ExperimentsWorkspace.tsx`
+- `frontend-react/src/styles/experiments.css`
 - `docs/experiments/2026-06-16-rag-evaluation-chunk-lookup.sql`
 - `docs/plans/2026-06-17-table-row-group-chunking.md`
 - `docs/reviews/2026-06-17-table-row-group-chunking-review-prompt.md`

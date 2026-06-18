@@ -146,7 +146,9 @@ function mapAssistantTurnResponse(response: AssistantTurnResponse, fallbackStrat
     reviewCards: response.reviewCards,
     supportPlan: response.supportPlan,
     weakPoints: response.weakPoints,
-    workflowSteps: response.workflowSteps
+    workflowSteps: response.workflowSteps,
+    traceAttributes: response.trace?.attributes ?? {},
+    ragTraceAttributes: response.ragTrace?.attributes ?? {}
   };
 }
 

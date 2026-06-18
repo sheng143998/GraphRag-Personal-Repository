@@ -115,6 +115,110 @@ p {
   gap: 16px;
 }
 
+.eval-flow-panel {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-lowest);
+  padding: 14px 16px;
+}
+
+.eval-flow-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.eval-flow-summary h2,
+.eval-flow-summary p {
+  margin: 0;
+}
+
+.eval-flow-summary h2 {
+  font-size: 16px;
+  line-height: 22px;
+}
+
+.eval-flow-summary p {
+  margin-top: 3px;
+}
+
+.eval-flow-summary strong {
+  flex: 0 0 auto;
+  color: var(--primary);
+  font: 800 20px/24px var(--font-display);
+}
+
+.eval-flow-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.eval-flow-step {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 10px;
+}
+
+.eval-flow-step > span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--surface-low);
+  color: var(--muted);
+  font-size: 20px;
+}
+
+.eval-flow-step strong,
+.eval-flow-step small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eval-flow-step strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.eval-flow-step small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.eval-flow-step.is-done {
+  border-color: rgba(15, 107, 117, 0.22);
+  background: var(--primary-soft);
+}
+
+.eval-flow-step.is-done > span {
+  background: var(--primary-fixed);
+  color: var(--primary);
+}
+
+.eval-flow-step.is-current {
+  border-color: rgba(161, 92, 7, 0.36);
+  background: var(--tertiary-soft);
+}
+
+.eval-flow-step.is-current > span {
+  background: #ffffff;
+  color: var(--warning);
+}
+
 .experiment-dashboard-grid {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
@@ -181,9 +285,9 @@ p {
 .leaderboard-head,
 .leaderboard-row {
   display: grid;
-  grid-template-columns: 1.5fr repeat(5, minmax(78px, 1fr));
+  grid-template-columns: 1.5fr repeat(6, minmax(78px, 1fr));
   gap: 12px;
-  min-width: 760px;
+  min-width: 860px;
   align-items: center;
   border-bottom: 1px solid var(--border);
   padding: 12px 16px;
@@ -746,6 +850,7 @@ p {
 @media (max-width: 1020px) {
   .metric-grid,
   .experiment-dashboard-grid,
+  .eval-flow-steps,
   .experiment-layout,
   .detail-grid,
   .comparison-grid {
@@ -754,6 +859,7 @@ p {
 
   .page-title-row,
   .panel-header,
+  .eval-flow-summary,
   .comparison-filter-bar {
     align-items: stretch;
     flex-direction: column;

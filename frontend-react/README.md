@@ -1,12 +1,14 @@
-# React 前端迁移工作区
+# React 前端工作台
 
-`frontend-react/` 是基于 Stitch RAG Knowledge Studio 页面新建的 React + TypeScript 前端迁移工作区。当前用于并行验证 React 版工作台，暂不替换现有 Vue `frontend/`。
+`frontend-react/` 是当前项目的正式前端主入口，已替代旧 Vue `frontend/`。它面向企业售后技术支持知识库 Agent，提供文档入库、支持问答、RAG 评测、知识库管理、图谱事实、反馈和设置等工作台页面。
 
 ## 模块职责
 
-- 按 Stitch `Lumina Nexus` 设计系统实现浅色高密度 RAG Workbench。
-- 覆盖对话、文档中心、知识库、实验评估、评估对比、图谱事实、反馈和设置页面。
-- 前端浏览器请求继续只进入 Spring Boot `/api/*`，不直接调用 FastAPI `/ai/*`。
+- 浏览器端只调用 Spring Boot `/api/*`，不直接访问 FastAPI `/ai/*`。
+- 提供售后支持问答工作台：会话、知识库选择、Agent supervisor 编排、证据引用、风险审查和工单升级建议。
+- 提供文档入库中心：单文件、多文件、文件夹上传，展示已上传、解析中、切分中、向量化、可检索和失败复查。
+- 提供评测实验工作台：测评集导入、页面内人工审核、批量运行、RAGAS / 检索指标回看、样本和实验删除。
+- 提供知识库、GraphRAG 图谱事实、反馈和运行设置页面。
 
 ## 技术栈
 
@@ -16,8 +18,11 @@
 - React Router
 - Zustand
 - lucide-react
+- Material Symbols 图标字体
 
 ## 常用命令
+
+从仓库根目录执行：
 
 ```powershell
 npm.cmd --prefix frontend-react run dev
@@ -25,45 +30,53 @@ npm.cmd --prefix frontend-react run typecheck
 npm.cmd --prefix frontend-react run build
 ```
 
-开发服务器默认使用 `5174` 端口，并将 `/api` 代理到 `http://localhost:8080`。
+开发服务器默认监听 `127.0.0.1:3000`，并将 `/api` 代理到 `http://localhost:8080`。如果本机端口冲突，可覆盖：
+
+```powershell
+$env:VITE_DEV_HOST='127.0.0.1'
+$env:VITE_DEV_PORT='3001'
+npm.cmd --prefix frontend-react run dev
+```
 
 ## 关键目录
 
 ```text
 frontend-react/
+├── scripts/                   # dev/build 包装脚本，显式设置 Vite root
 ├── src/api/                    # Spring Boot /api/* client
 ├── src/app/router.tsx          # React Router 配置
 ├── src/layouts/WorkbenchLayout.tsx
 ├── src/pages/                  # 页面入口
-├── src/features/documents/     # 文档中心：上传、状态轮询、详情预览
-├── src/features/experiments/   # 实验评估：测评集导入、自动 batch run、对比
+├── src/features/documents/     # 文档入库流水线
+├── src/features/experiments/   # 测评集审核、批量评测和对比
 ├── src/components/             # primitives 和数据展示组件
 └── src/styles/                 # token、工作台样式、实验页样式
 ```
 
-## 当前已实现能力
+## 主要页面
 
-- `/documents`：单文件、多文件、文件夹上传，保留 `relativePath`，上传后轮询文档状态，展示文档表格和 chunk 预览抽屉。
-- `/experiments`：读取本地 JSON / CSV 测评集，导入到当前实验，导入后自动触发 batch RAG run。
-- `/experiments/comparison`：按最近评估记录聚合 Recall、Precision、MRR、Citation、Tokens、Cost 和 latency。
-- `/chat`：会话列表、assistant-turn 调用、消息流和引用侧栏第一版。
-- `/knowledge-base`：知识库列表、统计、创建和删除第一版。
-- `/graph`：基于 graph facts 的确定性 SVG 图谱和实体详情第一版。
-- `/feedback`、`/settings`：反馈提交和运行时设置第一版。
+- `/chat`：售后支持问答工作台，展示 Agent supervisor 编排、诊断方案、证据引用、风险和升级建议。
+- `/documents`：文档入库中心，支持上传、轮询状态、失败复查和 chunk 预览。
+- `/experiments`：测评集导入、人工审核、批量运行和评估历史。
+- `/experiments/comparison`：按策略聚合对比 Recall、Precision、MRR、Citation、Tokens、Cost 和 latency。
+- `/knowledge-base`：知识库列表、统计、创建和删除。
+- `/graph`：GraphRAG 图谱事实查询和可视化。
+- `/feedback`、`/settings`：反馈提交和运行时设置。
 
 ## 验证记录
 
-本轮已通过：
+当前主前端已通过：
 
 ```powershell
 npm.cmd --prefix frontend-react run typecheck
 npm.cmd --prefix frontend-react run build
 ```
 
-审查 agent 发现的“导入评测集后自动运行可能读取旧 state 导致跳过 batch run”已修复：导入后现在直接拉取最新 evaluation cases，再计算本次导入成功的 case ids。
+最近一次 Playwright + Edge 渲染检查覆盖 `/chat`、`/documents`、`/experiments`，页面非空、无 Vite overlay；本地控制台中的 API 500/404 属于后端数据或接口状态，不是前端构建错误。
 
-## 后续待办
+## 开发约定
 
-- 做真实后端联调和浏览器视觉 smoke。
-- 对齐 Stitch 截图逐页做视觉差异修正。
-- 验收后决定是否将 `frontend-react/` 收敛为正式 `frontend/`。
+- 新页面和新 API client 均放在 `frontend-react/src/`。
+- 组件不得绕过 `src/api/` 直接拼接后端 URL。
+- 中文内容按 UTF-8 读取和保存；Windows PowerShell 查看中文文件必须显式 `-Encoding UTF8`。
+- 前端视觉以“工业级售后支持中枢”为方向：中文优先、密度适中、冷灰 / 深青 / 告警色，避免营销页和装饰性渐变。

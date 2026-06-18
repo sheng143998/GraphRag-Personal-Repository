@@ -46,6 +46,21 @@ interface SkippedFileItem {
   reason: string;
 }
 
+interface PipelineStep {
+  key: "uploaded" | "parsing" | "chunking" | "embedding" | "searchable" | "review";
+  label: string;
+  description: string;
+}
+
+interface StatusMeta {
+  label: string;
+  detail: string;
+  className: string;
+  icon: typeof File;
+  phaseIndex: number;
+  tone: "neutral" | "active" | "success" | "danger";
+}
+
 const DOCUMENT_TYPES = [
   { value: "tech_note", label: "技术笔记" },
   { value: "development_experience", label: "开发经验" },
@@ -59,6 +74,14 @@ const ALLOWED_FILE_TYPES = new Set(["md", "txt", "csv", "html", "json", "log", "
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 const POLL_INTERVAL_MS = 2200;
 const MAX_POLL_ATTEMPTS = 36;
+const PIPELINE_STEPS: PipelineStep[] = [
+  { key: "uploaded", label: "已上传", description: "文件已进入后端任务队列" },
+  { key: "parsing", label: "解析中", description: "提取正文、表格和版面结构" },
+  { key: "chunking", label: "切分中", description: "按文档类型生成知识片段" },
+  { key: "embedding", label: "向量化", description: "写入 embedding 与检索索引" },
+  { key: "searchable", label: "可检索", description: "可在问答和实验中召回" },
+  { key: "review", label: "失败复查", description: "查看错误、调整格式后重试" }
+];
 
 function sortByUpdatedAt(items: DocumentRecord[]): DocumentRecord[] {
   return [...items].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
@@ -109,12 +132,96 @@ function fileIcon(fileType?: string) {
   return <FileText size={18} />;
 }
 
-function statusMeta(status: DocumentProcessStatus | string) {
-  if (status === "INDEXED") return { label: "已索引", className: "status-indexed", icon: CheckCircle2 };
-  if (status === "PROCESSING") return { label: "解析中", className: "status-processing", icon: Loader2 };
-  if (status === "UPLOADED") return { label: "已提交", className: "status-uploaded", icon: Upload };
-  if (status === "FAILED") return { label: "失败", className: "status-failed", icon: AlertCircle };
-  return { label: status, className: "status-muted", icon: File };
+function statusMeta(status: DocumentProcessStatus | string): StatusMeta {
+  if (status === "INDEXED") {
+    return {
+      label: "可检索",
+      detail: "已完成解析、切分和向量化",
+      className: "status-indexed",
+      icon: CheckCircle2,
+      phaseIndex: 4,
+      tone: "success"
+    };
+  }
+  if (status === "PROCESSING") {
+    return {
+      label: "解析中",
+      detail: "正在解析、切分并生成向量",
+      className: "status-processing",
+      icon: Loader2,
+      phaseIndex: 1,
+      tone: "active"
+    };
+  }
+  if (status === "UPLOADED") {
+    return {
+      label: "已上传",
+      detail: "已提交到入库队列，等待解析",
+      className: "status-uploaded",
+      icon: Upload,
+      phaseIndex: 0,
+      tone: "neutral"
+    };
+  }
+  if (status === "FAILED") {
+    return {
+      label: "失败复查",
+      detail: "入库未完成，请复查文件或解析日志",
+      className: "status-failed",
+      icon: AlertCircle,
+      phaseIndex: 5,
+      tone: "danger"
+    };
+  }
+  return {
+    label: status,
+    detail: "等待状态同步",
+    className: "status-muted",
+    icon: File,
+    phaseIndex: 0,
+    tone: "neutral"
+  };
+}
+
+function pipelineClassName(stepIndex: number, meta: StatusMeta): string {
+  if (meta.tone === "danger") {
+    return stepIndex === PIPELINE_STEPS.length - 1 ? "is-current is-danger" : "is-muted";
+  }
+  if (meta.tone === "success") {
+    return stepIndex <= meta.phaseIndex ? "is-done" : "is-muted";
+  }
+  if (meta.tone === "active" && stepIndex > 0 && stepIndex <= 3) {
+    return "is-current";
+  }
+  if (stepIndex < meta.phaseIndex) {
+    return "is-done";
+  }
+  if (stepIndex === meta.phaseIndex) {
+    return "is-current";
+  }
+  return "is-muted";
+}
+
+function pipelineHint(status: DocumentProcessStatus | string, chunkCount?: number): string {
+  if (status === "INDEXED") return `已生成 ${chunkCount ?? 0} 个片段，可被检索召回。`;
+  if (status === "FAILED") return "建议打开详情复查文件格式、解析器和错误日志。";
+  if (status === "UPLOADED") return "已接收文件，后台任务即将开始解析。";
+  return chunkCount ? `已返回 ${chunkCount} 个片段，向量索引仍在同步。` : "解析、切分、向量化正在后台推进。";
+}
+
+function PipelineRail(props: { status: DocumentProcessStatus | string; compact?: boolean }) {
+  const meta = statusMeta(props.status);
+  return (
+    <ol className={props.compact ? "pipeline-rail compact" : "pipeline-rail"} aria-label="文档入库流水线">
+      {PIPELINE_STEPS.map((step, index) => (
+        <li className={pipelineClassName(index, meta)} key={step.key}>
+          <span className="pipeline-dot" />
+          <span className="pipeline-label">{step.label}</span>
+          {!props.compact ? <small>{step.description}</small> : null}
+        </li>
+      ))}
+    </ol>
+  );
 }
 
 export function DocumentCenter() {
@@ -421,8 +528,8 @@ function UploadSection(props: {
     <section className="upload-grid">
       <div className="section-heading">
         <div>
-          <h2>资料入库</h2>
-          <p>导入产品手册、常见问题、故障案例和日志说明，统一进入业务后端入库链路。</p>
+          <h2>文档入库流水线</h2>
+          <p>上传后持续跟踪解析、切分、向量化和可检索状态，避免资料丢在后台黑箱里。</p>
         </div>
         <div className="mode-switch" aria-label="上传模式">
           {(["single", "multiple", "folder"] as UploadMode[]).map((mode) => (
@@ -444,10 +551,15 @@ function UploadSection(props: {
 
       <div className="upload-layout">
         <div className="dropzone" onDragOver={(event) => event.preventDefault()} onDrop={handleDrop}>
+          <div className="upload-stage-strip">
+            {PIPELINE_STEPS.map((step) => (
+              <span key={step.key}>{step.label}</span>
+            ))}
+          </div>
           <div className="dropzone-icon">
             <Upload size={23} />
           </div>
-          <h3>拖拽文件到这里</h3>
+          <h3>上传资料并进入入库队列</h3>
           <p>支持 PDF、MD、TXT、DOCX、CSV、HTML、JSON、Excel，单文件最大 50MB。</p>
 
           <div className="upload-controls">
@@ -485,7 +597,7 @@ function UploadSection(props: {
             </button>
             <button className="secondary-button" type="button" disabled={props.isUploading} onClick={submit}>
               {props.isUploading ? <Loader2 className="spin" size={16} /> : <Upload size={16} />}
-              {props.isUploading ? "提交中..." : `提交 ${files.length || ""} 个任务`}
+              {props.isUploading ? "提交中..." : `提交 ${files.length || 0} 个任务`}
             </button>
           </div>
 
@@ -542,11 +654,18 @@ function UploadSection(props: {
 function CurrentActivity(props: { activityItems: UploadResponse[]; queueCount: number }) {
   return (
     <aside className="activity-panel">
-      <h4>当前入库活动</h4>
+      <div className="activity-header">
+        <div>
+          <h4>上传活动</h4>
+          <p>最近任务的后台推进情况</p>
+        </div>
+        <span>{props.queueCount} 个排队</span>
+      </div>
       {props.activityItems.length ? (
         <div className="activity-list">
           {props.activityItems.slice(0, 4).map((item) => {
-            const isProcessing = item.status === "PROCESSING" || item.status === "UPLOADED";
+            const meta = statusMeta(item.status);
+            const StatusIcon = meta.icon;
             return (
               <div className="activity-item" key={item.id}>
                 <div className="activity-line">
@@ -554,21 +673,22 @@ function CurrentActivity(props: { activityItems: UploadResponse[]; queueCount: n
                     <FileText size={14} />
                     {item.fileName || item.title}
                   </span>
-                  <span className="activity-state">{statusMeta(item.status).label}</span>
+                  <span className={`activity-state ${meta.className}`}>
+                    <StatusIcon size={12} className={item.status === "PROCESSING" ? "spin" : ""} />
+                    {meta.label}
+                  </span>
                 </div>
-                <div className="progress-track">
-                  <span className={isProcessing ? "progress-fill animated" : "progress-fill done"} />
-                </div>
-                <span className="activity-hint">{isProcessing ? "切分与向量化中..." : `${item.chunkCount ?? 0} 个片段`}</span>
+                <PipelineRail compact status={item.status} />
+                <span className="activity-hint">{pipelineHint(item.status, item.chunkCount)}</span>
               </div>
             );
           })}
         </div>
       ) : (
-        <div className="activity-empty">暂无新的上传任务。</div>
+        <div className="activity-empty">暂无新的上传任务。提交后会在这里显示阶段进度。</div>
       )}
       <div className="activity-footer">
-        <span>队列中：{props.queueCount} 个文件</span>
+        <span>失败任务会进入“失败复查”，不会被静默隐藏。</span>
       </div>
     </aside>
   );
@@ -592,10 +712,10 @@ function DocumentTable(props: {
           <div className="select-wrap">
             <select value={props.statusFilter} onChange={(event) => props.onStatusFilterChange(event.target.value as StatusFilter)}>
               <option value="ALL">全部文档</option>
-              <option value="INDEXED">状态：已索引</option>
+              <option value="UPLOADED">状态：已上传</option>
               <option value="PROCESSING">状态：解析中</option>
-              <option value="FAILED">状态：失败</option>
-              <option value="UPLOADED">状态：已提交</option>
+              <option value="INDEXED">状态：可检索</option>
+              <option value="FAILED">状态：失败复查</option>
             </select>
           </div>
           <span className="showing-count">显示 {props.documents.length} / {props.totalCount} 条</span>
@@ -614,6 +734,7 @@ function DocumentTable(props: {
               </th>
               <th>类型</th>
               <th>状态</th>
+              <th>入库阶段</th>
               <th>片段</th>
               <th>更新时间</th>
               <th className="actions-column">操作</th>
@@ -632,7 +753,7 @@ function DocumentTable(props: {
               ))
             ) : (
               <tr>
-                <td className="empty-table" colSpan={6}>
+                <td className="empty-table" colSpan={7}>
                   {props.isLoading ? "正在加载文档列表..." : "暂无文档。"}
                 </td>
               </tr>
@@ -679,6 +800,10 @@ function DocumentRow(props: {
           <StatusIcon size={12} className={props.document.status === "PROCESSING" ? "pulse-dot" : ""} />
           {meta.label}
         </span>
+        <small className="status-detail">{meta.detail}</small>
+      </td>
+      <td>
+        <PipelineRail compact status={props.document.status} />
       </td>
       <td className="mono-cell">{props.document.chunkCount ?? "--"}</td>
       <td>{formatDate(props.document.updatedAt)}</td>
@@ -705,6 +830,8 @@ function DocumentDetailDrawer(props: { document: DocumentRecord | null; onClose:
     ? `${props.document.parserName}${props.document.parserVersion ? ` ${props.document.parserVersion}` : ""}`
     : "未记录解析器";
   const chunks = props.document.chunks ?? [];
+  const meta = statusMeta(props.document.status);
+  const StatusIcon = meta.icon;
 
   return (
     <aside className="detail-drawer" aria-label="文档详情">
@@ -721,7 +848,10 @@ function DocumentDetailDrawer(props: { document: DocumentRecord | null; onClose:
       <div className="drawer-metrics">
         <div>
           <span>状态</span>
-          <strong>{props.document.status}</strong>
+          <strong className={meta.className}>
+            <StatusIcon size={14} className={props.document.status === "PROCESSING" ? "spin" : ""} />
+            {meta.label}
+          </strong>
         </div>
         <div>
           <span>片段</span>
@@ -732,6 +862,24 @@ function DocumentDetailDrawer(props: { document: DocumentRecord | null; onClose:
           <strong>{parser}</strong>
         </div>
       </div>
+
+      <section className="drawer-pipeline">
+        <div className="chunk-preview-heading">
+          <h4>入库进度</h4>
+          <span>{pipelineHint(props.document.status, props.document.chunkCount ?? chunks.length)}</span>
+        </div>
+        <PipelineRail status={props.document.status} />
+      </section>
+
+      {props.document.status === "FAILED" ? (
+        <div className="review-callout">
+          <AlertCircle size={16} />
+          <div>
+            <strong>需要复查</strong>
+            <p>优先确认文件是否损坏、格式是否受支持、PDF 是否需要 OCR，必要时重新上传。</p>
+          </div>
+        </div>
+      ) : null}
 
       {props.document.summary ? <p className="drawer-summary">{props.document.summary}</p> : null}
 

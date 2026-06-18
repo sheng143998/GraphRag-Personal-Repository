@@ -135,6 +135,8 @@ export interface ChatResponse {
   supportPlan?: SupportPlan | null;
   weakPoints?: LearningWeakPoint[];
   workflowSteps?: AgentWorkflowStep[];
+  traceAttributes?: Record<string, unknown>;
+  ragTraceAttributes?: Record<string, unknown>;
 }
 
 export interface ChatSession {
@@ -213,6 +215,16 @@ export interface AgentWorkflowStep {
   payload?: Record<string, unknown>;
 }
 
+export interface AgentTraceMetadata {
+  traceId?: string;
+  trace_id?: string;
+  status?: string;
+  latencyMs?: number;
+  latency_ms?: number;
+  attributes?: Record<string, unknown>;
+  steps?: Record<string, unknown>[];
+}
+
 export interface AssistantTurnResponse {
   userMessage: ChatMessageRecord;
   assistantMessage: ChatMessageRecord;
@@ -225,8 +237,8 @@ export interface AssistantTurnResponse {
   supportPlan?: SupportPlan | null;
   weakPoints: LearningWeakPoint[];
   workflowSteps: AgentWorkflowStep[];
-  trace?: { traceId?: string; trace_id?: string; attributes?: Record<string, unknown> } | null;
-  ragTrace?: { traceId?: string; trace_id?: string; attributes?: Record<string, unknown>; steps?: Record<string, unknown>[] } | null;
+  trace?: AgentTraceMetadata | null;
+  ragTrace?: AgentTraceMetadata | null;
 }
 
 export interface LearningWeakPoint {

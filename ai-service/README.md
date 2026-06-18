@@ -1,29 +1,32 @@
 # Python AI 服务模块
 
-## 模块职责
+`ai-service/` 是项目的 AI / RAG 服务。它通过内部 `/ai/*` 接口被 Java 后端调用，负责文档解析、切分、embedding、检索、重排、回答生成、Advanced RAG preset、企业售后 Agent 编排、GraphRAG、RAGAS 测评集生成和 evaluator 指标计算。
 
-`ai-service/` 是项目的 AI / RAG 服务。它通过内部 `/ai/*` 接口被 Java 后端调用，负责文档解析、切分、embedding、检索、重排、回答生成、Advanced RAG preset、Agent 编排、GraphRAG 和 evaluator 指标计算。
-
-前端不直接访问本服务。
+React 前端不直接访问本服务。
 
 ## 当前状态
 
 - 已完成 FastAPI 基础工程、health check、文档入库、RAG 查询、检索、评估和 Agent 调用接口。
-- 已完成 MinerU PDF parser、Word parser、`recursive-overlap` 默认切分、章节化 `parent-child` chunk 和空 chunk 防护。
-- 已完成 OpenAI-compatible LLM / embedding / rerank adapter，并保留 stub fallback 便于测试。
+- 已升级到 FastAPI / Pydantic v2 / LangChain / LangGraph 新版本栈，保留兼容序列化 helper。
+- 已完成 MinerU PDF parser、Word parser、Spreadsheet parser、Markdown block-aware、Q&A chunker、code-aware chunker 和表格行组 chunker。
+- 文档入库可按文档类型动态选择 chunk 策略，并对短文档 parent-child 重复内容做自动降级。
 - Advanced RAG 已收敛为 preset 配置：`hybrid-rerank`、`metadata-filter`、`parent-child`、`advanced-rag`、`graph-rag`。
-- evaluator 返回结构化指标：`recall_at_k`、`precision_at_k`、`mrr`、`citation_hit`、GraphRAG entity / relationship / expansion 指标。
-- trace 已记录真实 provider `usage`、`token_usage`、`latency_breakdown`、`adapter_calls`，Java 可提取为评测历史的 token / cost / latency 维度。
+- 企业售后技术支持 Agent 已升级为 Support Supervisor：澄清、检索、代码/日志分析、诊断、风险审查、工单升级、评估审查。
+- Support Supervisor 默认 `auto` runtime，依赖可用时使用真实 LangGraph `StateGraph.compile().ainvoke(...)`；依赖缺失时可观测回落本地 runtime。
+- RAGAS 测评集生成支持 `rule / llm / ragas / auto`，离线评估报告可经 Java 后端回填数据库。
+- trace 已记录 provider usage、token usage、latency breakdown、adapter calls、workflow gates、final status 和 RAG run 定位信息。
 
 ## 技术栈
 
 - Python 3.12
 - FastAPI
-- Pydantic
+- Pydantic v2
+- LangChain
+- LangGraph
 - pg8000
 - PostgreSQL + pgvector
 - OpenAI-compatible model API
-- LangChain / LangGraph 相关能力按当前工程逐步收敛
+- RAGAS 兼容离线评估链路
 
 ## 目录结构
 
@@ -31,13 +34,14 @@
 ai-service/
 ├── app/
 │   ├── api/          # /ai/* 路由
+│   ├── agents/       # Support Supervisor、节点、状态和工具
 │   ├── core/         # 配置、日志、trace
 │   ├── db/           # 数据库访问
+│   ├── prompts/      # Prompt 模板
 │   ├── rag/          # RAG 核心、retriever、reranker、strategy、evaluator
 │   ├── schemas/      # Pydantic schema
-│   ├── services/     # 应用服务和模型 adapter
-│   ├── agents/       # Agent workflow
-│   └── prompts/      # Prompt 模板
+│   └── services/     # 应用服务和模型 adapter
+├── scripts/          # 入库、导出、RAGAS 离线运行辅助脚本
 ├── tests/
 ├── pyproject.toml
 └── README.md
@@ -61,10 +65,10 @@ python -m venv .venv
 ## 常用命令
 
 ```powershell
-.\.venv\bin\python.exe -m py_compile app\services\rag_service.py
-.\.venv\bin\pytest.exe tests
-.\.venv\bin\pytest.exe tests\test_parent_child_chunker.py
-.\.venv\bin\pytest.exe tests\test_strategy_comparison_evaluator.py tests\test_advanced_rag_strategy.py
+.\.venv\bin\python.exe -m pytest tests
+.\.venv\bin\python.exe -m pytest tests\test_agent_workflow.py tests\test_support_agent_nodes.py tests\test_support_supervisor_graph.py
+.\.venv\bin\python.exe -m pytest tests\test_ragas_bridge.py tests\test_ragas_testset_generation.py
+.\.venv\bin\python.exe -m compileall -q app\agents app\services\agent_service.py
 ```
 
 ## 环境变量
@@ -77,6 +81,8 @@ python -m venv .venv
 - `EMBEDDING_PROVIDER` / `EMBEDDING_MODEL` / `EMBEDDING_API_KEY` / `EMBEDDING_BASE_URL`：embedding adapter 配置。
 - `RERANK_PROVIDER` / `RERANK_MODEL` / `RERANK_API_KEY` / `RERANK_BASE_URL`：rerank adapter 配置。
 - `MINERU_API_BASE_URL` / `MINERU_API_TOKEN`：MinerU PDF 解析配置。
+- `AI_AGENT_SUPPORT_WORKFLOW_RUNTIME`：`auto`、`langgraph` 或 `local`。
+- `RAGAS_TESTSET_GENERATION_MODE`：测评集生成模式，可选 `rule`、`llm`、`ragas`、`auto`。
 
 真实密钥只放在本地环境，不写入仓库。
 
@@ -105,21 +111,38 @@ Spring Boot
 -> citations + trace
 ```
 
+## Support Supervisor 链路
+
+```text
+Spring Boot assistant-turn
+-> /ai/agent/invoke
+-> SupportSupervisorWorkflow
+-> clarification
+-> retrieval
+-> code_log_analysis
+-> diagnosis
+-> risk_review
+-> escalation
+-> evaluation_review
+-> supportPlan + workflowSteps + trace
+```
+
 ## 关键入口
 
 - `app/services/rag_service.py`：RAG query / retrieve / evaluate 应用服务。
+- `app/services/agent_service.py`：Agent 调用入口。
+- `app/agents/graphs/support_supervisor.py`：售后 Support Supervisor 编排。
+- `app/agents/nodes/`：澄清、检索、诊断、风险、升级、评估等节点。
 - `app/rag/strategies/presets.py`：Advanced RAG preset 配置。
 - `app/rag/strategies/advanced.py`：Advanced RAG 执行链路。
-- `app/rag/evaluators/base.py`：评测指标计算。
+- `app/rag/evaluators/`：指标计算和 RAGAS bridge / testset generation。
 - `app/services/adapters/openai_compatible.py`：OpenAI-compatible 模型调用和 usage 捕获。
-- `app/core/tracing.py`：trace、token usage 和 latency 汇总。
+- `app/core/tracing.py`：trace、token usage、latency 和 workflow attributes 汇总。
 - `app/db/repositories.py`：文档、chunk、embedding、run、graph 数据访问。
-- `app/rag/chunkers/base.py`：默认 `recursive-overlap`、兼容 `simple-window` 和章节化 `parent-child` 切分实现。
-- `app/prompts/rag_answer.v1.txt`：RAG 回答 prompt。
 
 ## 后续优化
 
-- 将 provider 不返回 cost 时的估算成本做成可配置模型价格表，并明确标记估算来源。
-- 增加按文档类型自动路由 chunker 的策略，例如面试 Q/A、代码块、招聘 JD 和表格行组。
+- 将 Support Supervisor 的工单升级草稿接入真实工单系统或 webhook。
+- 为 RAGAS 生成样本增加前端可解释质量分和证据缺失原因。
 - 增强 GraphRAG 的关系置信度、社区发现和跨文档推理。
-- 为 adapter metadata 聚合补充更细粒度单元测试。
+- 为不同 provider 的 token / cost 估算维护可配置价格表，并明确标记估算来源。

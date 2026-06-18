@@ -62,6 +62,13 @@ const REVIEW_ACTIONS: Array<{ status: EvaluationCaseReviewStatus; label: string;
   { status: "DRAFT", label: "待审", icon: "pending_actions" }
 ];
 
+const REVIEW_FLOW_STEPS = [
+  { key: "import", label: "导入草稿", icon: "upload_file" },
+  { key: "review", label: "人工审核", icon: "rule" },
+  { key: "run", label: "运行评测", icon: "play_circle" },
+  { key: "inspect", label: "回看指标", icon: "analytics" }
+] as const;
+
 const EMPTY_SUMMARY: ExperimentEvaluationSummary = {
   evaluationCount: 0,
   recentEvaluations: []
@@ -146,6 +153,8 @@ export function ExperimentsWorkspace(): JSX.Element {
   const runnableCaseIds = filteredCases.filter((item) => normalizeReviewStatus(item.status) === "ACTIVE").map((item) => item.id);
   const busyDeleting = deletingAction.length > 0;
   const recentEvaluations = summary.recentEvaluations ?? [];
+  const reviewProgress = reviewCounts.ALL ? Math.round((reviewCounts.ACTIVE / reviewCounts.ALL) * 100) : 0;
+  const nextReviewAction = resolveNextReviewAction(reviewCounts, runnableCaseIds.length, Boolean(lastBatch), Boolean(datasetText.trim()));
   const strategyRows = useMemo(() => {
     const grouped = new Map<string, { count: number; evidence: number; chunk: number; document: number; precision: number; mrr: number; citation: number; grounded: number }>();
     recentEvaluations.forEach((item) => {
@@ -540,6 +549,40 @@ export function ExperimentsWorkspace(): JSX.Element {
         <div className={`status-banner${errorText ? " error" : ""}`}>{errorText || statusText}</div>
       )}
 
+      <section className="eval-flow-panel" aria-label="测评集审核流程">
+        <div className="eval-flow-summary">
+          <div>
+            <h2>测评集审核流程</h2>
+            <p>{nextReviewAction}</p>
+          </div>
+          <strong>{reviewProgress}% 已通过</strong>
+        </div>
+        <div className="eval-flow-steps">
+          {REVIEW_FLOW_STEPS.map((step, index) => {
+            const done =
+              (step.key === "import" && reviewCounts.ALL > 0) ||
+              (step.key === "review" && reviewCounts.ACTIVE > 0) ||
+              (step.key === "run" && Boolean(lastBatch)) ||
+              (step.key === "inspect" && recentEvaluations.length > 0);
+            const current =
+              !done &&
+              ((step.key === "import" && reviewCounts.ALL === 0) ||
+                (step.key === "review" && reviewCounts.DRAFT > 0) ||
+                (step.key === "run" && reviewCounts.ACTIVE > 0) ||
+                (step.key === "inspect" && Boolean(lastBatch)));
+            return (
+              <div className={`eval-flow-step${done ? " is-done" : ""}${current ? " is-current" : ""}`} key={step.key}>
+                <span className="material-symbols-outlined">{step.icon}</span>
+                <div>
+                  <strong>{index + 1}. {step.label}</strong>
+                  <small>{flowStepHint(step.key, reviewCounts, runnableCaseIds.length, lastBatch?.completedCount ?? 0)}</small>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
       <div className="experiment-layout">
         <aside className="panel import-panel">
           <div className="panel-header">
@@ -905,6 +948,32 @@ function reviewStatusMeta(status?: string | null): { label: string; className: s
   if (normalized === "REJECTED") return { label: "已拒绝", className: "rejected" };
   if (normalized === "ARCHIVED") return { label: "已归档", className: "archived" };
   return { label: "待审", className: "draft" };
+}
+
+function resolveNextReviewAction(
+  counts: Record<ReviewStatusFilter, number>,
+  runnableCount: number,
+  hasBatch: boolean,
+  hasPendingDataset: boolean
+): string {
+  if (hasPendingDataset && counts.ALL === 0) return "已准备好本地内容，下一步导入草稿样本。";
+  if (counts.ALL === 0) return "先导入自动生成或本地整理的测评集草稿。";
+  if (counts.DRAFT > 0) return `还有 ${counts.DRAFT} 条待审样本，优先校准问题、标准答案和证据片段。`;
+  if (runnableCount > 0 && !hasBatch) return `已有 ${runnableCount} 条已通过样本，可以运行一次批量评测。`;
+  if (hasBatch) return "批量运行已完成，回看低分样本并修正测评集或检索策略。";
+  return "当前筛选下暂无可运行样本，请调整筛选或导入新样本。";
+}
+
+function flowStepHint(
+  key: (typeof REVIEW_FLOW_STEPS)[number]["key"],
+  counts: Record<ReviewStatusFilter, number>,
+  runnableCount: number,
+  completedCount: number
+): string {
+  if (key === "import") return counts.ALL ? `${counts.ALL} 条样本` : "等待导入";
+  if (key === "review") return `${counts.DRAFT} 待审 / ${counts.ACTIVE} 通过`;
+  if (key === "run") return runnableCount ? `${runnableCount} 条可运行` : "等待通过样本";
+  return completedCount ? `${completedCount} 条完成` : "等待结果";
 }
 
 function reviewDraftFromCase(item: EvaluationCaseRecord): ReviewDraft {

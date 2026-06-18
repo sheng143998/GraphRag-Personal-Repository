@@ -37,7 +37,7 @@
 }
 ```
 
-前端 `frontend/src/api/client.ts` 会自动解包 `data`，并从响应体或 `X-Trace-Id` 提取 trace id。
+前端 `frontend-react/src/api/client.ts` 会自动解包 `data`，并从响应体或 `X-Trace-Id` 提取 trace id。
 
 ### 1.2 类型枚举
 
@@ -990,18 +990,18 @@ Base URL：`http://localhost:8001`，Spring Boot 通过 `AI_SERVICE_BASE_URL` / 
 
 ## 10. 前端调用映射
 
-前端统一通过 `frontend/src/api/client.ts` 调用 Spring Boot `/api`，当前页面使用的接口：
+前端统一通过 `frontend-react/src/api/client.ts` 调用 Spring Boot `/api`，当前页面使用的接口：
 
 | 前端模块 | API |
 | --- | --- |
-| `frontend/src/api/knowledgeBases.ts` | `GET /knowledge-bases`、`POST /knowledge-bases`、`GET /knowledge-bases/{id}`、`PUT /knowledge-bases/{id}`、`DELETE /knowledge-bases/{id}` |
-| `frontend/src/api/documents.ts` | `GET /documents`、`GET /documents/{id}`、`POST /documents/upload`、`DELETE /documents/{id}` |
-| `frontend/src/api/chat.ts` | `POST /chat/sessions`、`GET /chat/sessions`、`POST /chat/{sessionId}/messages`、`GET /chat/{sessionId}/messages`、`POST /chat/{sessionId}/assistant-turn`、`GET /chat/{sessionId}/weak-points`、`GET /chat/{sessionId}/weak-points/summary`、`PATCH /chat/{sessionId}/weak-points/{weakPointId}`、`POST /chat/{sessionId}/weak-points/{weakPointId}/practice-turn`、`POST /rag/query` |
-| `frontend/src/api/experiments.ts` | `GET /rag/experiments`、`GET /rag/experiments/{id}`、`POST /rag/experiments`、`PUT /rag/experiments/{id}`、`POST /rag/experiments/{id}/evaluate`、`DELETE /rag/experiments/{id}` |
-| `frontend/src/api/feedback.ts` | `POST /feedback` |
-| `frontend/src/api/graph.ts` | `GET /graph/facts?knowledgeBaseId={uuid}&entity={optional}` |
-| `frontend/src/api/rag.ts` | `GET /rag/runs?limit={n}`、`GET /rag/runs/{id}` |
-| `frontend/src/api/settings.ts` | `GET /settings` |
+| `frontend-react/src/api/knowledgeBases.ts` | `GET /knowledge-bases`、`POST /knowledge-bases`、`GET /knowledge-bases/{id}`、`PUT /knowledge-bases/{id}`、`DELETE /knowledge-bases/{id}` |
+| `frontend-react/src/api/documents.ts` | `GET /documents`、`GET /documents/{id}`、`POST /documents/upload`、`POST /documents/upload/batch`、`DELETE /documents/{id}` |
+| `frontend-react/src/api/chat.ts` | `POST /chat/sessions`、`GET /chat/sessions`、`POST /chat/{sessionId}/messages`、`GET /chat/{sessionId}/messages`、`POST /chat/{sessionId}/assistant-turn`、`GET /chat/{sessionId}/weak-points`、`GET /chat/{sessionId}/weak-points/summary`、`PATCH /chat/{sessionId}/weak-points/{weakPointId}`、`POST /chat/{sessionId}/weak-points/{weakPointId}/practice-turn`、`POST /rag/query` |
+| `frontend-react/src/api/experiments.ts` | `GET /rag/experiments`、`GET /rag/experiments/{id}`、`POST /rag/experiments`、`PUT /rag/experiments/{id}`、`POST /rag/experiments/{id}/evaluate`、`DELETE /rag/experiments/{id}`、评测样本导入 / 审核 / 删除 / 批量运行相关 `/rag/evaluation-cases/*` |
+| `frontend-react/src/api/feedback.ts` | `POST /feedback` |
+| `frontend-react/src/api/graph.ts` | `GET /graph/facts?knowledgeBaseId={uuid}&entity={optional}` |
+| `frontend-react/src/api/rag.ts` | `GET /rag/runs?limit={n}`、`GET /rag/runs/{id}` |
+| `frontend-react/src/api/settings.ts` | `GET /settings` |
 
 后续新增前端页面时，必须继续通过 `src/api/` 封装，不允许页面组件直接 `fetch` 后端或直接调用 AI Service。
 

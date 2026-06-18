@@ -1,7 +1,7 @@
 ﻿# 本地知识库 Agent 项目上下文
 
 更新时间：2026-06-18
-项目状态：Phase 0-9 已完成工程闭环，覆盖三服务架构、文档入库、基础 RAG、Advanced RAG、Agent 学习闭环、GraphRAG、RAG 实验评估、评测集管理工具、复习辅助与 Coze Studio 风格前端工作台重构；2026-06-16 已完成文档上传入口升级，支持单篇、多篇和文件夹上传，默认使用 Spring `@Async` 本地线程池异步解析，并可通过 RabbitMQ 队列模式提交文档入库任务；同日新增 `frontend-react/` React + TypeScript 并行迁移工作区，按 Stitch RAG Knowledge Studio 设计实现第一版工作台页面；2026-06-17 AI 服务 chunk 切分继续增强，覆盖 Markdown block-aware、DOCX 标题/表格结构、MinerU PDF block metadata、Q&A chunker 与 code-aware chunker，并修复 MinerU 标准 batch 轮询端点导致的假超时；同日新增 RAGAS 兼容评估侧路，支持从已上传文档 chunk 自动生成 DRAFT 测评集草稿、人工审核 CSV、RAGAS JSONL 导出与独立环境离线评分；同日新增企业售后技术支持 Agent 编排，返回结构化 `supportPlan`，覆盖澄清问题、证据引用、诊断步骤、升级建议、风险提示和下一步动作；同日 `frontend-react/` 完成售后支持工作台中文化与美学优化，支持结构化展示 `supportPlan` 并通过 Playwright 渲染验证。2026-06-18 RAGAS 测评闭环继续完善：自动测评集生成支持 `rule / llm / ragas / auto`，离线 RAGAS 报告可回填 Spring Boot 数据库，React 实验页支持页面内人工审核、筛选、编辑、状态流转、样本删除、批量删除最近导入或当前筛选样本，以及删除当前实验；同日售后 Agent 从单体 workflow 升级为受控 Support Supervisor 本地状态图，拆分澄清、检索、代码/日志分析、诊断、风险审查、工单升级和评估审查节点，保持 `supportPlan` 兼容并强化 `workflowSteps` 可观测性；同日完成 Agent 编排依赖升级，AI 服务主依赖升级到 `FastAPI 0.137.2 + Pydantic 2.13.4 + LangChain 1.3.9 + LangChain Core 1.4.7 + LangGraph 1.2.5 + Uvicorn 0.49.0`，Support Supervisor 默认 `auto` 运行时在依赖可用时走真实 LangGraph `StateGraph.compile().ainvoke(...)`，仅依赖不可用时可观测回落本地 runtime，图构建/执行失败直接抛出并记录 runtime error，并保留 required/completed/skipped gates、`needs_clarification` / `needs_review` / `completed` 终态 trace，禁止旧 Study workflow 绕过售后安全闸门。前端浏览器请求继续只进入 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑。
+项目状态：Phase 0-9 已完成工程闭环，覆盖三服务架构、文档入库、基础 RAG、Advanced RAG、Agent 学习闭环、GraphRAG、RAG 实验评估、评测集管理工具、复习辅助与 Coze Studio 风格前端工作台重构；2026-06-16 已完成文档上传入口升级，支持单篇、多篇和文件夹上传，默认使用 Spring `@Async` 本地线程池异步解析，并可通过 RabbitMQ 队列模式提交文档入库任务；同日新增 `frontend-react/` React + TypeScript 并行迁移工作区，按 Stitch RAG Knowledge Studio 设计实现第一版工作台页面；2026-06-17 AI 服务 chunk 切分继续增强，覆盖 Markdown block-aware、DOCX 标题/表格结构、MinerU PDF block metadata、Q&A chunker 与 code-aware chunker，并修复 MinerU 标准 batch 轮询端点导致的假超时；同日新增 RAGAS 兼容评估侧路，支持从已上传文档 chunk 自动生成 DRAFT 测评集草稿、人工审核 CSV、RAGAS JSONL 导出与独立环境离线评分；同日新增企业售后技术支持 Agent 编排，返回结构化 `supportPlan`，覆盖澄清问题、证据引用、诊断步骤、升级建议、风险提示和下一步动作；同日 `frontend-react/` 完成售后支持工作台中文化与美学优化，支持结构化展示 `supportPlan` 并通过 Playwright 渲染验证。2026-06-18 RAGAS 测评闭环继续完善：自动测评集生成支持 `rule / llm / ragas / auto`，离线 RAGAS 报告可回填 Spring Boot 数据库，React 实验页支持页面内人工审核、筛选、编辑、状态流转、样本删除、批量删除最近导入或当前筛选样本，以及删除当前实验；同日售后 Agent 从单体 workflow 升级为受控 Support Supervisor 本地状态图，拆分澄清、检索、代码/日志分析、诊断、风险审查、工单升级和评估审查节点，保持 `supportPlan` 兼容并强化 `workflowSteps` 可观测性；同日完成 Agent 编排依赖升级，AI 服务主依赖升级到 `FastAPI 0.137.2 + Pydantic 2.13.4 + LangChain 1.3.9 + LangChain Core 1.4.7 + LangGraph 1.2.5 + Uvicorn 0.49.0`，Support Supervisor 默认 `auto` 运行时在依赖可用时走真实 LangGraph `StateGraph.compile().ainvoke(...)`，仅依赖不可用时可观测回落本地 runtime，图构建/执行失败直接抛出并记录 runtime error，并保留 required/completed/skipped gates、`needs_clarification` / `needs_review` / `completed` 终态 trace，禁止旧 Study workflow 绕过售后安全闸门；同日 `frontend-react/` 升级为正式主前端并删除旧 Vue `frontend/`。前端浏览器请求继续只进入 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑。
 维护规则：每次开启新的开发对话时，优先提供本文件；每完成一个阶段目标或关键任务后，必须同步更新本文件。本文件只保留项目状态、关键架构决策、当前待办和阶段级变更摘要；接口级实现细节、验证命令和失败复盘放入 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 与 `docs/handoff/`。
 
 ## 1. 项目目标
@@ -30,7 +30,7 @@
 
 推荐采用前后端分离 + AI 服务独立化的结构：
 
-- 前端：Vue 3 + TypeScript + Vite
+- 前端：React 18 + TypeScript + Vite
 - 业务后端：Java + Spring Boot
 - AI / RAG 服务：Python + FastAPI + LangChain + LangGraph
 - 向量数据库：PostgreSQL + pgvector
@@ -59,14 +59,14 @@ FastAPI AI 服务负责：
 - LangGraph Agent 工作流编排
 - RAG 评估、调试、检索结果解释
 
-Vue 前端负责：
+React 前端负责：
 
 - 知识库管理界面
-- 文档上传与解析状态展示
-- 对话 / Agent 交互界面
-- 检索过程可视化
-- RAG 策略配置
-- 问答反馈与评估结果展示
+- 文档上传、入库流水线与解析状态展示
+- 售后问答 / Agent supervisor 交互界面
+- 检索过程、证据引用和 trace 可视化
+- RAG 策略配置、测评集审核与评估结果展示
+- 问答反馈与系统设置
 
 > 简化方案：如果前期想降低复杂度，可以先只做 Vue + FastAPI + PostgreSQL，等 RAG 主链路稳定后再引入 Spring Boot。
 
@@ -108,25 +108,23 @@ agent-knowledge-rag/
 │       ├── eval-questions.md
 │       └── strategy-comparison.md
 │
-├── frontend/
+├── frontend-react/
 │   ├── README.md
 │   ├── package.json
 │   ├── vite.config.ts
 │   ├── index.html
 │   └── src/
-│       ├── main.ts
-│       ├── App.vue
-│       ├── router/
-│       ├── stores/
+│       ├── main.tsx
+│       ├── app/
 │       ├── api/
 │       ├── components/
 │       ├── layouts/
 │       ├── pages/
-│       │   ├── chat/
-│       │   ├── knowledge-base/
+│       ├── features/
 │       │   ├── documents/
-│       │   ├── experiments/
-│       │   └── settings/
+│       │   └── experiments/
+│       ├── stores/
+│       ├── styles/
 │       ├── types/
 │       └── utils/
 │
@@ -466,7 +464,7 @@ USING gin (metadata);
 - 所有 RAG 调用必须记录 trace，包括问题、策略、召回结果、重排结果、上下文、答案、耗时和模型信息。
 - 所有数据库迁移必须放在指定迁移目录中，数据库变更必须有迁移脚本，不允许只改实体类或 Schema。
 - 新增 RAG 策略必须补充评估问题，默认写入 `docs/experiments/eval-questions.md` 或对应评估数据集。
-- 前端请求统一走 `frontend/src/api/` 下的 API client，页面和组件不直接拼接 URL，也不直接散落 `fetch` / `axios` 调用。
+- 前端请求统一走 `frontend-react/src/api/` 下的 API client，页面和组件不直接拼接 URL，也不直接散落 `fetch` / `axios` 调用。
 - AI 服务的 Prompt 统一放在 `ai-service/app/prompts/`，业务代码只引用 prompt 名称、版本和变量，不内联大段 prompt。
 - 前端默认只调用 Spring Boot 对外 API；Spring Boot 负责转调 FastAPI AI 服务，避免前端绕过业务后端直接访问 AI 服务。
 - 复杂功能先写 `docs/plans/` 计划文档，再实现代码；简单修复可以直接做，但关键决策要同步到上下文或架构文档。
@@ -508,7 +506,7 @@ chore: update docker compose config
 
 ### 9.4 前端规范
 
-- 使用 Vue 3 Composition API
+- 使用 React 函数组件和 Hooks
 - 使用 TypeScript
 - 页面级组件放在 `pages/`
 - 通用组件放在 `components/`
@@ -675,8 +673,8 @@ Java 调 Python 服务说明要求：
 建议跨服务链路说明格式：
 
 ```text
-Vue 页面
--> frontend/src/api/*
+React 页面
+-> frontend-react/src/api/*
 -> Spring Boot Controller
 -> Spring Boot Service
 -> AiServiceClient
@@ -738,12 +736,12 @@ Python RAG 优先 review：
 
 前端联调优先 review：
 
-- `frontend/src/api/`
-- `frontend/src/stores/`
-- `frontend/src/pages/chat/`
-- `frontend/src/components/SourceList.vue`
-- `frontend/src/components/StrategySelector.vue`
-- `frontend/src/components/UploadEntry.vue`
+- `frontend-react/src/api/`
+- `frontend-react/src/stores/`
+- `frontend-react/src/pages/`
+- `frontend-react/src/pages/ChatPage.tsx`
+- `frontend-react/src/components/`
+- `frontend-react/src/features/documents/DocumentCenter.tsx`
 
 ### 9.12 Agent 工作连续性与中断恢复规范
 
@@ -879,7 +877,7 @@ Agent 输出规范：
 
 必须包含 README 的模块包括：
 
-- `frontend/README.md`
+- `frontend-react/README.md`
 - `backend-java/README.md`
 - `ai-service/README.md`
 - `infra/README.md`
@@ -904,7 +902,7 @@ Agent 输出规范：
 
 各模块 README 重点：
 
-- `frontend/README.md` 需要重点说明页面结构、API client 位置、路由结构、状态管理、如何对接后端接口、如何运行类型检查和构建。
+- `frontend-react/README.md` 需要重点说明页面结构、API client 位置、路由结构、状态管理、如何对接后端接口、如何运行类型检查和构建。
 - `backend-java/README.md` 需要重点说明 Controller / Service / Repository 分层、Java 后端如何调用 Python AI 服务、Flyway 迁移目录、`trace_id` 如何生成和透传、主要 API 路径、如何启动服务和运行测试。
 - `ai-service/README.md` 需要重点说明 RAG 主链路、文档解析流程、retriever / reranker / generator / evaluator 的位置、Prompt 存放位置、trace 结构、MinerU PDF parser 预留位置、哪些是占位实现，哪些是真实逻辑。
 - `infra/README.md` 需要重点说明 PostgreSQL / pgvector / Redis 本地依赖、Docker Compose 使用方式、数据卷说明、初始化 SQL 说明。
@@ -979,10 +977,10 @@ README 更新规则：
 
 ## 11. 当前待办
 
-- [x] 确认第一版架构：采用 Vue + Spring Boot + FastAPI + PostgreSQL/pgvector 三服务架构
+- [x] 确认第一版架构：采用 React + Spring Boot + FastAPI + PostgreSQL/pgvector 三服务架构
 - [x] 创建项目基础目录
 - [x] 初始化 Git 本地仓库
-- [x] 初始化前端 Vue 项目
+- [x] 初始化 React 前端主工作台
 - [x] 初始化 Spring Boot 后端项目
 - [x] 初始化 FastAPI AI 服务
 - [x] 配置 PostgreSQL + pgvector
@@ -1058,7 +1056,9 @@ README 更新规则：
 - 完成版本升级：AI 服务主依赖从旧 FastAPI/Pydantic/LangGraph 兼容线升级到 `FastAPI 0.137.2`、`Pydantic 2.13.4`、`LangChain 1.3.9`、`LangChain Core 1.4.7`、`LangGraph 1.2.5` 和 `Uvicorn 0.49.0`；新增 Pydantic v1/v2 兼容序列化 / copy helper，清理 `.dict()` 与 `.copy(update=...)` 热路径用法，补 FastAPI + Pydantic v2 HTTP 序列化测试。
 - 根据代码审查加固 LangGraph runtime：`auto` 模式只在依赖缺失时回落本地 runtime，真实 LangGraph 图构建或执行失败会直接抛出并记录 `support_workflow_runtime_error`；`langgraph.graph` 与 `langchain_core.tools` 依赖测试改为硬导入，避免 mandatory dependency 缺失时被 skip 掩盖。
 - 修复代码审查发现的关键风险：RAGAS 生成结果缺少项目 chunk ID 时不再按行号伪造 gold evidence，而是标记 `evidence_needs_review` 并要求人工补证据；前端审核保存会保留原有 `relevantChunkIds` / `expectedCitationChunkIds`，避免只点保存就丢失 gold label。
-- 关键文档：`docs/plans/2026-06-18-ragas-testset-generation-report-review-flow.md`、`docs/plans/2026-06-18-support-supervisor-multi-agent-workflow.md`、`docs/plans/2026-06-18-fastapi-pydantic-v2-langgraph-upgrade.md`、`docs/reviews/2026-06-18-ragas-testset-generation-report-review-flow-review-prompt.md`、`docs/reviews/2026-06-18-react-evaluation-delete-actions-review-prompt.md`、`docs/reviews/2026-06-18-support-supervisor-multi-agent-workflow-review-prompt.md`、`docs/reviews/2026-06-18-fastapi-pydantic-v2-langgraph-upgrade-review-prompt.md`、`scripts/README.md`。
+- 完成用户路径导向的 React 前端重设计：`/chat` 从普通聊天页升级为售后支持问答工作台，展示 Agent supervisor 编排、关卡统计、证据核查、结论 / 风险 / 下一步；`/documents` 升级为文档入库流水线，展示已上传、解析中、切分中、向量化、可检索和失败复查；`/experiments` 新增测评集审核流程条，串联导入草稿、人工审核、运行评测和指标回看，并修复策略排行榜列布局。
+- 删除旧 Vue `frontend/` 并将 `frontend-react/` 明确为正式主前端；同步更新根 README、React 前端 README、Java 后端 README、AI 服务 README 和项目上下文，后续前端开发默认进入 `frontend-react/`。
+- 关键文档：`docs/plans/2026-06-18-ragas-testset-generation-report-review-flow.md`、`docs/plans/2026-06-18-support-supervisor-multi-agent-workflow.md`、`docs/plans/2026-06-18-fastapi-pydantic-v2-langgraph-upgrade.md`、`docs/reviews/2026-06-18-ragas-testset-generation-report-review-flow-review-prompt.md`、`docs/reviews/2026-06-18-react-evaluation-delete-actions-review-prompt.md`、`docs/reviews/2026-06-18-support-supervisor-multi-agent-workflow-review-prompt.md`、`docs/reviews/2026-06-18-fastapi-pydantic-v2-langgraph-upgrade-review-prompt.md`、`docs/reviews/2026-06-18-user-centered-frontend-redesign-review-prompt.md`、`scripts/README.md`。
 - 验证通过：`ai-service\.venv\bin\python.exe -m pytest ai-service\tests\test_ragas_bridge.py ai-service\tests\test_ragas_testset_generation.py -q`、`ai-service\.venv\bin\python.exe -m compileall -q ai-service\app\agents ai-service\app\services\agent_service.py`、`$env:UV_PROJECT_ENVIRONMENT='..\.tmp\uv-test-ai-service-langgraph'; uv run --python 3.12 --managed-python --extra dev python -m pytest tests\test_agent_workflow.py tests\test_support_agent_nodes.py tests\test_support_supervisor_graph.py tests\test_strategy_comparison_evaluator.py -q --basetemp ..\.tmp\pytest-support-agent-langgraph -o cache_dir=..\.tmp\pytest-cache-support-agent-langgraph`、`$env:UV_PROJECT_ENVIRONMENT='..\.tmp\uv-test-ai-service-pydantic-v2-langgraph-latest'; uv run --python 3.12 --managed-python --extra dev python -m pytest tests\test_api_pydantic_v2_serialization.py tests\test_agent_workflow.py tests\test_support_agent_nodes.py tests\test_support_supervisor_graph.py tests\test_strategy_comparison_evaluator.py tests\test_ragas_bridge.py tests\test_ragas_testset_generation.py -q --basetemp ..\.tmp\pytest-pydantic-v2-langgraph-latest`、`mvn.cmd -f backend-java/pom.xml test "-Dtest=AgentServiceTest,AssistantTurnServiceTest"`、`mvn.cmd -f backend-java/pom.xml test`、`npm.cmd --prefix frontend-react run typecheck`、`npm.cmd --prefix frontend-react run build`。
 
 ### 2026-06-17
