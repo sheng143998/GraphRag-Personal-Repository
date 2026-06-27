@@ -106,6 +106,25 @@ class Settings:
     rerank_api_key: str = ""
     rerank_top_n: int = 10
 
+    # Redis / Layer 2 Memory
+    redis_url: str = "redis://localhost:6379/0"
+    redis_password: str = ""
+    redis_memory_ttl_seconds: int = 259200
+    redis_session_max_messages: int = 100
+    redis_context_fallback_top_k: int = 5
+
+    # Layer 3 Memory
+    l3_importance_threshold: int = 5
+    l3_dedup_similarity_threshold: float = 0.92
+    l3_conflict_similarity_threshold: float = 0.95
+    l3_stage1_top_k: int = 50
+    l3_recency_half_life_days: int = 30
+    l3_score_alpha: float = 0.30
+    l3_score_beta: float = 0.50
+    l3_score_gamma: float = 0.20
+    l3_cross_encoder_model: str = "gte-rerank-v2"
+    l3_sink_threshold_days: int = 3
+
 
 _model_provider = os.getenv("MODEL_PROVIDER", "stub")
 _model_base_url = os.getenv("MODEL_BASE_URL", "")
@@ -144,4 +163,21 @@ settings = Settings(
     rerank_base_url=os.getenv("RERANK_BASE_URL", _model_base_url or os.getenv("OPENAI_BASE_URL", "")),
     rerank_api_key=os.getenv("RERANK_API_KEY", _model_api_key),
     rerank_top_n=_env_int("RERANK_TOP_N", 10),
+    # Redis / L2
+    redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
+    redis_password=os.getenv("REDIS_PASSWORD", ""),
+    redis_memory_ttl_seconds=_env_int("REDIS_MEMORY_TTL_SECONDS", 259200),
+    redis_session_max_messages=_env_int("REDIS_SESSION_MAX_MESSAGES", 100),
+    redis_context_fallback_top_k=_env_int("REDIS_CONTEXT_FALLBACK_TOP_K", 5),
+    # L3
+    l3_importance_threshold=_env_int("L3_IMPORTANCE_THRESHOLD", 5),
+    l3_dedup_similarity_threshold=_env_float("L3_DEDUP_SIMILARITY_THRESHOLD", 0.92),
+    l3_conflict_similarity_threshold=_env_float("L3_CONFLICT_SIMILARITY_THRESHOLD", 0.95),
+    l3_stage1_top_k=_env_int("L3_STAGE1_TOP_K", 50),
+    l3_recency_half_life_days=_env_int("L3_RECENCY_HALF_LIFE_DAYS", 30),
+    l3_score_alpha=_env_float("L3_SCORE_ALPHA", 0.30),
+    l3_score_beta=_env_float("L3_SCORE_BETA", 0.50),
+    l3_score_gamma=_env_float("L3_SCORE_GAMMA", 0.20),
+    l3_cross_encoder_model=os.getenv("L3_CROSS_ENCODER_MODEL", "gte-rerank-v2"),
+    l3_sink_threshold_days=_env_int("L3_SINK_THRESHOLD_DAYS", 3),
 )

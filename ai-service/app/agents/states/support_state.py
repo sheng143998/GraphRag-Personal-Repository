@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
+from app.agents.memory import MemoryEvaluationResult, MemoryRetrievalEvent, MemoryWriteCandidate
+from app.agents.recorder.flight_recorder import AgentTrace
 from app.schemas.agent import AgentInvokeRequest, AgentWorkflowStep, ReviewCard, StudyPlan, SupportPlan
 from app.schemas.common import SourceMetadata, TraceMetadata
 
@@ -149,4 +153,9 @@ class SupportAgentState(BaseModel):
     rag_trace_id: str | None = None
     rag_trace: TraceMetadata | None = None
     workflow_steps: list[AgentWorkflowStep] = Field(default_factory=list)
+    flight_recorder: Any | None = Field(default=None, exclude=True)
+    agent_trace: AgentTrace | None = None
+    memory_retrievals: list[MemoryRetrievalEvent] = Field(default_factory=list)
+    memory_write_candidates: list[MemoryWriteCandidate] = Field(default_factory=list)
+    memory_evaluation: MemoryEvaluationResult | None = None
     loops: int = 0

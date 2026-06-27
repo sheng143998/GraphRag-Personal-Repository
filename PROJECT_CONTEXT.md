@@ -1,7 +1,8 @@
 ﻿# 智维售后 AgentOps 平台项目上下文
 
-更新时间：2026-06-18
+更新时间：2026-06-19
 项目状态：Phase 0-9 已完成工程闭环，覆盖三服务架构、文档入库、基础 RAG、Advanced RAG、Agent 学习闭环、GraphRAG、RAG 实验评估、评测集管理工具、复习辅助与 Coze Studio 风格前端工作台重构；2026-06-16 已完成文档上传入口升级，支持单篇、多篇和文件夹上传，默认使用 Spring `@Async` 本地线程池异步解析，并可通过 RabbitMQ 队列模式提交文档入库任务；同日新增 `frontend-react/` React + TypeScript 并行迁移工作区，按 Stitch RAG Knowledge Studio 设计实现第一版工作台页面；2026-06-17 AI 服务 chunk 切分继续增强，覆盖 Markdown block-aware、DOCX 标题/表格结构、MinerU PDF block metadata、Q&A chunker 与 code-aware chunker，并修复 MinerU 标准 batch 轮询端点导致的假超时；同日新增 RAGAS 兼容评估侧路，支持从已上传文档 chunk 自动生成 DRAFT 测评集草稿、人工审核 CSV、RAGAS JSONL 导出与独立环境离线评分；同日新增企业售后技术支持 Agent 编排，返回结构化 `supportPlan`，覆盖澄清问题、证据引用、诊断步骤、升级建议、风险提示和下一步动作；同日 `frontend-react/` 完成售后支持工作台中文化与美学优化，支持结构化展示 `supportPlan` 并通过 Playwright 渲染验证。2026-06-18 RAGAS 测评闭环继续完善：自动测评集生成支持 `rule / llm / ragas / auto`，离线 RAGAS 报告可回填 Spring Boot 数据库，React 实验页支持页面内人工审核、筛选、编辑、状态流转、样本删除、批量删除最近导入或当前筛选样本，以及删除当前实验；同日售后 Agent 从单体 workflow 升级为受控 Support Supervisor 本地状态图，拆分澄清、检索、代码/日志分析、诊断、风险审查、工单升级和评估审查节点，保持 `supportPlan` 兼容并强化 `workflowSteps` 可观测性；同日完成 Agent 编排依赖升级，AI 服务主依赖升级到 `FastAPI 0.137.2 + Pydantic 2.13.4 + LangChain 1.3.9 + LangChain Core 1.4.7 + LangGraph 1.2.5 + Uvicorn 0.49.0`，Support Supervisor 默认 `auto` 运行时在依赖可用时走真实 LangGraph `StateGraph.compile().ainvoke(...)`，仅依赖不可用时可观测回落本地 runtime，图构建/执行失败直接抛出并记录 runtime error，并保留 required/completed/skipped gates、`needs_clarification` / `needs_review` / `completed` 终态 trace，禁止旧 Study workflow 绕过售后安全闸门；同日 `frontend-react/` 升级为正式主前端并删除旧 Vue `frontend/`。前端浏览器请求继续只进入 Spring Boot `/api/*`，Spring Boot 只做业务 / 桥接 / 持久化，FastAPI 负责 RAG / Agent / GraphRAG / evaluator 逻辑。
+项目状态补充：2026-06-19 已完成 AgentOps Phase 10/11 最小闭环，并推进 Phase 12 记忆系统切片：Spring Boot 提供客户、产品、环境与 Agent Memory 持久化接口，FastAPI Support Supervisor 在诊断前读取客户/版本/错误码相关记忆并输出记忆事件，React 新增 `/memory` 记忆中心用于查看客户画像、历史故障、专家经验与启停状态；同日继续完成 Phase 13 MCP 最小切片：FastAPI 新增本地 MCP adapter 与 MCP-ready ToolRegistry 元数据，Spring Boot 持久化工具来源 / MCP server / fallback 审计，React `/agentops` 展示工具与 MCP 中心；同日完成 Phase 14-16：AgentEval 行为评估闭环、售后工单业务闭环和知识缺口雷达均已具备最小可运行实现，`/agentops` 聚合展示运行回放、工具与 MCP、AgentEval、工单中心和知识运营面板；同日收尾补齐风险工具调用审批队列、AgentEval 批量运行接口、AgentOps 演示脚本、最终交付说明与简历描述。后续重点转入真实数据联调、真实 MCP server、生产权限模型和发布治理。
 维护规则：每次开启新的开发对话时，优先提供本文件；每完成一个阶段目标或关键任务后，必须同步更新本文件。本文件只保留项目状态、关键架构决策、当前待办和阶段级变更摘要；接口级实现细节、验证命令和失败复盘放入 `docs/plans/`、`docs/reviews/`、`docs/testing/failures/` 与 `docs/handoff/`。
 
 ## 1. 项目目标
@@ -1056,6 +1057,23 @@ README 更新规则：
 - 必要时更新目录结构、接口规划、数据库规划、迁移规范、测试策略、可观测性规范、RAG 策略规划和模块 README
 
 ## 13. 变更记录
+
+### 2026-06-19
+
+- 完成 AI 服务 AgentOps Phase 10/11 最小闭环：新增内存 `FlightRecorder` 与 `ToolRegistry` 初版，Support Supervisor 在现有 invoke 响应中透出结构化 `agentTrace`，覆盖节点步骤、`knowledge.search` / `log.parse` / `case.searchSimilar` / `ticket.createEscalation` 工具审计 envelope、风险决策和最终输出摘要；本阶段不直接写业务表，为后续持久化与前端运行回放保留兼容结构。
+- 完成 AgentOps Phase 10/11 跨服务最小闭环：Spring Boot 新增 `agent_runs`、`agent_run_steps`、`agent_tools`、`agent_tool_calls` Flyway 迁移与 `/api/agent-runs`、`/api/agent-tools` 查询接口，`/api/agent/invoke` 会在 AI 返回 `agentTrace` 时持久化运行回放和工具审计；React 新增 `/agentops` 控制台，展示运维指标、运行回放、节点时间线、工具中心与最近工具调用，并在后端暂不可用时保留演示 fallback。
+- 推进 AgentOps Phase 12 记忆系统：Spring Boot 新增 `support_customers`、`support_products`、`support_product_versions`、`support_environments`、`agent_memories`、`agent_memory_events` 迁移和 `/api/support-customers`、`/api/agent-memories` 接口，覆盖客户环境画像、长期记忆、专家经验记忆、启停状态与事件审计。
+- AI 服务新增 `app/agents/memory/`，提供 `MemoryRetriever`、`MemoryWriter`、`MemoryPolicy` 与 `MemoryEvaluator`，Support Supervisor 会在诊断前按客户、产品版本、错误码召回记忆，把命中记忆写入 `support_plan.evidence_references` 和 `agent_trace.memory_events`，并在评估后生成可审核的写入候选。
+- React 新增 `/memory` 记忆中心，聚合 Spring Boot 现有客户和记忆接口展示客户画像、部署环境、画像记忆、长期记忆、专家经验与记忆事件，支持启用/停用记忆；前端继续只调用 Spring Boot `/api/*`，后端暂不可用时使用中文演示数据兜底。
+- 完成 AgentOps Phase 13 MCP 最小切片：AI 服务新增 `app/agents/mcp/` 本地 adapter，登记 `knowledge-mcp`、`ticket-mcp`、`log-mcp`、`customer-mcp`、`eval-mcp` 及 capabilities；`ToolRegistry` 增加 `mcp_ready`、`mcp_server`、`mcp_tool_name`、fallback 元数据，Support Supervisor trace 暴露 MCP server 列表、preferred source 和 fallback 状态。
+- Spring Boot 追加 `agent_tool_calls.metadata` 迁移，并从 AI `agentTrace.tool_calls` 的顶层或 `audit_envelope` 读取 `source/tool_source`、`mcp_server`、`mcp_capability`、`fallback_used`、`fallback_reason`，在 `/api/agent-tools` 与 `/api/agent-runs/{id}` 响应中返回工具来源、MCP server 和 fallback 审计字段；旧 trace 缺字段时继续按 local 工具兼容。
+- React `/agentops` 升级“工具与 MCP 中心”，展示 local/MCP 来源、MCP server、capability、fallback 状态与最近调用，fallback 演示数据覆盖五个本地 MCP server；前端仍只调用 Spring Boot `/api/*`。
+- 完成 AgentOps Phase 14 AgentEval 最小闭环：AI 服务新增 `AgentEvaluator` 和 `/ai/agent/evaluate`，按 golden trace 规则评分工具选择、工具参数、记忆召回、澄清、风险闸门、升级、SOP 可执行性、trace 匹配和最终回答；Spring Boot 新增 `agent_eval_cases`、`agent_eval_runs`、`agent_eval_scores`、`agent_eval_findings` 与 `/api/agent-eval/*`，只负责 case/run/score/finding 持久化和桥接 AI evaluator；React `/agentops` 新增 `AgentEval / Golden trace` 面板和运行选中用例入口。
+- 完成 AgentOps Phase 15 售后业务闭环最小切片：Spring Boot 新增 `support_tickets`、`support_ticket_events`、`SupportTicketController` 和 `SupportTicketService`，支持工单创建、故障时间线、SLA / 严重等级、升级摘要、SOP、解决与复盘字段；React `/agentops` 新增“工单中心”，展示工单列表、SLA 风险、时间线、升级摘要、SOP 和复盘字段，后端不可用时使用中文演示数据。
+- 完成 AgentOps Phase 16 知识缺口雷达最小切片：AI 服务新增 `KnowledgeGapDetector`，可从 AgentEval/RAGAS 低分、finding、用户反馈、人工拒绝和专家意见生成缺口候选；Spring Boot 新增 `support_knowledge_gaps`、`support_knowledge_gap_evidence` 与 `/api/knowledge-gaps/*`，支持缺口任务、证据、状态流转和测评样本草稿；React `/agentops` 新增“知识缺口雷达”，展示缺口、证据、建议动作和生成 AgentEval/RAGAS 测评样本入口。
+- 关键文档新增：`docs/reviews/2026-06-19-agentops-phase12-memory-system-review-prompt.md`。
+- 关键文档新增：`docs/reviews/2026-06-19-agentops-phase13-mcp-minimum-slice-review-prompt.md`。
+- 关键文档新增：`docs/reviews/2026-06-19-agentops-phase14-16-production-upgrade-review-prompt.md`。
 
 ### 2026-06-18
 

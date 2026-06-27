@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
+from time import perf_counter
 from typing import Any, TypedDict
 
 from app.agents.nodes.clarification_agent import ClarificationAgent
@@ -8,10 +10,19 @@ from app.agents.nodes.code_log_tool_agent import CodeLogToolAgent
 from app.agents.nodes.diagnosis_agent import DiagnosisAgent
 from app.agents.nodes.escalation_agent import EscalationAgent
 from app.agents.nodes.evaluation_review_agent import EvaluationReviewAgent
+from app.agents.memory import (
+    ContextWindowConfig,
+    MemoryManager,
+    MemoryManagerConfig,
+    MemoryQuery,
+)
 from app.agents.nodes.retrieval_agent import RetrievalAgent
 from app.agents.nodes.risk_review_agent import RiskReviewAgent
+from app.agents.recorder import FlightRecorder
 from app.agents.runnables.support_nodes import support_node_runnable
 from app.agents.states.support_state import SupportAgentState
+from app.agents.mcp import LocalMcpAdapter, build_default_local_mcp_adapter
+from app.agents.tools.registry import ToolDefinition, build_default_tool_registry
 from app.core.pydantic_compat import model_to_dict
 from app.core.tracing import TraceBuilder
 from app.schemas.agent import (
@@ -56,6 +67,17 @@ class SupportSupervisorWorkflow:
         self.risk_review_agent = RiskReviewAgent()
         self.escalation_agent = EscalationAgent()
         self.evaluation_review_agent = EvaluationReviewAgent()
+        self.mcp_adapter = build_default_local_mcp_adapter()
+        self.tool_registry = build_default_tool_registry(mcp_adapter=self.mcp_adapter)
+        self.memory_manager = MemoryManager(
+            MemoryManagerConfig(
+                max_tokens=8192,
+                light_compress_threshold=0.60,
+                aggressive_compress_threshold=0.80,
+                recent_turns_keep=3,
+                l3_enabled=True,
+            )
+        )
 
     async def run(self, *, payload: AgentInvokeRequest, trace_builder: TraceBuilder) -> SupportAgentState:
         state = self._initialize_state(payload=payload, trace_builder=trace_builder)
@@ -85,6 +107,7 @@ class SupportSupervisorWorkflow:
             raise
 
         state.workflow_runtime = "langgraph"
+        self._sync_recorder_runtime(state)
         trace_builder.set_attribute("workflow_runtime", state.workflow_runtime)
         try:
             result = await graph.ainvoke({"state": state})
@@ -109,10 +132,36 @@ class SupportSupervisorWorkflow:
         trace_builder.set_attribute("question_type", state.route.question_type)
         trace_builder.set_attribute("selected_strategy_name", state.route.selected_strategy_name)
         trace_builder.set_attribute("required_gates", state.required_gates)
+        state.flight_recorder = FlightRecorder(
+            trace_id=trace_builder.trace.trace_id,
+            workflow_version=state.workflow_version,
+            workflow_runtime=state.workflow_runtime,
+            user_input_summary={
+                "agent_name": payload.agent_name,
+                "input_length": len(payload.user_input),
+                "question_type": state.route.question_type,
+            },
+            context_summary={
+                "knowledge_base_id": payload.context.knowledge_base_id,
+                "session_id": payload.context.session_id,
+                "message_id": payload.context.message_id,
+                "top_k": payload.top_k,
+                "selected_strategy_name": state.route.selected_strategy_name,
+            },
+        )
+        trace_builder.set_attribute(
+            "tool_registry",
+            [model_to_dict(tool) for tool in self.tool_registry.list_tools()],
+        )
+        trace_builder.set_attribute(
+            "mcp_servers",
+            [model_to_dict(server) for server in self.mcp_adapter.list_servers()],
+        )
         return state
 
     async def _run_local(self, *, state: SupportAgentState, trace_builder: TraceBuilder) -> SupportAgentState:
         state.workflow_runtime = "local"
+        self._sync_recorder_runtime(state)
         trace_builder.set_attribute("workflow_runtime", state.workflow_runtime)
         self._node_start(state, trace_builder)
 
@@ -351,7 +400,45 @@ class SupportSupervisorWorkflow:
         return clarification
 
     async def _node_retrieval(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
-        retrieval = await self.retrieval_agent.run(state)
+        if not state.memory_retrievals:
+            self._node_memory_retrieval(state, trace_builder)
+        tool = self.tool_registry.get("knowledge.search")
+        arguments = {
+            "query": state.request.user_input,
+            "knowledge_base_id": state.request.context.knowledge_base_id,
+            "top_k": state.request.top_k,
+            "strategy_name": state.route.selected_strategy_name,
+        }
+        started_at = datetime.now(UTC)
+        started = perf_counter()
+        recorder = state.flight_recorder
+        if recorder:
+            with recorder.tool_call(
+                tool_name=tool.name,
+                node_name=self.retrieval_agent.name,
+                risk_level=tool.risk_level,
+                reason="Retrieve support evidence before diagnosis.",
+                arguments=arguments,
+            ) as call:
+                retrieval = await self.retrieval_agent.run(state)
+                result_summary = {
+                    "citation_count": len(retrieval.citations),
+                    "evidence_coverage": retrieval.evidence_coverage,
+                    "missing_evidence_reasons": retrieval.missing_evidence_reasons,
+                    "rag_trace_id": retrieval.rag_trace.trace_id if retrieval.rag_trace else None,
+                    "rag_run_id": retrieval.rag_trace.run_id if retrieval.rag_trace else None,
+                    "rewritten_query": retrieval.rewritten_query,
+                }
+                call.result_summary = result_summary
+                call.audit_envelope = _tool_audit_envelope(
+                    tool=tool,
+                    status="completed",
+                    arguments=arguments,
+                    result_summary=result_summary,
+                    mcp_adapter=self.mcp_adapter,
+                )
+        else:
+            retrieval = await self.retrieval_agent.run(state)
         self._record_step(
             state,
             trace_builder,
@@ -365,25 +452,97 @@ class SupportSupervisorWorkflow:
                 "rag_trace_id": retrieval.rag_trace.trace_id if retrieval.rag_trace else None,
                 "rag_run_id": retrieval.rag_trace.run_id if retrieval.rag_trace else None,
                 "rewritten_query": retrieval.rewritten_query,
+                **_tool_observability_payload(tool=tool, mcp_adapter=self.mcp_adapter),
             },
+            started_at=started_at,
+            latency_ms=round((perf_counter() - started) * 1000, 3),
         )
         if retrieval.rewritten_query:
             trace_builder.set_attribute("rag_rewritten_query", retrieval.rewritten_query)
         self._mark_completed_gate(state, self.retrieval_agent.name)
 
+    def _node_memory_retrieval(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
+        query = _memory_query_from_state(state)
+        customer_id = query.customer_id
+
+        # Sync current task from incident context
+        self.memory_manager.update_task(
+            task_id=state.incident.symptom or state.request.user_input[:60],
+            phase="retrieval",
+            goal=state.incident.symptom or state.request.user_input[:200],
+        )
+
+        # L3: Search long-term memory via mem0
+        l3_results = self.memory_manager.search_l3(
+            query=state.request.user_input,
+            customer_id=customer_id,
+            top_k=5,
+        )
+
+        # L1: Build context with task state
+        context = self.memory_manager.build_context(
+            system_prompt=_default_system_prompt()
+        )
+
+        # Record legacy event for backward compat
+        event = _build_memory_retrieval_event(query, l3_results)
+        state.memory_retrievals.append(event)
+
+        if state.flight_recorder is not None:
+            state.flight_recorder.trace.context_summary["memory_retrieval_count"] = len(l3_results)
+            state.flight_recorder.trace.context_summary["memory_used_ids"] = [
+                r.get("id", "") for r in l3_results
+            ]
+            state.flight_recorder.trace.context_summary["l3_search_count"] = len(l3_results)
+        self._sync_memory_trace(state, trace_builder)
+
     def _node_code_log(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
         if state.route.has_log_or_code_signal:
-            log_analysis = self.code_log_tool_agent.run(state)
+            tool = self.tool_registry.get("log.parse")
+            text = "\n".join(state.incident.log_snippets) or state.request.user_input
+            arguments = {
+                "text": _truncate(text, 2000),
+                "incident_trace_ids": state.incident.trace_ids,
+            }
+            started_at = datetime.now(UTC)
+            started = perf_counter()
+            recorder = state.flight_recorder
+            if recorder:
+                with recorder.tool_call(
+                    tool_name=tool.name,
+                    node_name=self.code_log_tool_agent.name,
+                    risk_level=tool.risk_level,
+                    reason="Parse user-provided log and code signals.",
+                    arguments=arguments,
+                ) as call:
+                    log_analysis = self.code_log_tool_agent.run(state)
+                    result_summary = model_to_dict(log_analysis)
+                    call.result_summary = result_summary
+                    call.audit_envelope = _tool_audit_envelope(
+                        tool=tool,
+                        status="completed",
+                        arguments=arguments,
+                        result_summary=result_summary,
+                        mcp_adapter=self.mcp_adapter,
+                    )
+            else:
+                log_analysis = self.code_log_tool_agent.run(state)
             self._record_step(
                 state,
                 trace_builder,
                 name=self.code_log_tool_agent.name,
                 detail="Analyzed user-provided code, error code, trace id, or log signal.",
-                payload=model_to_dict(log_analysis),
+                payload={
+                    **model_to_dict(log_analysis),
+                    **_tool_observability_payload(tool=tool, mcp_adapter=self.mcp_adapter),
+                },
+                started_at=started_at,
+                latency_ms=round((perf_counter() - started) * 1000, 3),
             )
             self._mark_completed_gate(state, self.code_log_tool_agent.name)
 
     def _node_diagnosis(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
+        self._record_similar_case_tool_call(state)
         diagnosis = self.diagnosis_agent.run(state)
         self._record_step(
             state,
@@ -401,6 +560,17 @@ class SupportSupervisorWorkflow:
 
     def _node_risk_review(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
         risk_review = self.risk_review_agent.run(state)
+        recorder = state.flight_recorder
+        if recorder:
+            recorder.record_risk_decision(
+                node_name=self.risk_review_agent.name,
+                risk_level=risk_review.risk_level,
+                requires_escalation=risk_review.requires_escalation,
+                required_human_confirmations=risk_review.required_human_confirmations,
+                unsafe_actions=risk_review.unsafe_actions,
+                allowed_next_actions=risk_review.allowed_next_actions,
+                rationale=risk_review.escalation_reason,
+            )
         self._record_step(
             state,
             trace_builder,
@@ -412,23 +582,31 @@ class SupportSupervisorWorkflow:
 
     def _node_escalation(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
         risk_review = state.risk_review
+        started_at = datetime.now(UTC)
+        started = perf_counter()
         if risk_review and risk_review.requires_escalation:
             escalation = self.escalation_agent.run(state)
+            self._record_escalation_tool_call(state, escalation)
             self._record_step(
                 state,
                 trace_builder,
                 name=self.escalation_agent.name,
                 detail="Prepared support ticket escalation draft.",
                 payload=model_to_dict(escalation),
+                started_at=started_at,
+                latency_ms=round((perf_counter() - started) * 1000, 3),
             )
         else:
             state.escalation = self.escalation_agent.run(state)
+            self._record_escalation_tool_call(state, state.escalation)
             self._record_step(
                 state,
                 trace_builder,
                 name=self.escalation_agent.name,
                 detail="Prepared frontline ticket context without escalation.",
                 payload=model_to_dict(state.escalation),
+                started_at=started_at,
+                latency_ms=round((perf_counter() - started) * 1000, 3),
             )
         self._mark_completed_gate(state, self.escalation_agent.name)
 
@@ -450,6 +628,7 @@ class SupportSupervisorWorkflow:
         state.support_plan = _support_plan_from_state(state)
         state.answer = _compose_final_response(state)
         self._apply_evaluation_outcome(state)
+        self._record_memory_write_candidate(state, trace_builder)
         state.follow_up_questions = _follow_up_questions_from_state(state)
         state.study_plan = _study_plan_from_state(state)
         state.review_cards = _review_cards_from_state(state)
@@ -481,6 +660,7 @@ class SupportSupervisorWorkflow:
                 "skipped_gates": state.skipped_gates,
             },
         )
+        self._finalize_recorder(state, trace_builder)
 
     def _apply_evaluation_outcome(self, state: SupportAgentState) -> None:
         evaluation = state.evaluation_review
@@ -550,6 +730,155 @@ class SupportSupervisorWorkflow:
         trace_builder.set_attribute("required_gates", state.required_gates)
         trace_builder.set_attribute("completed_gates", state.completed_gates)
         trace_builder.set_attribute("skipped_gates", state.skipped_gates)
+        if state.agent_trace is not None:
+            trace_builder.set_attribute("agent_trace", model_to_dict(state.agent_trace))
+        self._sync_memory_trace(state, trace_builder)
+
+    def _sync_recorder_runtime(self, state: SupportAgentState) -> None:
+        if state.flight_recorder is not None:
+            state.flight_recorder.set_workflow_runtime(state.workflow_runtime)
+
+    def _record_memory_write_candidate(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
+        query = _memory_query_from_state(state)
+        diagnosis_summary = ""
+        if state.diagnosis is not None:
+            diagnosis_summary = state.diagnosis.summary
+        if not diagnosis_summary:
+            diagnosis_summary = state.answer[:700]
+        risk_level = state.risk_review.risk_level if state.risk_review is not None else "low"
+
+        # L3: Commit to long-term memory via mem0
+        self.memory_manager.commit_to_l3(
+            query={
+                "customer_id": query.customer_id,
+                "product": query.product,
+                "version": query.version,
+                "error_codes": query.error_codes,
+            },
+            diagnosis_summary=diagnosis_summary,
+            workflow_status=state.workflow_status,
+            citations=[
+                {"chunk_id": c.chunk_id, "title": c.title, "score": c.score}
+                for c in (state.citations or [])
+            ],
+        )
+
+        # L2: Save session summary if session active
+        if self.memory_manager.session_id:
+            self.memory_manager.l2.save_summary(
+                self.memory_manager.session_id,
+                diagnosis_summary[:500],
+            )
+
+        self._sync_memory_trace(state, trace_builder)
+
+    def _sync_memory_trace(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
+        events = _memory_events_for_trace(state)
+        trace_builder.set_attribute("memory_events", events)
+        trace_builder.set_attribute("agent_memory_retrieval_count", len(state.memory_retrievals))
+        trace_builder.set_attribute("agent_memory_write_candidate_count", len(state.memory_write_candidates))
+        trace_builder.set_attribute(
+            "agent_memory_recall_score",
+            state.memory_evaluation.memory_recall_score if state.memory_evaluation else None,
+        )
+        trace_builder.set_attribute("l1_token_usage", self.memory_manager._l1.total_tokens if hasattr(self, 'memory_manager') else 0)
+        trace_builder.set_attribute("l2_session_id", self.memory_manager.session_id if hasattr(self, 'memory_manager') else "")
+
+    def _record_similar_case_tool_call(self, state: SupportAgentState) -> None:
+        recorder = state.flight_recorder
+        if recorder is None:
+            return
+        tool = self.tool_registry.get("case.searchSimilar")
+        arguments = {
+            "symptom": state.incident.symptom or state.request.user_input[:160],
+            "error_codes": state.incident.error_codes,
+            "product": state.incident.product_name or str(state.request.variables.get("product", "")),
+        }
+        matched_error_codes = [
+            code
+            for code in state.incident.error_codes
+            if any(code and code in (citation.title or "") for citation in state.citations)
+        ]
+        result_summary = {
+            "similar_case_count": 0,
+            "matched_error_codes": matched_error_codes,
+            "note": "No persistent case store is connected in the Phase 10/11 in-memory slice.",
+        }
+        with recorder.tool_call(
+            tool_name=tool.name,
+            node_name=self.diagnosis_agent.name,
+            risk_level=tool.risk_level,
+            reason="Check for similar support cases before composing diagnosis.",
+            arguments=arguments,
+        ) as call:
+            call.result_summary = result_summary
+            call.audit_envelope = _tool_audit_envelope(
+                tool=tool,
+                status="completed",
+                arguments=arguments,
+                result_summary=result_summary,
+                mcp_adapter=self.mcp_adapter,
+            )
+
+    def _record_escalation_tool_call(self, state: SupportAgentState, escalation) -> None:
+        recorder = state.flight_recorder
+        if recorder is None:
+            return
+        tool = self.tool_registry.get("ticket.createEscalation")
+        arguments = {
+            "severity": escalation.severity,
+            "ticket_summary": escalation.ticket_summary,
+            "ticket_fields": escalation.ticket_fields,
+            "requires_human_review": escalation.required,
+        }
+        result_summary = {
+            "required": escalation.required,
+            "suggested_queue": escalation.suggested_queue,
+            "ticket_summary": escalation.ticket_summary,
+            "attachment_count": len(escalation.attachments),
+        }
+        with recorder.tool_call(
+            tool_name=tool.name,
+            node_name=self.escalation_agent.name,
+            risk_level=tool.risk_level,
+            reason="Prepare auditable escalation ticket draft.",
+            arguments=arguments,
+        ) as call:
+            call.result_summary = result_summary
+            call.audit_envelope = _tool_audit_envelope(
+                tool=tool,
+                status="completed",
+                arguments=arguments,
+                result_summary=result_summary,
+                mcp_adapter=self.mcp_adapter,
+            )
+
+    def _finalize_recorder(self, state: SupportAgentState, trace_builder: TraceBuilder) -> None:
+        recorder = state.flight_recorder
+        if recorder is None:
+            return
+        state.agent_trace = recorder.finalize(
+            status=state.workflow_status,
+            final_output_summary={
+                "final_status": state.route.final_status,
+                "workflow_status": state.workflow_status,
+                "citation_count": len(state.citations),
+                "support_plan_present": state.support_plan is not None,
+                "escalation_required": (
+                    state.support_plan.escalation.required
+                    if state.support_plan is not None
+                    else None
+                ),
+                "evaluation_passed": state.evaluation_review.passed if state.evaluation_review else None,
+                "memory_retrieval_count": len(state.memory_retrievals),
+                "memory_write_candidate_count": len(state.memory_write_candidates),
+                "memory_recall_score": (
+                    state.memory_evaluation.memory_recall_score if state.memory_evaluation else None
+                ),
+                "memory_events": _memory_events_for_trace(state),
+            },
+        )
+        trace_builder.set_attribute("agent_trace", model_to_dict(state.agent_trace))
 
     def _record_step(
         self,
@@ -559,9 +888,25 @@ class SupportSupervisorWorkflow:
         name: str,
         detail: str,
         payload: dict[str, object],
+        started_at: datetime | None = None,
+        latency_ms: float | None = None,
     ) -> None:
         state.workflow_steps.append(AgentWorkflowStep(name=name, detail=detail, payload=payload))
         trace_builder.add_step(name=name, status="completed", detail=detail, payload=payload)
+        if state.flight_recorder is not None:
+            state.flight_recorder.record_step(
+                name=name,
+                detail=detail,
+                input_summary={
+                    "workflow_status": state.workflow_status,
+                    "completed_gates": list(state.completed_gates),
+                    "skipped_gates": list(state.skipped_gates),
+                },
+                output_summary=payload,
+                status="completed",
+                started_at=started_at,
+                latency_ms=latency_ms,
+            )
 
 
 def is_support_request(payload: AgentInvokeRequest) -> bool:
@@ -807,7 +1152,58 @@ def _evidence_refs(state: SupportAgentState) -> list[str]:
         if citation.score is not None:
             parts.append(f"score={citation.score:.2f}")
         refs.append(" ".join(parts))
+    for index, match in enumerate(_memory_matches(state)[:3], start=1):
+        refs.append(
+            f"[memory:{index}] {match.memory.title} memory={match.memory.memory_id} score={match.score:.2f}"
+        )
     return refs
+
+
+def _memory_matches(state: SupportAgentState):
+    if not state.memory_retrievals:
+        return []
+    return state.memory_retrievals[-1].matched_memories
+
+
+def _memory_query_from_state(state: SupportAgentState) -> MemoryQuery:
+    variables = state.request.variables or {}
+    customer_id = _first_variable(
+        variables,
+        "customerId",
+        "customer_id",
+        "customer",
+        "tenantId",
+        "tenant_id",
+        "tenant",
+    )
+    product = state.incident.product_name or _first_variable(variables, "product", "productName", "product_name")
+    version = state.incident.version or _first_variable(variables, "version", "productVersion", "product_version")
+    environment = state.incident.environment or _first_variable(variables, "environment", "env")
+    return MemoryQuery(
+        customer_id=customer_id,
+        product=product,
+        version=version,
+        environment=environment,
+        error_codes=state.incident.error_codes,
+        top_k=5,
+    )
+
+
+def _memory_events_for_trace(state: SupportAgentState) -> list[dict[str, object]]:
+    events: list[dict[str, object]] = []
+    events.extend(model_to_dict(event) for event in state.memory_retrievals)
+    events.extend(model_to_dict(candidate) for candidate in state.memory_write_candidates)
+    if state.memory_evaluation is not None:
+        events.append(model_to_dict(state.memory_evaluation))
+    return events
+
+
+def _first_variable(variables: dict[str, object], *keys: str) -> str:
+    for key in keys:
+        value = variables.get(key)
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return ""
 
 
 def _next_actions(state: SupportAgentState) -> list[str]:
@@ -825,6 +1221,82 @@ def _next_actions(state: SupportAgentState) -> list[str]:
 
 def _contains_any(text: str, keywords: tuple[str, ...]) -> bool:
     return any(keyword and keyword in text for keyword in keywords)
+
+
+def _tool_audit_envelope(
+    *,
+    tool: ToolDefinition,
+    status: str,
+    arguments: dict[str, object],
+    result_summary: dict[str, object],
+    error_message: str | None = None,
+    mcp_adapter: LocalMcpAdapter | None = None,
+) -> dict[str, object]:
+    fallback = _mcp_fallback_metadata(tool=tool, mcp_adapter=mcp_adapter)
+    return {
+        "tool_name": tool.name,
+        "source": tool.source,
+        "tool_source": tool.source,
+        "preferred_source": "mcp" if tool.mcp_ready else tool.source,
+        "risk_level": tool.risk_level,
+        "status": status,
+        "arguments": arguments,
+        "result_summary": result_summary,
+        "error_message": error_message,
+        "mcp_ready": tool.mcp_ready,
+        "mcp_server": tool.mcp_server,
+        "mcp_capability": tool.mcp_capability,
+        "mcp_tool_name": tool.mcp_tool_name,
+        "local_fallback_tool": tool.local_fallback_tool or tool.name,
+        "fallback": fallback,
+        "schema": {
+            "input": tool.input_schema,
+            "output": tool.output_schema,
+        },
+    }
+
+
+def _tool_observability_payload(
+    *,
+    tool: ToolDefinition,
+    mcp_adapter: LocalMcpAdapter | None = None,
+) -> dict[str, object]:
+    fallback = _mcp_fallback_metadata(tool=tool, mcp_adapter=mcp_adapter)
+    return {
+        "tool_source": tool.source,
+        "mcp_ready": tool.mcp_ready,
+        "mcp_server": tool.mcp_server,
+        "mcp_capability": tool.mcp_capability,
+        "mcp_tool_name": tool.mcp_tool_name,
+        **fallback,
+    }
+
+
+def _mcp_fallback_metadata(
+    *,
+    tool: ToolDefinition,
+    mcp_adapter: LocalMcpAdapter | None = None,
+) -> dict[str, object]:
+    if not tool.mcp_ready or not tool.mcp_server:
+        return {"fallback_used": False}
+    if mcp_adapter is None:
+        return {
+            "fallback_used": True,
+            "fallback_reason": "mcp_adapter_unavailable",
+        }
+    try:
+        return mcp_adapter.fallback_metadata(tool.mcp_server)
+    except KeyError:
+        return {
+            "fallback_used": True,
+            "fallback_reason": "mcp_server_not_registered",
+        }
+
+
+def _truncate(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit]}..."
 
 
 def _load_langgraph_runtime() -> tuple[Any, Any, Any] | None:
